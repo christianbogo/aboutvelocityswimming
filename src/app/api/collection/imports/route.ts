@@ -32,7 +32,7 @@ function filters(value: unknown) {
 type Operation =
   | {
     name: "velocity_import_queue" | "velocity_import_detail" | "velocity_import_selection"
-      | "velocity_import_swimmer_matches" | "resolve_velocity_import_swimmer";
+      | "velocity_import_issues" | "velocity_import_swimmer_matches" | "resolve_velocity_import_swimmer";
     input: Json;
   }
   | { name: "approve_velocity_import"; selectionId: string };
@@ -58,6 +58,9 @@ function readOperation(params: URLSearchParams): Operation | null {
     if ((section !== "prerequisites" && section !== "blockers") || !uuid(selectionId)) return null;
     return { name: "velocity_import_detail", input: { selectionId, section, offset } };
   }
+  if (params.get("kind") === "issues") {
+    return { name: "velocity_import_issues", input: { offset } };
+  }
   const match = filters({
     kind: params.get("kind"),
     search: params.get("search") ?? "",
@@ -76,8 +79,10 @@ function writeOperation(body: unknown): Operation | null {
   if (body.action === "resolveSwimmerMatch") {
     const { id, athleteId, reason, matchVersion } = body;
     if (!uuid(id) || typeof athleteId !== "string" || !recordIdPattern.test(athleteId)
-      || typeof reason !== "string" || typeof matchVersion !== "string" || !matchVersionPattern.test(matchVersion)) return null;
-    const note = reason.trim();
+      || (reason !== undefined && typeof reason !== "string")
+      || typeof matchVersion !== "string" || !matchVersionPattern.test(matchVersion)) return null;
+    // Record the staff action without requiring an explanation or asserting how the match was checked.
+    const note = reason === undefined ? "Staff selected the swimmer profile." : reason.trim();
     return note.length > 0 && note.length <= 1000
       ? { name: "resolve_velocity_import_swimmer", input: { id, athleteId, reason: note, matchVersion } }
       : null;

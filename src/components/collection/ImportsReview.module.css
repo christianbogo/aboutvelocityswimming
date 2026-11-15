@@ -16,6 +16,36 @@
   font-weight: 650;
 }
 
+table.issuesTable {
+  min-width: 0;
+}
+
+table.issuesTable :is(th, td) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+table.issuesTable :is(th, td):first-child {
+  width: 1%;
+}
+
+table.issuesTable td:first-child button {
+  width: max-content;
+  max-width: 9rem;
+  text-align: left;
+}
+
+table.issuesTable tbody th[scope="row"] {
+  position: static;
+  border-right: 0;
+}
+
+.issueContext {
+  display: block;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
 .toolbar,
 .selection,
 .dialogHeading,
@@ -153,7 +183,6 @@
 
 .swimmerMatch,
 .matchForm,
-.matchReason,
 .profileSearch label {
   display: grid;
   gap: .5rem;
@@ -162,13 +191,11 @@
 
 .swimmerMatch {
   gap: .75rem;
-  padding-block: .75rem;
-  border-block: 1px solid var(--border);
 }
 
-.swimmerMatch h3 {
-  font-size: 1rem;
-  font-weight: 650;
+.matchSource {
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
 }
 
 .profileSearch {
@@ -183,8 +210,7 @@
   flex: 1 1 15rem;
 }
 
-.profileSearch input,
-.matchReason textarea {
+.profileSearch input {
   width: 100%;
   min-height: 2rem;
   padding: .25rem .5rem;
@@ -192,10 +218,6 @@
   border-radius: .25rem;
   background: var(--surface);
   color: var(--text-main);
-}
-
-.matchReason textarea {
-  resize: vertical;
 }
 
 .matchCandidates {
@@ -248,13 +270,8 @@
 }
 
 @media (max-width: 30rem) {
-  .swimmerMatch .details {
-    grid-template-columns: minmax(0, 1fr);
-    row-gap: .125rem;
-  }
-
-  .swimmerMatch .details dd + dt {
-    margin-top: .25rem;
+  table.issuesTable td:first-child button {
+    max-width: 6rem;
   }
 
   .matchCandidate > a {

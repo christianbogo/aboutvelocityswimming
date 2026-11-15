@@ -2,8 +2,6 @@ import {
   Briefcase,
   CalendarDays,
   ClipboardList,
-  Download,
-  Flag,
   Home,
   Settings,
   Table2,
@@ -29,6 +27,7 @@ export type ToolPage = {
   href: string;
   icon: LucideIcon;
   includeChildren?: boolean;
+  activePaths?: readonly string[];
 };
 
 const timesDescriptions: Record<TimesView, string> = {
@@ -147,52 +146,30 @@ export function getToolPages(
       const href = toolDirectory.imports.href;
       return [
         {
-          id: "swims",
-          label: "Swims",
-          icon: Table2,
-          href: `${href}/swims`,
-          description:
-            "Inspect imported swim results and find records with missing information.",
-        },
-        {
-          id: "inventory",
-          label: "Meets",
-          icon: CalendarDays,
-          href: `${href}/meet-inventory`,
-          description:
-            "Browse the meet inventory and check import status and coverage.",
-        },
-        {
-          id: "queue",
-          label: "Review queue",
+          id: "import",
+          label: "Import",
           icon: ClipboardList,
           href,
+          activePaths: [`${href}/batches`],
           description:
-            "Review proposed data changes and decide what is ready to publish.",
+            "Resolve import issues and review meets and results before publishing them.",
         },
         {
-          id: "collection",
-          label: "Meet collection",
+          id: "status",
+          label: "Status",
           icon: CalendarDays,
           href: `${href}/meets`,
           description:
             "Manage meet collection requests and follow their progress.",
         },
         {
-          id: "flagged",
-          label: "Flagged results",
-          icon: Flag,
-          href: `${href}/results`,
+          id: "viewer",
+          label: "Viewer",
+          icon: Table2,
+          href: `${href}/swims`,
+          activePaths: [`${href}/meet-inventory`],
           description:
-            "Investigate flagged swim results and resolve data issues.",
-        },
-        {
-          id: "exports",
-          label: "Exports",
-          icon: Download,
-          href: `${href}/exports`,
-          description:
-            "Download available data exports for review and analysis.",
+            "Browse approved swims, relays, and meets, and check for missing data.",
         },
       ];
     }

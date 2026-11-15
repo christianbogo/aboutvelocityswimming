@@ -66,7 +66,9 @@ npm run collection:import -- backups/my-import/sources.json --mappings backups/m
 
 ## Review and pilot
 
-Open Velocity Imports and select meets or swims. The page checkbox covers the visible page. **Select all matching** freezes the matching rows when clicked. The approval preview lists blockers and linked records such as newly introduced swimmers and teams. Use **Batch review and history** for corrections and legacy imports.
+Open **Velocity Imports → Import**. Start with **Issues to resolve** above the pending tables. Open a swimmer match, choose the profile, and save. The corrected swims return to the pending list for separate approval. If a swim needs a linked meet that is ready for approval, open **Review linked meet** and approve the meet there. Issues that need a corrected capture show the original source and captured fields.
+
+The page checkbox covers the visible page. **Select all matching** freezes the matching rows when clicked. The approval preview lists blockers and linked records such as newly introduced swimmers and teams. Use **Batch review and history** for corrections and legacy imports, **Status** to follow meet collection requests, and **Viewer** to browse imported Swims and Meets.
 
 For a pilot, process the same saved meet archive against equivalent test databases. Record the browser acquisition time once. Compare preparation, request bytes, time until rows appear in the queue, time to load the review page, and time from approval to Times visibility. Count model tokens from the session that performs the same acquisition and review task. Verify the selected results in Times, best times, team records, and Archive, and check that the unselected results remain private. Keep the existing workflow available while running the pilot.
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
   getImportSwimmerMatch,
   resolveImportSwimmerMatch,
@@ -30,14 +30,10 @@ export default function ImportSwimmerMatch({
   onSaving: (value: boolean) => void;
   onResolved: (resolution: ImportSwimmerResolution) => void;
 }) {
-  const heading = useRef<HTMLHeadingElement>(null);
   const [search, setSearch] = useState({ value: "" });
   const [loaded, setLoaded] = useState<{ search: typeof search; match?: SwimmerMatch; error?: string }>();
-  const [athleteId, setAthleteId] = useState("");
-  const [reason, setReason] = useState("");
+  const [chosenAthleteId, setChosenAthleteId] = useState("");
   const [saveError, setSaveError] = useState("");
-
-  useEffect(() => heading.current?.focus(), []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -57,23 +53,25 @@ export default function ImportSwimmerMatch({
   const response = loaded?.search === search ? loaded : undefined;
   const match = response?.match;
   const capture = match ?? loaded?.match;
+  const [suggested] = match?.candidates ?? [];
+  const athleteId = chosenAthleteId || (match?.candidates.length === 1 && suggested.evidence === "source_identity" ? suggested.id : "");
 
   function searchProfiles(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const value = String(new FormData(event.currentTarget).get("swimmerSearch") ?? "").trim();
     setSearch({ value });
-    setAthleteId("");
+    setChosenAthleteId("");
     setSaveError("");
   }
 
   async function saveMatch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!match || saving || !athleteId || !reason.trim()) return;
+    if (!match || saving || !athleteId) return;
 
     onSaving(true);
     setSaveError("");
     try {
-      const resolution = await resolveImportSwimmerMatch({ id, athleteId, reason: reason.trim(), matchVersion: match.matchVersion });
+      const resolution = await resolveImportSwimmerMatch({ id, athleteId, matchVersion: match.matchVersion });
       onResolved(resolution);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "The swimmer match could not be saved. Try again.");
@@ -83,28 +81,14 @@ export default function ImportSwimmerMatch({
   }
 
   return (
-    <section className={styles.swimmerMatch}>
-      <h3 ref={heading} tabIndex={-1}>Resolve swimmer match</h3>
-      <dl className={styles.details}>
-        <dt>Source</dt><dd>{source}</dd>
-        {capture && (
-          <>
-            <dt>Captured swimmer</dt><dd>{capture.capturedName}</dd>
-            {capture.capturedTeamName && <><dt>Captured team</dt><dd>{capture.capturedTeamName}</dd></>}
-            <dt>Staged swimmer ID</dt><dd><code>{capture.currentAthleteId}</code></dd>
-            <dt>Pending swims affected</dt><dd>{capture.affected.toLocaleString()}</dd>
-          </>
-        )}
-      </dl>
-      <form onSubmit={searchProfiles}>
-        <fieldset className={styles.profileSearch} disabled={saving}>
-          <label>
-            <span>Search swimmer profiles</span>
-            <input type="search" name="swimmerSearch" maxLength={200} placeholder="Name or swimmer ID" />
-          </label>
-          <button type="submit">Search</button>
-        </fieldset>
-      </form>
+    <div className={styles.swimmerMatch}>
+      {capture && (
+        <p>
+          <strong>{capture.capturedName}</strong>
+          {capture.capturedTeamName && ` · ${capture.capturedTeamName}`}
+          <span className={styles.muted}> · {capture.affected.toLocaleString()} pending {capture.affected === 1 ? "swim" : "swims"}</span>
+        </p>
+      )}
       {!response && <p role="status">Loading swimmer profiles…</p>}
       {response?.error && (
         <p role="alert">
@@ -117,7 +101,7 @@ export default function ImportSwimmerMatch({
       ) : (
         <form onSubmit={(event) => void saveMatch(event)} className={styles.matchForm}>
           <fieldset className={styles.matchCandidates} disabled={saving}>
-            <legend>Choose the verified swimmer</legend>
+            <legend>Choose a swimmer profile</legend>
             {match.candidates.map((candidate) => (
               <div key={candidate.id} className={styles.matchCandidate}>
                 <label>
@@ -126,7 +110,7 @@ export default function ImportSwimmerMatch({
                     name="swimmerMatch"
                     value={candidate.id}
                     checked={athleteId === candidate.id}
-                    onChange={() => setAthleteId(candidate.id)}
+                    onChange={() => setChosenAthleteId(candidate.id)}
                   />
                   <span>
                     <strong>{candidate.name}</strong>
@@ -147,30 +131,26 @@ export default function ImportSwimmerMatch({
               </div>
             ))}
           </fieldset>
-          <label className={styles.matchReason}>
-            <span>How did you verify the match?</span>
-            <textarea
-              value={reason}
-              onChange={(event) => setReason(event.currentTarget.value)}
-              rows={2}
-              maxLength={1000}
-              required
-              disabled={saving}
-            />
-          </label>
-          <p className={styles.muted}>
-            Saving applies the match to all affected pending swims. Approve them separately in the queue.
-            {clearsSelection && " Saving also clears the current queue selection."}
-          </p>
+          {clearsSelection && <p className={styles.muted}>Saving clears the current approval selection.</p>}
           {saveError && <p className={styles.blocker} role="alert">{saveError}</p>}
           <div className={styles.toolbar}>
-            <button type="submit" className={styles.primary} disabled={saving || !athleteId || !reason.trim()}>
+            <button type="submit" className={styles.primary} disabled={saving || !athleteId}>
               {saving ? "Saving match…" : "Save swimmer match"}
             </button>
             {saving && <span className="sr-only" role="status">Saving swimmer match…</span>}
           </div>
         </form>
       ))}
-    </section>
+      <form onSubmit={searchProfiles}>
+        <fieldset className={styles.profileSearch} disabled={saving}>
+          <label>
+            <span>Search swimmer profiles</span>
+            <input type="search" name="swimmerSearch" maxLength={200} placeholder="Name or swimmer ID" />
+          </label>
+          <button type="submit">Search</button>
+        </fieldset>
+      </form>
+      {source && <p className={styles.matchSource}>Source: {source}</p>}
+    </div>
   );
 }

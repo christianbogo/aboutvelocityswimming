@@ -30,6 +30,30 @@ export function InventoryPage({ title, description, children }: {
   );
 }
 
+const viewerSections = [
+  { id: "swims", label: "Swims", href: "/tools/review/swims" },
+  { id: "meets", label: "Meets", href: "/tools/review/meet-inventory" },
+] as const;
+
+export function InventoryViewer({ section, description, children }: {
+  section: (typeof viewerSections)[number]["id"];
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <InventoryPage title="Viewer" description={description}>
+      <nav aria-label="Viewer sections" className={styles.viewerNav}>
+        {viewerSections.map(({ id, label, href }) => (
+          <Link key={id} href={href} aria-current={section === id ? "page" : undefined} prefetch={false}>
+            {label}
+          </Link>
+        ))}
+      </nav>
+      {children}
+    </InventoryPage>
+  );
+}
+
 export function InventoryFilters({ action, params, children }: {
   action: string;
   params: URLSearchParams;
@@ -53,16 +77,17 @@ export function InventoryField({ label, children }: { label: string; children: R
   return <label className={styles.field}><span>{label}</span>{children}</label>;
 }
 
-export function InventoryTable({ label, columns, children, empty, firstColumnControl }: {
+export function InventoryTable({ label, columns, children, empty, firstColumnControl, tableClassName }: {
   label: string;
   columns: readonly string[];
   children: ReactNode;
   empty?: string;
   firstColumnControl?: ReactNode;
+  tableClassName?: string;
 }) {
   return (
     <div className={styles.tableScroll} role="region" aria-label={label} tabIndex={0}>
-      <table className={styles.table}>
+      <table className={tableClassName ? `${styles.table} ${tableClassName}` : styles.table}>
         <caption className="sr-only">{label}</caption>
         <thead>
           <tr>{columns.map((column, index) => (

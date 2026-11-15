@@ -22,6 +22,35 @@
   text-underline-offset: .15em;
 }
 
+.viewerNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .375rem;
+  margin-bottom: .5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.viewerNav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding-inline: .75rem;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: .875rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.viewerNav a[aria-current="page"] {
+  border-color: var(--accent);
+  color: var(--text-main);
+}
+
+.viewerNav a:hover {
+  background: var(--background-alt);
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;

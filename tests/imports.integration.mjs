@@ -114,6 +114,18 @@ test("private import, frozen review and transactional publication", async (t) =>
   const nonStaff = await account(userIds, "member");
   const stage = (capture) => rpc(anon, "stage_velocity_import", { worker_token: token, batch: capture });
   const list = (kind, input = {}) => rpc(staff, "velocity_import_queue", { input: { kind, ...input } });
+  async function issues() {
+    const rows = [];
+    let page;
+    do {
+      page = await rpc(staff, "velocity_import_issues", { input: { offset: rows.length } });
+      assert.ok(page.rows.length || !page.hasNext, "issue pagination must make progress");
+      assert.ok(page.rows.length <= 30);
+      rows.push(...page.rows);
+    } while (page.hasNext);
+    assert.equal(rows.length, page.total);
+    return rows;
+  }
   const select = (input) => rpc(staff, "velocity_import_selection", { input });
   const approve = (selectionId) => rpc(staff, "approve_velocity_import", { selection_id: selectionId });
   const times = (query_kind, input) => rpc(anon, "ies_times_query", { query_kind, input });
@@ -138,6 +150,7 @@ test("private import, frozen review and transactional publication", async (t) =>
   for (const session of [anon, nonStaff]) {
     const attempt = await session.rpc("velocity_import_queue", { input: { kind: "swims" } });
     assert.ok(attempt.error, "non-staff must be denied private queue access");
+    assert.ok((await session.rpc("velocity_import_issues", { input: {} })).error, "non-staff must be denied issue access");
   }
 
   const { rows: meetRows } = await list("meets", { batchId: staged.batchId });
@@ -196,11 +209,21 @@ test("private import, frozen review and transactional publication", async (t) =>
   const blockers = await rpc(staff, "velocity_import_detail", { input: { selectionId: blockedPreview.selectionId, section: "blockers", offset: 0 } });
   assert.equal(blockers.total, 1);
   assert.match(blockers.rows[0].reason, /linked meet/i);
+  const dependency = (await issues()).find(({ recordId }) => recordId === blockedRace.id);
+  assert.equal(dependency.sourceUrl, batch("blocked", []).sourceUrl);
+  assert.deepEqual(dependency.linkedMeetRow, {
+    id: (await list("meets", { batchId: pair.batchId })).rows[0].id,
+    label: missingMeet.name,
+  });
   const parentPreview = await select({ matches: [{ kind: "meets", batchId: pair.batchId }] });
   assert.equal((await approve(parentPreview.selectionId)).approved, 1);
   const blockedReceipt = await approve(blockedPreview.selectionId);
   assert.equal(blockedReceipt.approved, 0);
   assert.equal(blockedReceipt.blocked, 1);
+  assert.ok(!(await issues()).some(({ recordId }) => recordId === blockedRace.id), "a historical preview blocker must clear when the linked meet is published");
+  const [readySwim] = (await list("swims", { batchId: pair.batchId })).rows;
+  assert.equal(readySwim.recordId, blockedRace.id);
+  assert.equal(readySwim.blocker, null, "the still-pending swim should be ready after publishing its linked meet");
   assert.equal((await times("meet_results", { meetId: missingMeet.id })).total, 0);
   const renewedPreview = await select({ matches: [{ kind: "swims", batchId: pair.batchId }] });
   assert.equal((await approve(renewedPreview.selectionId)).approved, 1);
@@ -268,6 +291,10 @@ test("private import, frozen review and transactional publication", async (t) =>
     assert.equal(original.canResolveSwimmerMatch, true);
     assert.equal(unrelatedRow.canResolveSwimmerMatch, false);
     assert.match(original.blocker, /swimmer identity/i);
+    const matchIssues = (await issues()).filter(({ recordId }) => [first.id, second.id, held.id, unrelated.id].includes(recordId));
+    assert.deepEqual(matchIssues.map(({ canResolveSwimmerMatch }) => canResolveSwimmerMatch), [true, false]);
+    assert.ok([first.id, second.id].includes(matchIssues[0].recordId), "the match should appear once across both captures");
+    assert.equal(matchIssues[1].recordId, held.id, "the source hold must appear independently of the match");
 
     const lookup = (input) => rpc(staff, "velocity_import_swimmer_matches", { input });
     const reason = `${prefix} Verified the source identity against the original archive.`;
@@ -301,6 +328,7 @@ test("private import, frozen review and transactional publication", async (t) =>
     assert.equal(saves[0].updated, 3);
     assert.equal(saves[0].rowIds.length, 3);
     assert.deepEqual(saves[0], saves[1]);
+    assert.ok(!(await issues()).some(({ recordId }) => [first.id, second.id, third.id].includes(recordId)));
     assert.equal(db(`select count(*) from private.velocity_import_swimmer_resolutions where reason = ${sql(reason)};`), "1");
     assert.equal(db(`select count(*) from private.velocity_import_rows
       where status = 'superseded' and record_id in (${[first.id, second.id, third.id].map(sql).join(",")});`), "3");
@@ -371,6 +399,10 @@ test("private import, frozen review and transactional publication", async (t) =>
   }));
   const catalogBatch = batch("catalog", catalogRows.slice(0, 100), "knowledge");
   const catalogStage = (capture) => rpc(anon, "stage_velocity_import", { worker_token: catalogToken, batch: capture });
+  const holds = Array.from({ length: 31 }, (_, index) => row("catalog_meet", {
+    id: `${prefix}-held-${index}`, kind: "meet", title: `Held catalog meet ${index}`, startsOn: "2026-11-10",
+  }, { blocker: "Source catalog date needs review." }));
+  const heldCatalog = await catalogStage(batch("catalog-holds", holds, "knowledge"));
   const catalog = await catalogStage(catalogBatch);
   for (let offset = 100; offset < catalogRows.length; offset += 100) {
     const chunk = await catalogStage({ ...catalogBatch, rows: catalogRows.slice(offset, offset + 100) });
@@ -380,6 +412,9 @@ test("private import, frozen review and transactional publication", async (t) =>
   assert.equal(page.total, catalogRows.length);
   assert.ok(page.hasNext);
   assert.ok(page.rows.length < catalogRows.length);
+  const listedHolds = (await issues()).filter(({ batchId }) => batchId === heldCatalog.batchId);
+  assert.deepEqual(new Set(listedHolds.map(({ recordId }) => recordId)), new Set(holds.map(({ id }) => id)));
+  assert.ok(listedHolds.every(({ kind, blocker }) => kind === "catalog_meet" && blocker === holds[0].blocker));
   const catalogSnapshot = await select({ matches: [{ kind: "meets", batchId: catalog.batchId }] });
   assert.equal(catalogSnapshot.selected, catalogRows.length);
   assert.equal(catalogSnapshot.previewRemaining, 1);

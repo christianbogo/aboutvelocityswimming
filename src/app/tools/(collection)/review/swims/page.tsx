@@ -1,9 +1,9 @@
 import {
   InventoryField,
   InventoryFilters,
-  InventoryPage,
   InventoryPagination,
   InventoryTable,
+  InventoryViewer,
   inventoryParams,
   type InventorySearchParams,
 } from "@/components/collection/ImportsInventory";
@@ -19,7 +19,7 @@ import {
   swimInventoryPageSize,
 } from "@/lib/collection/swim-inventory";
 
-export const metadata = { title: "Swims | Velocity Imports" };
+export const metadata = { title: "Swims | Velocity Imports Viewer" };
 
 const href = "/tools/review/swims";
 const description = "Browse stored swim and relay results and spot gaps in result fields, splits, and source references.";
@@ -62,7 +62,7 @@ function Source({ url, method }: { url: string | null; method: string | null }) 
 export default async function SwimsPage({ searchParams }: { searchParams: Promise<InventorySearchParams> }) {
   const [resolved, auth] = await Promise.all([searchParams, getInventoryStaffClient()]);
   if ("error" in auth) {
-    return <InventoryPage title="Swims" description={description}><p role="alert" className={styles.notice}>{auth.error}</p></InventoryPage>;
+    return <InventoryViewer section="swims" description={description}><p role="alert" className={styles.notice}>{auth.error}</p></InventoryViewer>;
   }
 
   const params = inventoryParams(resolved);
@@ -72,7 +72,7 @@ export default async function SwimsPage({ searchParams }: { searchParams: Promis
   const result = await readSwimInventory(auth.client, filters);
 
   return (
-    <InventoryPage title="Swims" description={description}>
+    <InventoryViewer section="swims" description={description}>
       <InventoryFilters action={href} params={params}>
         <InventoryField label="Result type">
           <Select name="kind" value={filters.kind} options={swimInventoryOptions.kind} />
@@ -157,6 +157,6 @@ export default async function SwimsPage({ searchParams }: { searchParams: Promis
           </InventoryTable>
         </>
       )}
-    </InventoryPage>
+    </InventoryViewer>
   );
 }

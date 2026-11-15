@@ -71,7 +71,7 @@ const swim = {
 const excluded = catalog("Catalog 01", "catalog-1");
 const late = catalog("Late meet", "late");
 
-async function stage(division, rows) {
+async function stage(division, rows, blocked = 0) {
   const { data, error } = await client.rpc("stage_velocity_import", {
     worker_token: token,
     batch: {
@@ -81,7 +81,7 @@ async function stage(division, rows) {
   });
   assert.ifError(error);
   assert.equal(data.staged, rows.length);
-  assert.equal(data.blocked, 0);
+  assert.equal(data.blocked, blocked, JSON.stringify(data.exceptions));
 }
 
 async function publicRow(table, id) {
@@ -119,7 +119,18 @@ try {
   await page.waitForURL(base + "/tools");
   await page.getByRole("navigation", { name: "Tools navigation" }).getByRole("link", { name: "Velocity Imports", exact: true }).click();
   await page.waitForURL(base + "/tools/review");
-  await page.getByRole("heading", { name: "Review queue", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Import", exact: true }).waitFor();
+
+  const issues = page.getByRole("table", { name: "Issues to resolve", exact: true });
+  assert.equal(await issues.getByRole("columnheader").first().textContent(), "Action");
+  const linkedMeetIssue = issues.getByRole("row").filter({ hasText: meet.data.name });
+  await linkedMeetIssue.getByRole("cell").first().getByRole("button", { name: "Review linked meet", exact: true }).click();
+  const linkedMeetDialog = page.getByRole("dialog", { name: "Review linked meet", exact: true });
+  const approveMeet = linkedMeetDialog.getByRole("button", { name: "Approve meet", exact: true });
+  await approveMeet.waitFor();
+  assert.equal(await approveMeet.isEnabled(), true);
+  await page.keyboard.press("Escape");
+  await linkedMeetDialog.waitFor({ state: "hidden" });
 
   const meets = page.getByRole("region", { name: "Meets", exact: true });
   const swims = page.getByRole("region", { name: "Swims", exact: true });
@@ -187,10 +198,52 @@ try {
   assert.equal(await publicRow("knowledge_entries", late.id), null);
   assert.equal(await publicRow("knowledge_entries", excluded.id), null);
 
+  const capturedAthlete = {
+    ...athlete,
+    id: `${prefix}-captured-athlete`,
+    data: { ...athlete.data, name: { ...athlete.data.name, first: "Captured" } },
+  };
+  const eventCode = "50_FR_SCY";
+  const eventNumber = "2";
+  const resultHash = (athleteId) => sha256([meet.id, athleteId, eventNumber, eventCode, swim.data.round, date].join("|")).slice(0, 24);
+  const capturedHash = resultHash(capturedAthlete.id);
+  const capturedSwim = {
+    kind: "swim",
+    id: `hytek_race_${capturedHash}`,
+    data: {
+      ...swim.data,
+      athleteId: capturedAthlete.id,
+      athleteName: capturedAthlete.data.name,
+      eventCode,
+      distance: 50,
+      timeMs: 30000,
+      metadata: { source: "hytek_hy3" },
+      sourceObservation: { ...athlete.data.sourceObservation, eventNumber },
+      externalResult: { namespace: "hytek", id: capturedHash },
+    },
+    prerequisites: [capturedAthlete],
+  };
+  await stage("times", [capturedSwim], 1);
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  const matchIssue = issues.getByRole("row").filter({ hasText: `Captured ${capturedAthlete.data.name.last}` });
+  await matchIssue.getByRole("cell").first().getByRole("button", { name: "Resolve swimmer match", exact: true }).click();
+  const matchDialog = page.getByRole("dialog", { name: "Resolve swimmer match", exact: true });
+  await matchDialog.getByRole("radio", { name: new RegExp(RegExp.escape(swimLabel)) }).check();
+  assert.equal(await matchDialog.locator("textarea").count(), 0);
+  await matchDialog.getByRole("button", { name: "Save swimmer match", exact: true }).click();
+  await matchDialog.waitFor({ state: "hidden" });
+  await matchIssue.waitFor({ state: "hidden" });
+  const corrected = swims.getByRole("checkbox", { name: `Select ${swimLabel}` });
+  await corrected.waitFor();
+  assert.equal(await corrected.isChecked(), false);
+  await page.getByRole("button", { name: "Select corrected swims" }).click();
+  assert.equal(await corrected.isChecked(), true);
+  assert.equal(await publicRow("public_swims", `hytek_race_${resultHash(athlete.id)}`), null);
+
   assert.equal(await page.getByRole("main").evaluate((main) => main.scrollWidth > main.clientWidth), false);
   assert.deepEqual(errors, []);
-  console.log("Verified pending inventory, frozen select all, linked records, approval resumption, and mobile layout.");
+  console.log("Verified direct linked-meet review, frozen select all, approval resumption, and swimmer match on mobile.");
 } finally {
   await browser?.close();
   if (!providedToken) {

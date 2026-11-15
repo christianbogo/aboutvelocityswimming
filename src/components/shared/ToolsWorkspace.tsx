@@ -65,7 +65,7 @@ function ToolsNavigation({ pathname, currentTool }: { pathname: string; currentT
         : timesViewHref(page.id as TimesView, timesSearch, timesHash) };
     }
     if (currentTool === "atlas") return { ...page, active: onAtlas && atlasView === page.id };
-    if (currentTool === "imports" && page.id === "queue" && pathname === `${page.href}/batches`) {
+    if (page.activePaths?.includes(pathname)) {
       return { ...page, active: true };
     }
     return routeItem(pathname, page.href, page.label, page.icon, page.includeChildren);

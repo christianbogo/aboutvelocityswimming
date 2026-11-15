@@ -3,9 +3,9 @@ import SearchableSelect from "@/components/shared/SearchableSelect";
 import {
   InventoryField,
   InventoryFilters,
-  InventoryPage,
   InventoryPagination,
   InventoryTable,
+  InventoryViewer,
   inventoryParams,
   type InventorySearchParams,
 } from "@/components/collection/ImportsInventory";
@@ -28,7 +28,7 @@ const columns = [
   "Approved swims", "Blockers", "Source",
 ];
 
-export const metadata = { title: "Meets | Velocity Imports" };
+export const metadata = { title: "Meets | Velocity Imports Viewer" };
 
 function stateLabel(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1).replaceAll("_", " ");
@@ -204,7 +204,7 @@ export default async function MeetsPage({ searchParams }: { searchParams: Promis
   const { inventory, offset, error } = await loadMeets(params);
 
   return (
-    <InventoryPage title="Meets" description="Audit approved catalog meets, including listings with zero imported results.">
+    <InventoryViewer section="meets" description="Audit approved catalog meets, including listings with zero imported results.">
       <p className={styles.notice}><Link href="/tools/review/meets">Manage meet collection</Link></p>
       <MeetFilters params={params} facets={inventory?.facets} />
       {error && <p role="alert" className={styles.notice}>{error}</p>}
@@ -223,6 +223,6 @@ export default async function MeetsPage({ searchParams }: { searchParams: Promis
           </InventoryTable>
         </>
       )}
-    </InventoryPage>
+    </InventoryViewer>
   );
 }

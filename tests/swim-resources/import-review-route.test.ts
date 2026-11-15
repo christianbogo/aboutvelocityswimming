@@ -34,6 +34,18 @@ describe("Velocity Imports review API", () => {
     });
   });
 
+  it("serves a private issue page across both import tables", async () => {
+    const page = { rows: [{ id: rowId, kind: "swim", blocker: "Check the swimmer match." }], total: 31, hasNext: false };
+    mocks.rpc.mockResolvedValueOnce({ data: page, error: null });
+    const response = await GET(new Request(`${endpoint}?kind=issues&offset=30`));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(await response.json()).toEqual(page);
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith("velocity_import_issues", { input: { offset: 30 } });
+    expect((await GET(new Request(`${endpoint}?kind=issues&offset=-1`))).status).toBe(400);
+    expect(mocks.rpc).toHaveBeenCalledOnce();
+  });
+
   it("freezes only validated filters, snapshot IDs and exclusions", async () => {
     const response = await POST(post({ action: "selection", selectionIds: [selectionId], excludeIds: [rowId] }));
     expect(response.status).toBe(200);
@@ -81,6 +93,14 @@ describe("Velocity Imports review API", () => {
     expect(await response.json()).toEqual(receipt);
     expect(mocks.rpc).toHaveBeenCalledWith("resolve_velocity_import_swimmer", { input });
     expect(mocks.invalidateTimes).not.toHaveBeenCalled();
+  });
+
+  it("records a swimmer decision without a reviewer explanation", async () => {
+    const input = { id: rowId, athleteId: "swimmer-123", matchVersion };
+    expect((await POST(post({ action: "resolveSwimmerMatch", ...input }))).status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith("resolve_velocity_import_swimmer", {
+      input: { ...input, reason: "Staff selected the swimmer profile." },
+    });
   });
 
   it("validates swimmer match inputs before calling the database", async () => {

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import Link from "next/link";
+import ImportIssuesTable from "./ImportIssuesTable";
 import { ImportReviewTable, importSelectionCount, type ImportTableSelection } from "./ImportReviewTable";
 import ImportSwimmerMatch from "./ImportSwimmerMatch";
 import {
@@ -12,6 +14,7 @@ import {
   importQueueDetail,
   importQueuePage,
   type ImportApprovalReceipt,
+  type ImportIssueRow,
   type ImportMatch,
   type ImportPreviewItem,
   type ImportPreviewSection,
@@ -115,17 +118,13 @@ function ReviewDialog({ title, children, onClose, closeDisabled = false }: {
   );
 }
 
-function ImportDetail({ row, canResolve, clearsSelection, onClose, onResolved }: {
+function ImportDetail({ row, onClose, issue = false }: {
   row: ImportQueueRow;
-  canResolve: boolean;
-  clearsSelection: boolean;
   onClose: () => void;
-  onResolved: (resolution: ImportSwimmerResolution) => void;
+  issue?: boolean;
 }) {
   const [detail, setDetail] = useState<ImportQueueDetail>();
   const [error, setError] = useState("");
-  const [resolving, setResolving] = useState(false);
-  const [saving, setSaving] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
     void importQueueDetail(row.id, controller.signal).then(
@@ -140,29 +139,15 @@ function ImportDetail({ row, canResolve, clearsSelection, onClose, onResolved }:
   }, [row.id]);
   const blocker = detail ? detail.blocker : row.blocker;
   return (
-    <ReviewDialog title={row.label} onClose={onClose} closeDisabled={saving}>
+    <ReviewDialog title={row.label} onClose={onClose}>
       {blocker && <p className={styles.blocker}>{blocker}</p>}
+      {issue && blocker && <p>Check the source before staging a corrected capture. For corrections to published records, use <Link href="/tools/review/batches">Batch review and history</Link>.</p>}
       {error && <p role="alert">{error}</p>}
       {!detail && !error && <p role="status">Loading details…</p>}
       {detail && (
         <>
-          {canResolve && detail.canResolveSwimmerMatch && !resolving && (
-            <div className={styles.toolbar}>
-              <button type="button" className={styles.primary} onClick={() => setResolving(true)}>Resolve swimmer match</button>
-            </div>
-          )}
-          {resolving && (
-            <ImportSwimmerMatch
-              id={row.id}
-              source={<SourceLink value={detail.sourceUrl} />}
-              clearsSelection={clearsSelection}
-              saving={saving}
-              onSaving={setSaving}
-              onResolved={onResolved}
-            />
-          )}
           <dl className={styles.details}>
-            {!resolving && <><dt>Source</dt><dd><SourceLink value={detail.sourceUrl} /></dd></>}
+            <dt>Source</dt><dd><SourceLink value={detail.sourceUrl} /></dd>
             <dt>Scope</dt><dd>{detail.sourceScope || "—"}</dd>
             <dt>Captured</dt><dd>{new Date(detail.capturedAt).toLocaleString()}</dd>
             <dt>Coverage</dt><dd>{detail.coverage || "—"}</dd>
@@ -177,6 +162,27 @@ function ImportDetail({ row, canResolve, clearsSelection, onClose, onResolved }:
           </details>
         </>
       )}
+    </ReviewDialog>
+  );
+}
+
+function SwimmerMatchDialog({ issue, clearsSelection, onClose, onResolved }: {
+  issue: ImportIssueRow;
+  clearsSelection: boolean;
+  onClose: () => void;
+  onResolved: (resolution: ImportSwimmerResolution) => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  return (
+    <ReviewDialog title="Resolve swimmer match" onClose={onClose} closeDisabled={saving}>
+      <ImportSwimmerMatch
+        id={issue.id}
+        source={issue.sourceUrl && <SourceLink value={issue.sourceUrl} />}
+        clearsSelection={clearsSelection}
+        saving={saving}
+        onSaving={setSaving}
+        onResolved={onResolved}
+      />
     </ReviewDialog>
   );
 }
@@ -287,8 +293,9 @@ function MorePreviewItems({ selectionId, section, start, total }: {
   );
 }
 
-function ApprovalPreview({ selection, onClose, onApprove }: {
+function ApprovalPreview({ selection, linkedMeet, onClose, onApprove }: {
   selection: ImportSelectionPreview;
+  linkedMeet?: string;
   onClose: () => void;
   onApprove: () => void;
 }) {
@@ -296,8 +303,11 @@ function ApprovalPreview({ selection, onClose, onApprove }: {
   const ready = Math.max(0, selection.selected - selection.blocked);
   const prerequisiteCount = selection.prerequisiteCount ?? selection.prerequisites.length;
   return (
-    <ReviewDialog title="Approval preview" onClose={onClose}>
-      <p>{selection.meets.toLocaleString()} {selection.meets === 1 ? "meet" : "meets"} · {selection.swims.toLocaleString()} {selection.swims === 1 ? "swim" : "swims"}</p>
+    <ReviewDialog title={linkedMeet ? "Review linked meet" : "Approval preview"} onClose={onClose}>
+      {linkedMeet
+        ? <p><strong>{linkedMeet}</strong> · Approving this meet makes it available to pending swims.</p>
+        : <p>{selection.meets.toLocaleString()} {selection.meets === 1 ? "meet" : "meets"} · {selection.swims.toLocaleString()} {selection.swims === 1 ? "swim" : "swims"}</p>}
+      {linkedMeet && selection.selected === 0 && <p role="status">This meet is no longer pending. Close and refresh the queue.</p>}
       {selection.selected > 0 && (
         <details className={styles.captured} onToggle={(event) => setShowRows(event.currentTarget.open)}>
           <summary>{selection.selected.toLocaleString()} selected rows</summary>
@@ -324,7 +334,7 @@ function ApprovalPreview({ selection, onClose, onApprove }: {
       )}
       <div className={styles.toolbar}>
         <button type="button" className={styles.primary} disabled={ready === 0} onClick={onApprove}>
-          Approve {ready.toLocaleString()} {ready === 1 ? "row" : "rows"}
+          {linkedMeet ? "Approve meet" : `Approve ${ready.toLocaleString()} ${ready === 1 ? "row" : "rows"}`}
         </button>
       </div>
     </ReviewDialog>
@@ -338,6 +348,7 @@ export default function ImportsReview() {
   const [preview, setPreview] = useState<ImportSelectionPreview>();
   const [pendingPreview, setPendingPreview] = useState<ImportSelectionPreview>();
   const [detail, setDetail] = useState<ImportQueueRow>();
+  const [issue, setIssue] = useState<ImportIssueRow>();
   const [receipt, setReceipt] = useState<ImportApprovalReceipt>();
   const [resolution, setResolution] = useState<ImportSwimmerResolution>();
   const [correctedSwimIds, setCorrectedSwimIds] = useState<string[]>([]);
@@ -350,6 +361,7 @@ export default function ImportsReview() {
   const resolutionMessage = useRef<HTMLParagraphElement>(null);
   const total = importSelectionCount(selection.meets) + importSelectionCount(selection.swims);
   const busy = working !== null || Boolean(savedApproval || pendingPreview);
+  const linkedMeet = issue?.linkedMeetRow;
 
   useEffect(() => () => {
     previewRequest.current?.abort();
@@ -383,13 +395,14 @@ export default function ImportsReview() {
     }
   }
 
-  async function previewSelection(saved?: ImportSelectionPreview) {
+  async function previewSelection(saved?: ImportSelectionPreview, linkedMeetId?: string) {
     const controller = new AbortController();
     previewRequest.current = controller;
     setWorking("preview");
     setError("");
     try {
-      let snapshot = saved ?? await createImportSelection(selectionInput(Object.values(selection)), controller.signal);
+      const input = linkedMeetId ? { ids: [linkedMeetId] } : selectionInput(Object.values(selection));
+      let snapshot = saved ?? await createImportSelection(input, controller.signal);
       while (!controller.signal.aborted && snapshot.previewRemaining > 0) {
         setPendingPreview(snapshot);
         const next = await createImportSelection({ prepareSelectionId: snapshot.selectionId }, controller.signal);
@@ -416,6 +429,19 @@ export default function ImportsReview() {
     setError("");
   }
 
+  function openIssue(row: ImportIssueRow) {
+    setIssue(row);
+    if (row.linkedMeetRow) void previewSelection(undefined, row.linkedMeetRow.id);
+  }
+
+  function closePreview() {
+    if (linkedMeet) {
+      cancelPreview();
+      setIssue(undefined);
+    }
+    setPreview(undefined);
+  }
+
   function clearSavedApproval() {
     setActiveApproval(null);
     writeSavedApproval(null);
@@ -425,6 +451,7 @@ export default function ImportsReview() {
     const controller = new AbortController();
     approvalRequest.current = controller;
     setPreview(undefined);
+    setIssue(undefined);
     setWorking("approval");
     setError("");
     setActiveApproval(selectionId);
@@ -461,7 +488,7 @@ export default function ImportsReview() {
   }
 
   function finishSwimmerMatch(result: ImportSwimmerResolution) {
-    setDetail(undefined);
+    setIssue(undefined);
     setSelection(emptySelections());
     setReceipt(undefined);
     setError("");
@@ -482,6 +509,7 @@ export default function ImportsReview() {
 
   return (
     <div className={styles.review}>
+      <ImportIssuesTable key={revision} busy={busy} onOpen={openIssue} />
       <div className={styles.toolbar}>
         <button type="button" className={styles.primary} disabled={busy || total === 0} onClick={() => void previewSelection()}>
           Preview approval
@@ -490,7 +518,7 @@ export default function ImportsReview() {
         <button type="button" disabled={working !== null} onClick={() => setRevision((value) => value + 1)}>Refresh queue</button>
       </div>
       {working === "selection" && <p role="status">Preparing selection…</p>}
-      {(working === "preview" || pendingPreview) && (
+      {!linkedMeet && (working === "preview" || pendingPreview) && (
         <div className={styles.toolbar}>
           {working === "preview" && (
             <p role="status">
@@ -509,7 +537,7 @@ export default function ImportsReview() {
       {resolution && (
         <div className={styles.toolbar}>
           <p ref={resolutionMessage} tabIndex={-1} role="status">
-            Swimmer match saved. {resolution.updated.toLocaleString()} {resolution.updated === 1 ? "swim" : "swims"} updated.
+            Swimmer match saved. {resolution.updated.toLocaleString()} {resolution.updated === 1 ? "swim" : "swims"} updated and ready for review.
           </p>
           {correctedSwimIds.length > 0 && (
             <button type="button" disabled={busy || total > 0} onClick={selectCorrectedSwims}>Select corrected swims</button>
@@ -522,7 +550,7 @@ export default function ImportsReview() {
           {!receipt.done && ` · ${receipt.remaining.toLocaleString()} remaining`}
         </p>
       )}
-      {error && <p role="alert" className={styles.blocker}>{error}</p>}
+      {error && !linkedMeet && <p role="alert" className={styles.blocker}>{error}</p>}
       {savedApproval && working !== "approval" && (
         <div className={styles.toolbar}>
           <button type="button" className={styles.primary} onClick={() => void approve(savedApproval)}>
@@ -549,16 +577,24 @@ export default function ImportsReview() {
         />
       ))}
       {detail && (
-        <ImportDetail
-          key={detail.id}
-          row={detail}
-          canResolve={!busy}
-          clearsSelection={total > 0}
-          onClose={() => setDetail(undefined)}
-          onResolved={finishSwimmerMatch}
-        />
+        <ImportDetail key={detail.id} row={detail} onClose={() => setDetail(undefined)} />
       )}
-      {preview && <ApprovalPreview selection={preview} onClose={() => setPreview(undefined)} onApprove={() => void approve(preview.selectionId)} />}
+      {issue?.canResolveSwimmerMatch && (
+        <SwimmerMatchDialog key={issue.id} issue={issue} clearsSelection={total > 0} onClose={() => setIssue(undefined)} onResolved={finishSwimmerMatch} />
+      )}
+      {issue && !issue.canResolveSwimmerMatch && !linkedMeet && (
+        <ImportDetail key={issue.id} row={issue} issue onClose={() => setIssue(undefined)} />
+      )}
+      {linkedMeet && !preview && (
+        <ReviewDialog title="Review linked meet" onClose={closePreview}>
+          <p><strong>{linkedMeet.label}</strong></p>
+          {working === "preview" && <p role="status">Preparing meet approval…</p>}
+          {error && (
+            <p role="alert">{error}{" "}<button type="button" onClick={() => void previewSelection(pendingPreview, linkedMeet.id)}>Retry</button></p>
+          )}
+        </ReviewDialog>
+      )}
+      {preview && <ApprovalPreview selection={preview} linkedMeet={linkedMeet?.label} onClose={closePreview} onApprove={() => void approve(preview.selectionId)} />}
     </div>
   );
 }

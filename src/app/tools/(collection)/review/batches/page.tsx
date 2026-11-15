@@ -9,7 +9,7 @@ export default function Page() {
     <main className={styles.page}>
       <header className={styles.intro}>
         <h1>Batch review and history</h1>
-        <p><Link href="/tools/review">Review queue</Link></p>
+        <p><Link href="/tools/review">Back to Import</Link></p>
       </header>
       <ReviewQueue />
     </main>

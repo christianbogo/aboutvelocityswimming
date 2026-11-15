@@ -30,6 +30,14 @@ export type ImportQueuePage = {
   hasNext: boolean;
 };
 
+export type ImportIssueRow = ImportQueueRow & {
+  blocker: string;
+  sourceUrl: string;
+  linkedMeetRow?: { id: string; label: string } | null;
+};
+
+export type ImportIssuesPage = Omit<ImportQueuePage, "rows"> & { rows: ImportIssueRow[] };
+
 export type ImportQueueDetail = ImportQueueRow & {
   data: Json;
   prerequisites: { kind: string; id: string; data: Json }[];
@@ -121,6 +129,11 @@ export function importQueuePage(query: URLSearchParams, signal: AbortSignal) {
   return importRequest<ImportQueuePage>(`?${query}`, "The queue could not be loaded.", { signal });
 }
 
+export function importIssuesPage(offset: number, signal: AbortSignal) {
+  const query = new URLSearchParams({ kind: "issues", offset: String(offset) });
+  return importRequest<ImportIssuesPage>(`?${query}`, "Import issues could not be loaded.", { signal });
+}
+
 export function importQueueDetail(id: string, signal: AbortSignal) {
   return importRequest<ImportQueueDetail>(`?${new URLSearchParams({ id })}`, "The record details could not be loaded.", { signal });
 }
@@ -130,7 +143,7 @@ export function getImportSwimmerMatch(id: string, search: string, signal: AbortS
   return importRequest<ImportSwimmerMatch>(`?${query}`, "Swimmer matches could not be loaded.", { signal });
 }
 
-export function resolveImportSwimmerMatch(input: { id: string; athleteId: string; reason: string; matchVersion: string }) {
+export function resolveImportSwimmerMatch(input: { id: string; athleteId: string; matchVersion: string }) {
   return importRequest<ImportSwimmerResolution>("", "The swimmer match could not be confirmed.", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

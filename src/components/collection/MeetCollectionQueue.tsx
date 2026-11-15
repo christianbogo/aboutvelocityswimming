@@ -888,7 +888,7 @@ export default function MeetCollectionQueue() {
   if (!isAdmin)
     return (
       <main className={styles.page}>
-        <h1>Meet collection</h1>
+        <h1>Status</h1>
         <p>
           Staff access is required.{" "}
           <Link className={styles.sourceLink} href="/login">
@@ -910,9 +910,9 @@ export default function MeetCollectionQueue() {
         <div>
           <Link className={styles.backLink} href="/tools/review">
             <ArrowLeft size={15} aria-hidden="true" />
-            Back to review
+            Back to Import
           </Link>
-          <h1>Meet collection</h1>
+          <h1>Status</h1>
           <p>
             Index participating teams, choose meets, and track full result
             imports.

@@ -1639,6 +1639,7 @@ export type Database = {
       approve_velocity_import: { Args: { selection_id: string }; Returns: Json };
       resolve_velocity_import_swimmer: { Args: { input: Json }; Returns: Json };
       velocity_import_detail: { Args: { input: Json }; Returns: Json };
+      velocity_import_issues: { Args: { input: Json }; Returns: Json };
       velocity_import_queue: { Args: { input: Json }; Returns: Json };
       velocity_import_selection: { Args: { input: Json }; Returns: Json };
       velocity_import_swimmer_matches: { Args: { input: Json }; Returns: Json };

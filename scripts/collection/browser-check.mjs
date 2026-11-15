@@ -88,7 +88,7 @@ try {
   );
   await page.goto(base + "/tools");
   await navigation.getByRole("link", { name: "Velocity Imports", exact: true }).click();
-  await navigation.getByRole("link", { name: "Review queue", exact: true }).click();
+  await navigation.getByRole("link", { name: "Import", exact: true }).click();
   await page.waitForURL(base + "/tools/review");
   await page.getByRole("link", { name: "Batch review and history", exact: true }).click();
   await page.waitForURL(base + "/tools/review/batches");
