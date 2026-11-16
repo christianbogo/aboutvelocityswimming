@@ -516,6 +516,14 @@ try {
   await test("independently verified lead-offs remain PB eligible after a teammate DQ", async () => {
     const personal = await query("my_times", { athleteId: prefix + "0", course: "SCY" });
     const leadoff = personal.myTimes.events.find(({ event }) => event === "50_FR").race;
+    const filtered = await anon.rpc("ies_my_times_bests", {
+      input: { athleteId: prefix + "0", course: "SCY", ageAtSwim: 12 },
+    });
+    assert.ifError(filtered.error);
+    assert.deepEqual(
+      filtered.data.personalBests.find(({ event }) => event === "50_FR").race,
+      leadoff,
+    );
     assert.equal(leadoff.id, prefix + "verified-leadoff");
     assert.equal(leadoff.relay, false);
     assert.equal(leadoff.resultOrigin, "relay_leadoff");
@@ -569,6 +577,14 @@ try {
     const splitPersonal = await query("my_times", { athleteId: prefix + "4", course: "SCY" });
     assert.ok(
       !splitPersonal.myTimes.events.some(({ race }) => race?.id === prefix + "raw-timing-split"),
+    );
+    const filteredSplit = await anon.rpc("ies_my_times_bests", {
+      input: { athleteId: prefix + "4", course: "SCY", ageAtSwim: 12 },
+    });
+    assert.ifError(filteredSplit.error);
+    assert.deepEqual(
+      filteredSplit.data.personalBests.map(({ race }) => race.id),
+      [prefix + "unofficial"],
     );
   });
   await test("relay staging compares supplied baseline reads and approval inserts relay parents first", async () => {

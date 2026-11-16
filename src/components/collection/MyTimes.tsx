@@ -99,7 +99,8 @@ function MyTimesResults({
     : null;
   const overview = useTimes(baseUrl);
   const details =
-    overview.data?.myTimes?.period === "all"
+    overview.data?.myTimes?.period === "all" &&
+    overview.data.myTimes.athleteId === athlete?.id
       ? overview.data.myTimes
       : undefined;
   const ages = details?.ages ?? [];
@@ -119,10 +120,9 @@ function MyTimesResults({
   const filteredUrl =
     !baseUrl || !details || mode === "all" || invalidYears || unavailableFilter
       ? null
-      : timesUrl("my_times", {
+      : timesUrl("my_times_bests", {
           athleteId: athlete.id,
           course,
-          rankPeriod: "all",
           ...(mode === "age"
             ? { ageAtSwim: Number(age) }
             : { startYear, endYear }),
@@ -131,17 +131,32 @@ function MyTimesResults({
   const filtered = useTimes(
     filteredUrl && debouncedUrl === filteredUrl ? filteredUrl : null,
   );
-  const result = mode === "all" ? overview : filtered;
-  const data =
-    result.data?.myTimes?.period === "all" ? result.data.myTimes : undefined;
+  const failedQuery = overview.error ? overview : filtered;
   const loading =
     overview.loading ||
     (Boolean(filteredUrl) &&
       (debouncedUrl !== filteredUrl || filtered.loading));
-  const events = data?.events ?? [];
-  const bestCount = events.filter((event) => event.race !== null).length;
+  const personalBests = filtered.data?.personalBests;
+  const filteredRaces = new Map(
+    personalBests?.map(({ event, race }) => [event, race]),
+  );
+  const events =
+    mode === "all"
+      ? details?.events
+      : personalBests &&
+        details?.events.map((event) => {
+          const race = filteredRaces.get(event.event);
+          return {
+            ...event,
+            race:
+              race?.athleteId === athlete?.id && race?.course === course
+                ? race
+                : null,
+          };
+        });
+  const bestCount = events?.filter((event) => event.race !== null).length ?? 0;
   const eventRanks = new Map(
-    events.map((event) => [
+    events?.map((event) => [
       event.event,
       event.race ? motivationalRankForRace(event.race, standards.sets) : null,
     ]),
@@ -333,13 +348,13 @@ function MyTimesResults({
           </span>
         </div>
       )}
-      {(overview.error || result.error) && (
+      {failedQuery.error && (
         <p role="alert" className={s.notice}>
-          {overview.error || result.error}{" "}
+          {failedQuery.error}{" "}
           <button
             type="button"
             className={times.link}
-            onClick={() => (overview.error ? overview : result).retry()}
+            onClick={failedQuery.retry}
           >
             Try again
           </button>
@@ -351,21 +366,20 @@ function MyTimesResults({
         </p>
       )}
       {!loading &&
-        !overview.error &&
-        !result.error &&
+        !failedQuery.error &&
         !invalidYears &&
         (unavailableFilter ? (
           <p role="status" className={s.notice}>
             No recorded {mode === "age" ? "ages" : "years"} are available for
             this athlete and course.
           </p>
-        ) : data && events.length === 0 ? (
+        ) : events?.length === 0 ? (
           <p role="status" className={s.notice}>
             No eligible individual times are available for {athlete.name} in{" "}
             {course} yet.
           </p>
         ) : (
-          data && (
+          events && (
             <>
               {bestCount === 0 && (
                 <p role="status" className={s.notice}>
@@ -468,7 +482,7 @@ function MyTimesResults({
                                 </>
                               ) : (
                                 <>
-                                  {data.latestAgeGroup
+                                  {details?.latestAgeGroup
                                     ? "No all-time rank"
                                     : "Age unavailable"}
                                 </>

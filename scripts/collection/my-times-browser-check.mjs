@@ -131,6 +131,11 @@ writes.push({
 let browser;
 let page;
 const errors = [];
+const myTimesRequests = [];
+const timesParams = (url) => {
+  const { pathname, searchParams } = new URL(url);
+  return pathname === "/api/times" ? searchParams : null;
+};
 try {
   const seeded = await admin.rpc("collect_records", { reads: [], writes });
   assert.ifError(seeded.error);
@@ -154,6 +159,12 @@ try {
     return route.abort();
   });
   page.on("pageerror", (error) => errors.push(error.message));
+  page.on("request", (request) => {
+    const params = timesParams(request.url());
+    if (["my_times", "my_times_bests"].includes(params?.get("view"))) {
+      myTimesRequests.push({ params, sentAt: Date.now() });
+    }
+  });
   await page.goto(base + "/login");
   await page.getByRole("button", { name: /password instead/i }).click();
   await page.locator("input[type=email]").fill(email);
@@ -451,8 +462,17 @@ try {
   await chooseAthlete(athletes[2]);
   await myTimes.getByText(/no .*times|no .*results|no .*swims/i).waitFor();
   await checkCollectedRanks(null);
-  await page.goto(myTimesUrl);
+  const [overviewResponse] = await Promise.all([
+    page.waitForResponse((result) => {
+      const params = timesParams(result.url());
+      return params?.get("view") === "my_times" &&
+        params.get("athleteId") === athletes[0].id && result.ok();
+    }),
+    page.goto(myTimesUrl),
+  ]);
   await showTime("35.20");
+  const { expiresAt: overviewExpires } = await overviewResponse.json();
+  const filterRequestsStart = myTimesRequests.length;
 
   const filters = myTimes.getByRole("group", {
     name: "Best times from",
@@ -493,6 +513,19 @@ try {
   );
   await filters.getByRole("button", { name: "All time", exact: true }).click();
   await showTime("35.20");
+  const filterRequests = myTimesRequests.slice(filterRequestsStart);
+  assert.ok(filterRequests.some(({ params }) =>
+    params.get("view") === "my_times_bests" && params.get("ageAtSwim") === "12",
+  ), "The age filter uses the personal-bests endpoint");
+  assert.ok(filterRequests.some(({ params }) =>
+    params.get("view") === "my_times_bests" &&
+    params.get("startYear") === recentYear && params.get("endYear") === recentYear,
+  ), "The year-range filter uses the personal-bests endpoint");
+  assert.ok(filterRequests.every(({ params, sentAt }) =>
+    params.get("view") === "my_times_bests" ||
+    (sentAt >= overviewExpires &&
+      !["ageAtSwim", "startYear", "endYear"].some((key) => params.has(key))),
+  ), "Changing personal-best filters keeps the current rank until its scheduled refresh");
   const courses = myTimes.getByRole("group", { name: "Course", exact: true });
   await courses.getByRole("button", { name: "LCM", exact: true }).click();
   await card("50 Freestyle")
@@ -500,7 +533,51 @@ try {
     .filter({ hasText: "32.50" })
     .waitFor();
   assert.equal(await freestyle().count(), 0);
-  await courses.getByRole("button", { name: "SCY", exact: true }).click();
+  const staleBestsUrl = new URL("/api/times", base);
+  staleBestsUrl.search = new URLSearchParams({
+    view: "my_times_bests",
+    athleteId: athletes[0].id,
+    course: "LCM",
+    ageAtSwim: "13",
+  }).toString();
+  const staleResponse = await page.request.get(staleBestsUrl.href);
+  assert.equal(staleResponse.status(), 200);
+  const staleBests = await staleResponse.json();
+  assert.deepEqual(staleBests.personalBests.map(({ race }) => race.id), [
+    prefix + "primary-lcm",
+  ]);
+  const isStaleBests = (url) => {
+    const params = timesParams(url);
+    return params?.get("view") === "my_times_bests" &&
+      params.get("athleteId") === athletes[0].id &&
+      params.get("course") === "LCM" && params.get("ageAtSwim") === "13";
+  };
+  const intercepted = Promise.withResolvers();
+  const holdBests = (route) => intercepted.resolve(route);
+  await page.route(isStaleBests, holdBests);
+  try {
+    const [staleRequest] = await Promise.all([
+      page.waitForRequest((request) => isStaleBests(request.url())),
+      filters.getByRole("button", { name: "Age", exact: true }).click(),
+    ]);
+    const route = await intercepted.promise;
+    await chooseAthlete(athletes[1]);
+    await courses.getByRole("button", { name: "SCY", exact: true }).click();
+    await showTime("47.80");
+    try {
+      await route.fulfill({ json: staleBests });
+    } catch (error) {
+      if (!staleRequest.failure()) throw error;
+    }
+    await page.evaluate(() => new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    }));
+    assert.match(await freestyle().innerText(), /47\.80/);
+    assert.equal(await card("50 Freestyle").count(), 0);
+  } finally {
+    await page.unroute(isStaleBests, holdBests);
+  }
+  await chooseAthlete(athletes[0]);
   await showTime("35.20");
 
   await checkLayout();
@@ -634,7 +711,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "Verified Times athlete chips and management link, primary default, favorites and reload, empty states, age/year/course filters, collected rank counts, all-time ranks with historical results, compact dates and ages, rank tints, collapsible filters, all-time ranking links and cutoffs, icon alignment, matching search background, and desktop/mobile/dark layouts.",
+    "Verified My Times athlete selections, isolated personal-best requests, stale responses after athlete/course changes, rank counts, ranking links, and desktop/mobile/dark layouts.",
   );
 } catch (error) {
   if (page && !page.isClosed()) {

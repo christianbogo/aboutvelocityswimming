@@ -1631,6 +1631,7 @@ export type Database = {
       ies_times_recent: { Args: { input?: Json }; Returns: Json };
       ies_my_times: { Args: { input?: Json }; Returns: Json };
       ies_my_times_all_time: { Args: { input?: Json }; Returns: Json };
+      ies_my_times_bests: { Args: { input?: Json }; Returns: Json };
       ies_times_query: {
         Args: { input?: Json; query_kind: string };
         Returns: Json;

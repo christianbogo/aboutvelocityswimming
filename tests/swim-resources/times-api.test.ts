@@ -66,6 +66,40 @@ describe("Velocity times requests", () => {
       expect(() => parseTimesQuery(new URLSearchParams(query))).toThrow();
     }
   });
+  it("requires an athlete and one bounded personal-best filter", () => {
+    const base = "view=my_times_bests&athleteId=a";
+    expect(
+      parseTimesQuery(new URLSearchParams(`${base}&ageAtSwim=0`)),
+    ).toMatchObject({
+      kind: "my_times_bests",
+      input: { athleteId: "a", course: "SCY", ageAtSwim: 0 },
+    });
+    expect(
+      parseTimesQuery(
+        new URLSearchParams(`${base}&course=LCM&startYear=2026&endYear=2026`),
+      ),
+    ).toMatchObject({
+      kind: "my_times_bests",
+      input: {
+        athleteId: "a",
+        course: "LCM",
+        startYear: "2026",
+        endYear: "2026",
+      },
+    });
+    for (const invalid of [
+      base,
+      `${base}&ageAtSwim=121`,
+      `${base}&ageAtSwim=12&startYear=2024&endYear=2026`,
+      `${base}&startYear=2024`,
+      `${base}&endYear=2026`,
+      `${base}&startYear=2026&endYear=2024`,
+      `${base}&startYear=0001&endYear=2026`,
+      "view=my_times_bests&ageAtSwim=12",
+    ]) {
+      expect(() => parseTimesQuery(new URLSearchParams(invalid))).toThrow();
+    }
+  });
   it("keeps season date bounds and rejects impossible or reversed dates", () => {
     const input = parseTimesQuery(
       new URLSearchParams(

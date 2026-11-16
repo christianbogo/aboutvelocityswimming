@@ -92,6 +92,18 @@ it("loads personal bests and complete all-time ranks from the dedicated public q
     },
   });
 });
+it("loads filtered bests without invoking the all-time cohort query", async () => {
+  mocks.rpc.mockResolvedValueOnce({ data: { personalBests: [] }, error: null });
+  const input = { athleteId: "a", course: "SCY", ageAtSwim: 12 };
+  expect(await readTimes("my_times_bests", input)).toEqual({
+    personalBests: [],
+    expiresAt: expect.any(Number),
+  });
+  expect(mocks.rpc).toHaveBeenCalledTimes(1);
+  expect(mocks.rpc).toHaveBeenCalledWith("ies_my_times_bests", {
+    input: { ...input, team: "velocity-swimming" },
+  });
+});
 it("preserves the season RPC for clients opened before the all-time update", async () => {
   for (const rankPeriod of [undefined, "season"]) {
     await readTimes("my_times", { athleteId: "a", rankPeriod });

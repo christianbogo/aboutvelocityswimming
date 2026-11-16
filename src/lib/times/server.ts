@@ -35,12 +35,15 @@ const readCached = unstable_cache(
     const input = JSON.parse(serialized);
     const started = performance.now();
     const { data, error, status } = await (kind === "my_times"
-      ? input.rankPeriod === "all"
-        ? client.rpc("ies_my_times_all_time", { input })
-        : client.rpc("ies_my_times", { input })
-      : kind === "rankings" && input.mode === "recent"
-        ? client.rpc("ies_times_recent", { input })
-        : client.rpc("ies_times_query", { query_kind: kind, input }));
+      ? client.rpc(
+          input.rankPeriod === "all" ? "ies_my_times_all_time" : "ies_my_times",
+          { input },
+        )
+      : kind === "my_times_bests"
+        ? client.rpc("ies_my_times_bests", { input })
+        : kind === "rankings" && input.mode === "recent"
+          ? client.rpc("ies_times_recent", { input })
+          : client.rpc("ies_times_query", { query_kind: kind, input }));
     const timing = {
       kind,
       durationMs: Math.round(performance.now() - started),

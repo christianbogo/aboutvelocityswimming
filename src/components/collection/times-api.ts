@@ -7,6 +7,7 @@ export const timesKinds = [
   "race",
   "records",
   "my_times",
+  "my_times_bests",
 ] as const;
 export type TimesKind = (typeof timesKinds)[number];
 export interface MyTimesEvent {
@@ -53,6 +54,7 @@ export interface LegacyMyTimesResponse {
 }
 export interface TimesResponse {
   myTimes?: MyTimesResponse | LegacyMyTimesResponse;
+  personalBests?: { event: string; race: Race }[];
   expiresAt: number;
   rows?: { race: Race; rank?: number }[];
   total?: number;
@@ -182,13 +184,15 @@ export function parseTimesQuery(params: URLSearchParams): {
   }
   if (input.startDate && input.endDate && input.startDate > input.endDate)
     throw new Error("The start date must come before the end date.");
+  const yearPattern =
+    kind === "my_times_bests" ? /^[1-9]\d{3}$/ : /^(?!0000)\d{4}$/;
   for (const key of ["startYear", "endYear"]) {
-    if (input[key] && !/^(?!0000)\d{4}$/.test(String(input[key])))
+    if (input[key] && !yearPattern.test(String(input[key])))
       throw new Error("Invalid year range.");
   }
   if (input.startYear && input.endYear && input.startYear > input.endYear)
     throw new Error("The start year must come before the end year.");
-  if (kind === "my_times") {
+  if (kind === "my_times" || kind === "my_times_bests") {
     input.course ||= "SCY";
     const rawAge = params.get("ageAtSwim");
     if (rawAge !== null && rawAge !== "") {
@@ -199,6 +203,12 @@ export function parseTimesQuery(params: URLSearchParams): {
       input.ageAtSwim = Number(rawAge);
     }
   }
+  if (
+    kind === "my_times_bests" &&
+    input.ageAtSwim === undefined &&
+    (!input.startYear || !input.endYear)
+  )
+    throw new Error("Choose an age or both years.");
   if (kind === "rankings") {
     input.genders ??= ["F"];
     input.mode ??= "bests";
@@ -206,6 +216,7 @@ export function parseTimesQuery(params: URLSearchParams): {
   const required: Partial<Record<TimesKind, string[]>> = {
     analysis: ["raceId"],
     my_times: ["athleteId"],
+    my_times_bests: ["athleteId"],
     race: ["raceId"],
   };
   if (required[kind]?.some((key) => !input[key]))

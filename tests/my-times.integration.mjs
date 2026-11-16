@@ -111,6 +111,12 @@ swim("younger-event", "owner", 30000, {
 });
 for (let i = 0; i < 105; i++)
   swim("faster-" + i, "peer-" + i, 20000 + i, { isOfficial: i !== 0 });
+swim("same-faster-peer", "peer-0", 21000);
+swim("historical-male-peer", "peer-0", 12000, { gender: "M" });
+swim("own-historical-male", "owner", 42000, {
+  ...dated(`${year}-08-19`),
+  gender: "M",
+});
 swim("same-time", "tie", 35000, dated(end + "T23:59:59Z"));
 swim("slower", "slower", 50000);
 swim("wrong-gender", "wrong-gender", 1000, { gender: "M" });
@@ -124,6 +130,9 @@ swim("old-archive", "old-archive", 1000, dated(`${history}-06-01`));
 swim("dq", "dq", 1000, { status: "DQ" });
 swim("split", "split", 1000, { isSplit: true });
 swim("flagged", "flagged", 1000);
+swim("owner-flagged", "owner", 1000);
+swim("owner-split", "owner", 1000, { isSplit: true });
+swim("owner-dq", "owner", 1000, { status: "DQ" });
 swim("no-age", "no-age", 1000, { ageAtSwim: null });
 swim("no-gender", "no-gender", 1000, { gender: null });
 swim("aged-up-younger", "aged-up-dq", 1000, {
@@ -131,6 +140,33 @@ swim("aged-up-younger", "aged-up-dq", 1000, {
   ageAtSwim: 12,
 });
 swim("aged-up-dq", "aged-up-dq", 1000, { ...dated(today), status: "DQ" });
+for (const [event, age, peerAge] of [
+  ["986_FR_SCY", 8, 7],
+  ["985_FR_SCY", 19, 24],
+]) {
+  const extra = { eventCode: event };
+  swim(event + "-owner", event, 20000, { ...extra, ageAtSwim: age });
+  swim(event + "-peer", event + "-peer", 19000, {
+    ...extra,
+    ageAtSwim: peerAge,
+  });
+  swim(event + "-excluded", event + "-excluded", 10000, {
+    ...extra,
+    ageAtSwim: 16,
+  });
+}
+const genderEvent = { eventCode: "984_FR_SCY" };
+swim("gender-profile-f", "gender-profile", 25000, {
+  ...genderEvent,
+  ...dated(today),
+});
+swim("gender-profile-m", "gender-profile", 22000, {
+  ...genderEvent,
+  ...dated(`${year}-08-19`),
+  gender: "M",
+});
+swim("gender-peer-f", "gender-peer-f", 10000, genderEvent);
+swim("gender-peer-m", "gender-peer-m", 20000, { ...genderEvent, gender: "M" });
 const query = async (input = {}) => {
   const result = await anon.rpc("ies_my_times_all_time", {
     input: { athleteId, course: "SCY", ...input },
@@ -139,6 +175,14 @@ const query = async (input = {}) => {
   return result.data.myTimes;
 };
 const main = (data) => data.events.find((event) => event.event === "987_FR");
+const queryBests = async (input) => {
+  const result = await anon.rpc("ies_my_times_bests", {
+    input: { athleteId, course: "SCY", ...input },
+  });
+  assert.ifError(result.error);
+  assert.deepEqual(Object.keys(result.data), ["personalBests"]);
+  return result.data.personalBests;
+};
 
 try {
   assert.ifError(
@@ -146,14 +190,14 @@ try {
   );
   assert.ifError(
     (
-      await admin.from("result_moderation").insert([
-        {
+      await admin.from("result_moderation").insert(
+        ["flagged", "owner-flagged"].map((id) => ({
           result_type: "swim",
-          result_id: prefix + "flagged",
+          result_id: prefix + id,
           flagged: true,
           version: 1,
-        },
-      ])
+        })),
+      )
     ).error,
   );
 
@@ -209,6 +253,57 @@ try {
     assert.equal(agedUp.latestAgeGroup, "13-14");
     assert.equal(main(agedUp).allTimeRank, null);
     assert.equal(main(agedUp).race.id, prefix + "aged-up-younger");
+  });
+
+  await test("personal-bests-only reads preserve filtered public results without a rank payload", async () => {
+    for (const [filter, expectedRace] of [
+      [{ ageAtSwim: 12 }, "own-younger"],
+      [{ ageAtSwim: 13 }, "own-ranked-historical"],
+      [{ ageAtSwim: 99 }, null],
+      [{ startYear: String(history), endYear: String(history) }, "history-last"],
+      [
+        { startYear: String(history - 1), endYear: String(history + 1) },
+        "after-history",
+      ],
+      [{ athleteId: prefix + "unknown", ageAtSwim: 13 }, null],
+    ]) {
+      const [legacy, personalBests] = await Promise.all([
+        query(filter),
+        queryBests(filter),
+      ]);
+      const rankedBests = legacy.events
+        .filter(({ race }) => race !== null)
+        .map(({ event, race }) => ({ event, race }));
+      assert.deepEqual(personalBests, rankedBests);
+      assert.equal(
+        personalBests.find(({ event }) => event === "987_FR")?.race.id ?? null,
+        expectedRace ? prefix + expectedRace : null,
+      );
+    }
+    const lcm = await queryBests({ course: "LCM", ageAtSwim: 13 });
+    assert.deepEqual(lcm.map(({ race }) => race.id), [prefix + "own-latest-lcm"]);
+  });
+
+  await test("all-time ranks include the full 8-and-under and 19-and-over cohorts", async () => {
+    for (const [event, ageGroup] of [
+      ["986_FR", "8&U"],
+      ["985_FR", "19&O"],
+    ]) {
+      const data = await query({ athleteId: prefix + event + "_SCY" });
+      assert.equal(data.latestAgeGroup, ageGroup);
+      assert.equal(data.events[0].rankAgeGroup, ageGroup);
+      assert.equal(data.events[0].allTimeRank, 2);
+      assert.equal(data.events[0].allTimeCount, 2);
+    }
+  });
+
+  await test("the swim's historical gender determines its ranking cohort", async () => {
+    const data = await query({ athleteId: prefix + "gender-profile" });
+    const [event] = data.events;
+    assert.equal(event.rankRace.id, prefix + "gender-profile-m");
+    assert.equal(event.rankGender, "M");
+    assert.equal(event.allTimeRank, 2);
+    assert.equal(event.allTimeCount, 2);
   });
 
   await test("all-time card ranks match complete Event Rankings, including historical results and ties", async () => {
