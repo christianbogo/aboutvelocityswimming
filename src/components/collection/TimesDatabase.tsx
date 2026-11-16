@@ -543,7 +543,9 @@ function TimesDatabaseContent() {
   const detailRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLElement>(null);
   const enabled = hasBackendConfiguration;
-  const facets = useTimes(enabled ? timesUrl("facets") : null);
+  const facets = useTimes(
+    enabled ? timesUrl(view === "records" ? "record_teams" : "facets") : null,
+  );
   const teams = facets.data?.teams ?? [];
   const recordTeams = teams.filter(
     ([id, name]) =>
@@ -1121,7 +1123,8 @@ function TimesDatabaseContent() {
                 <QueryNotice query={recordsQuery} />
                 <TeamRecords
                   races={races}
-                  team={activeRecordTeam}
+                  recordBoard={recordsQuery.data?.records}
+                  updatedAt={recordsQuery.data?.recordsUpdatedAt}
                   teamName={recordTeamName}
                   ready={Boolean(recordsQuery.data)}
                   loading={recordsQuery.loading || facets.loading}

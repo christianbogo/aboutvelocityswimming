@@ -46,7 +46,7 @@ const readCached = unstable_cache(
     const result = data as unknown as TimesResponse;
     return { ...result, expiresAt: timesExpiry(bucket) };
   },
-  ["ies-times-v2"],
+  ["ies-times-v3"],
   { tags: [tag], revalidate: 60 },
 );
 export async function readTimes(

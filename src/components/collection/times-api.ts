@@ -2,6 +2,7 @@ import type { AthleteRankingGroup } from "./athlete-rankings";
 import type { Race } from "./times-data";
 export const timesKinds = [
   "facets",
+  "record_teams",
   "rankings",
   "analysis",
   "meets",
@@ -51,6 +52,8 @@ export interface TimesResponse {
   pbs?: Race[];
   points?: Race[];
   races?: Race[];
+  records?: Record<string, string[]>;
+  recordsUpdatedAt?: string | null;
   stats?: {
     value: number;
     faster: number;

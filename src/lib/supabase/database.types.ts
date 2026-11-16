@@ -1130,6 +1130,69 @@ export type Database = {
           },
         ];
       };
+      team_record_holders: {
+        Row: {
+          age: number | null;
+          age_group: string;
+          athlete_id: string;
+          course: string;
+          event: string;
+          gender: string;
+          relay: boolean;
+          relay_age: string;
+          result_id: string;
+          result_type: string;
+          swim_date: string;
+          team: string;
+          time_ms: number;
+        };
+        Insert: {
+          age?: number | null;
+          age_group: string;
+          athlete_id: string;
+          course: string;
+          event: string;
+          gender: string;
+          relay: boolean;
+          relay_age: string;
+          result_id: string;
+          result_type: string;
+          swim_date: string;
+          team: string;
+          time_ms: number;
+        };
+        Update: {
+          age?: number | null;
+          age_group?: string;
+          athlete_id?: string;
+          course?: string;
+          event?: string;
+          gender?: string;
+          relay?: boolean;
+          relay_age?: string;
+          result_id?: string;
+          result_type?: string;
+          swim_date?: string;
+          team?: string;
+          time_ms?: number;
+        };
+        Relationships: [];
+      };
+      team_record_refresh_state: {
+        Row: {
+          id: boolean;
+          refreshed_at: string | null;
+        };
+        Insert: {
+          id?: boolean;
+          refreshed_at?: string | null;
+        };
+        Update: {
+          id?: boolean;
+          refreshed_at?: string | null;
+        };
+        Relationships: [];
+      };
       teams: {
         Row: {
           data: NonNullable<Json>;
@@ -1492,6 +1555,7 @@ export type Database = {
         Args: { input: Json; query_kind: string };
         Returns: Json;
       };
+      ies_team_records: { Args: { team_id: string }; Returns: Json };
       ies_times_age: {
         Args: { age: number; relay: boolean; relay_age: string };
         Returns: string;

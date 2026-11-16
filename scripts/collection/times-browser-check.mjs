@@ -206,7 +206,7 @@ async function setup({ failure = false, expiry = false } = {}) {
     const own = races.filter(
       (r) => r.athleteId === q.get("athleteId") && !r.relay,
     );
-    if (view === "facets")
+    if (view === "facets" || view === "record_teams")
       data = {
         teams: [
           [velocityTeam, "Velocity Swimming"],
@@ -366,6 +366,8 @@ async function setup({ failure = false, expiry = false } = {}) {
     }
     if (view === "records")
       data = {
+        records: Object.fromEntries([...teamRecords(races, velocityTeam)].map(([key, holders]) => [key, holders.map((race) => race.id)])),
+        recordsUpdatedAt: "2026-11-15T18:00:00Z",
         races: [
           ...new Map(
             [...teamRecords(races, velocityTeam).values()]

@@ -274,6 +274,10 @@ writes.push({ path: "standards/" + standard.id, after: standard });
 const collected = await admin.rpc("collect_records", { reads: [], writes });
 assert.ifError(collected.error);
 const query = async (kind, input = {}) => {
+  if (kind === "records") {
+    // Run the scheduled worker explicitly; readers never rebuild the board.
+    execFileSync("docker", ["exec", "supabase_db_aboutvelocityswimming", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-Atc", "select private.refresh_team_records()"], { stdio: "pipe" });
+  }
   const { data, error } = await anon.rpc("ies_times_query", {
     query_kind: kind,
     input,
@@ -388,9 +392,13 @@ try {
       assert.deepEqual(result.stats, percentile(59000, cohort));
     }
     const result = await query("records", { team });
-    const actual = teamRecords(result.races, team),
+    const actual = new Map(Object.entries(result.records).map(([key, ids]) => [key, ids.map((id) => result.races.find((race) => race.id === id))])),
       expected = teamRecords(ies, team);
     assert.deepEqual([...actual.keys()].sort(), [...expected.keys()].sort());
+    for (const [key, holders] of expected) {
+      assert.deepEqual(actual.get(key).map((r) => r.id), holders.map((r) => r.id), key);
+    }
+    assert.ok(Number.isFinite(Date.parse(result.recordsUpdatedAt)));
     assert.deepEqual(
       actual.get(recordKey("SCY", "11-12", "100_FR-R", "X")).map((r) => r.id),
       expected.get(recordKey("SCY", "11-12", "100_FR-R", "X")).map((r) => r.id),
@@ -467,7 +475,7 @@ try {
       new Set(recordResults.races.map((race) => race.id)).size,
       recordResults.races.length,
     );
-    const records = teamRecords(recordResults.races, team);
+    const records = new Map(Object.entries(recordResults.records).map(([key, ids]) => [key, ids.map((id) => recordResults.races.find((race) => race.id === id))]));
     for (const group of ["13-14", "13&O", "Open"]) {
       assert.deepEqual(
         records

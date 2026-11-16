@@ -128,7 +128,10 @@ test("private import, frozen review and transactional publication", async (t) =>
   }
   const select = (input) => rpc(staff, "velocity_import_selection", { input });
   const approve = (selectionId) => rpc(staff, "approve_velocity_import", { selection_id: selectionId });
-  const times = (query_kind, input) => rpc(anon, "ies_times_query", { query_kind, input });
+  const times = (query_kind, input) => {
+    if (query_kind === "records") db("select private.refresh_team_records()");
+    return rpc(anon, "ies_times_query", { query_kind, input });
+  };
   const archive = () => rpc(anon, "archive_observatory", { input: { meet: meet.id } });
   const best = () => db(`select data->>'swimId' from public.athlete_bests where athlete_id=${sql(athlete.id)} and event_code='100_FR_SCY';`);
   const source = batch("main", [

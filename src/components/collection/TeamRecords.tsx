@@ -9,7 +9,6 @@ import {
   recordCourses,
   recordEvents,
   recordKey,
-  teamRecords,
   type Race,
 } from "./times-data";
 import s from "./TeamRecords.module.css";
@@ -21,6 +20,7 @@ const recordGenders = [
   ["F", "Girls"],
   ["M", "Boys"],
 ] as const;
+const emptyRecordBoard: Record<string, string[]> = {};
 
 export interface RecordSelection {
   course: string;
@@ -120,7 +120,8 @@ function RecordCell({
 }
 export default function TeamRecords({
   races,
-  team,
+  recordBoard = emptyRecordBoard,
+  updatedAt,
   teamName,
   names,
   selector,
@@ -129,7 +130,8 @@ export default function TeamRecords({
   loading = false,
 }: {
   races: Race[];
-  team: string;
+  recordBoard?: Record<string, string[]>;
+  updatedAt?: string | null;
   teamName: string;
   names: Map<string, string>;
   selector: ReactNode;
@@ -139,14 +141,14 @@ export default function TeamRecords({
 }) {
   const prefix = useId().replaceAll(":", "");
   const [mobileGender, setMobileGender] = useState<"F" | "M">("F");
-  const now = new Date();
-  const currentDate = now.toLocaleDateString("en-US", {
+  const refreshed = updatedAt ? new Date(updatedAt) : null;
+  const currentDate = refreshed?.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
     timeZone: "America/Los_Angeles",
   });
-  const dateValue = now.toLocaleDateString("en-CA", {
+  const dateValue = refreshed?.toLocaleDateString("en-CA", {
     timeZone: "America/Los_Angeles",
   });
   const visibleRaces = useMemo(
@@ -157,8 +159,15 @@ export default function TeamRecords({
     [races],
   );
   const records = useMemo(
-    () => teamRecords(visibleRaces, team),
-    [visibleRaces, team],
+    () => {
+      const byId = new Map(visibleRaces.map((race) => [race.id, race]));
+      return new Map(
+        Object.entries(recordBoard)
+          .filter(([key]) => !key.startsWith("SCM:") && !key.endsWith(":X"))
+          .map(([key, ids]) => [key, ids.flatMap((id) => byId.get(id) ?? [])]),
+      );
+    },
+    [recordBoard, visibleRaces],
   );
   const groups = ageGroups.map(
     ([key, label, minAge]) => [key, label, minAge] as const,
@@ -268,7 +277,13 @@ export default function TeamRecords({
                             Girls
                           </span>
                           <div className={s.tableTitle}>
-                            <time dateTime={dateValue}>{currentDate}</time>
+                            {currentDate ? (
+                              <time dateTime={dateValue}>
+                                Updated {currentDate}
+                              </time>
+                            ) : (
+                              <span>Updating records</span>
+                            )}
                             <h3>
                               {teamName || "Team records"} · {ageLabel} ·{" "}
                               {course}

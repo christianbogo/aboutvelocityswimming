@@ -47,6 +47,7 @@ SELECT pg_temp.swim('mod-fixture-split','mod-fixture-athlete',22000,'{"isSplit":
 SELECT private.put_record('relay_results/mod-fixture-relay','{"id":"mod-fixture-relay","relayName":"Atomic fixture A","splitCoverage":"unavailable","eventCode":"200_FR-R_LCM","course":"LCM","distance":200,"stroke":"FR","timeMs":125000,"status":"OK","round":"F","isRelay":true,"isOfficial":true,"gender":"M","ageGroup":"11-12","teamId":"mod-fixture-team","meet":{"id":"mod-fixture-meet","name":"2026 IE PSA Pendleton Open","date":"2026-07-04"},"members":[{"leg":1,"athleteId":"mod-fixture-athlete","name":"Maison Velasquez","stroke":"FR","timeMs":29000}]}');
 SELECT pg_temp.swim('mod-fixture-leadoff','mod-fixture-athlete',29000,'{"eventCode":"50_FR_LCM","distance":50,"resultOrigin":"relay_leadoff","parentRelayResultId":"mod-fixture-relay","leadOffVerification":{"verified":true,"flatStart":true,"timingVerified":true,"leadOffStatus":"OK","sourceUrl":"https://example.test/source"}}');
 SELECT private.rebuild_bests_for_events(array['100_FR_LCM','50_FR_LCM']);
+SELECT private.refresh_team_records();
 CREATE FUNCTION pg_temp.query(kind text, extra jsonb default '{}') RETURNS jsonb LANGUAGE sql AS $$
  SELECT public.ies_times_query(kind,'{"team":"mod-fixture-team","event":"100_FR","course":"LCM","mode":"bests","genders":["M"],"athleteId":"mod-fixture-athlete","historyEvent":"100_FR_LCM","meetId":"mod-fixture-meet","period":"all"}'::jsonb||extra); $$;
 SET LOCAL ROLE authenticated;
