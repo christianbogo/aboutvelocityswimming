@@ -13,7 +13,22 @@ import {
   matches,
   type Race,
 } from "@/components/collection/times-data";
-describe("IES times requests", () => {
+describe("Velocity times requests", () => {
+  it("always scopes reads to Velocity and ignores legacy team selections", () => {
+    for (const view of ["rankings", "records", "athletes", "facets", "meets"]) {
+      for (const team of ["", "other-club", "velocity-swimming"]) {
+        expect(
+          parseTimesQuery(new URLSearchParams({ view, team })).input.team,
+        ).toBe("velocity-swimming");
+      }
+    }
+    expect(timesUrl("rankings", { team: "other-club" })).toBe(
+      "/api/times?view=rankings",
+    );
+    expect(() =>
+      parseTimesQuery(new URLSearchParams("view=record_teams")),
+    ).toThrow();
+  });
   it("defaults to female bests and canonicalizes multiple selections", () => {
     expect(
       parseTimesQuery(new URLSearchParams("view=rankings")).input,
@@ -133,7 +148,7 @@ describe("meet event navigation requests", () => {
     ).toThrow();
     expect(
       parseTimesQuery(new URLSearchParams("view=meet_events&meetId=m")).input,
-    ).toEqual({ meetId: "m", offset: 0, limit: 25 });
+    ).toEqual({ team: "velocity-swimming", meetId: "m", offset: 0, limit: 25 });
     const key = "a".repeat(32);
     expect(
       parseTimesQuery(

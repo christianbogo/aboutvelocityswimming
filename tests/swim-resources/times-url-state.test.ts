@@ -3,15 +3,38 @@ import { initialFilters } from "@/components/collection/times-data";
 import {
   readTimesSelection,
   writeTimesSelection,
+  timesViewHref,
 } from "@/components/collection/times-url-state";
 
 describe("shared times selections", () => {
+  it("drops old team filters from shared links and saved bookmarks", () => {
+    const oldFilters = { ...initialFilters, team: "other-club", year: "2026" };
+    expect(
+      readTimesSelection(JSON.stringify(oldFilters), initialFilters),
+    ).toEqual({ ...initialFilters, year: "2026" });
+    const url = new URL(
+      "https://example.com/tools/times?team=other&recordTeam=other&meetTeam=other",
+    );
+    url.searchParams.set("filters", JSON.stringify(oldFilters));
+    url.searchParams.set(
+      "athleteOptions",
+      JSON.stringify({ team: "other-club", course: "LCM", period: "all" }),
+    );
+    const href = writeTimesSelection(url, "page", 1, 0);
+    expect(href).not.toMatch(/team|Team/);
+    expect(timesViewHref("athletes", url.search)).not.toMatch(/team|Team/);
+    expect(
+      readTimesSelection(url.searchParams.get("athleteOptions"), {
+        course: "SCY",
+        period: "recent",
+      }),
+    ).toEqual({ course: "LCM", period: "all" });
+  });
   it("round trips multi-selects, relay settings, empty selections and special characters", () => {
     const filters = {
       ...initialFilters,
       genders: [],
       ageGroups: ["8&U", "19&O"],
-      team: "A & B",
       relay: true,
     };
     const url = new URL(

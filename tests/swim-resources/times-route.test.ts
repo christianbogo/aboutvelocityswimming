@@ -15,6 +15,7 @@ it("rejects invalid input before querying and returns only the public read resul
   expect(response.status).toBe(200);
   expect(response.headers.get("cache-control")).toBe("no-store");
   expect(readTimes).toHaveBeenCalledWith("rankings", {
+    team: "velocity-swimming",
     genders: ["F", "M"],
     mode: "bests",
     offset: 0,
@@ -34,6 +35,6 @@ it("failed queries have no HTTP cache and are retryable", async () => {
   expect(JSON.stringify(await failure.json())).not.toContain(
     "private diagnostic",
   );
-  readTimes.mockResolvedValueOnce({ teams: [], expiresAt: 180000 });
+  readTimes.mockResolvedValueOnce({ years: [], expiresAt: 180000 });
   expect((await GET(request("view=facets"))).status).toBe(200);
 });

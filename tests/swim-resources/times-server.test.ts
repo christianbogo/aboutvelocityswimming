@@ -31,6 +31,15 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
 });
+it("enforces Velocity scope even for direct server callers and shares their cache", async () => {
+  await readTimes("rankings", { team: "other-club", course: "SCY" });
+  await readTimes("rankings", { course: "SCY" });
+  expect(mocks.rpc).toHaveBeenCalledTimes(1);
+  expect(mocks.rpc).toHaveBeenCalledWith("ies_times_query", {
+    query_kind: "rankings",
+    input: { team: "velocity-swimming", course: "SCY" },
+  });
+});
 it("uses a stateless public client and expires reads at the minute boundary", async () => {
   const first = await readTimes("rankings", { genders: ["F"] });
   expect(first.expiresAt).toBe(180000);
@@ -60,7 +69,9 @@ it("does not save failed reads in the cache", async () => {
 it("uses the recent results query for a date-ordered ranking page", async () => {
   const input = { mode: "recent", event: "100_FR", offset: 25 };
   await readTimes("rankings", input);
-  expect(mocks.rpc).toHaveBeenCalledWith("ies_times_recent", { input });
+  expect(mocks.rpc).toHaveBeenCalledWith("ies_times_recent", {
+    input: { ...input, team: "velocity-swimming" },
+  });
 });
 it("shares the scored cohort cache across athlete searches and list pages", async () => {
   const athletes = Array.from({ length: 30 }, (_, i) => ({

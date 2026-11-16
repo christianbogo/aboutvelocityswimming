@@ -3,15 +3,14 @@
 The website and tools use Supabase (`hgsghjqefynhbavmkehv`). Firebase-specific guides below describe the archived migration history, not the active runtime.
 
 - `/tools/workshare`: private households and commitments. Members are independent of Times athletes.
-- `/tools/times`: public approved Inland Empire athlete profiles and race history, including meets outside the region.
-- `/tools/knowledge`: a map and approved team, meet, and organization entries with source links.
+- `/tools/times`: public approved Velocity Swimming athlete profiles and race history, including meets outside the region.
 - `/tools/review`: staff-only evidence and before/after review. Approve, hold, or decline a bounded batch. Approval checks for stale data and applies all changes atomically.
 
 Staff access requires a verified account and either an explicit user grant in `public.administrators` or a verified email listed in `private.administrator_emails`. Team email domains alone do not grant staff access. Collector tokens cannot grant permissions or publish records.
 
 Use Node 24. For synthetic local development: start OrbStack/Docker, run `supabase start`, `npm run seed:local`, then `npm run dev:local`. The local wrapper uses the ignored `supabase/.env.local`; ordinary `npm run dev` uses the configured hosted backend. Never seed production.
 
-Run `npm run verify` for lint, types, unit/database tests, and production build. Before `npm run test:browser`, run `node scripts/unified/import-fixture.mjs`. `npm run test:collection:browser` verifies collection → hold → approval → public display against local synthetic data.
+Run `npm run verify` for lint, types, unit/database tests, and production build. Before `npm run test:browser`, run `node scripts/unified/import-fixture.mjs`. `npm run test:collection:browser` verifies collection → hold → approval → the approved meet catalog against local synthetic data.
 
 Team records are precomputed in `public.team_record_holders`. Publication, correction, deletion, and moderation transactions queue a refresh; the `refresh-team-records` database cron job checks every five minutes and skips unchanged data. Page reads return grouped holder IDs and current public race details without recalculating winners. Database reads immediately exclude flagged, hidden, deleted, or edited winners; replacements appear after the next refresh. The existing one-minute page cache still applies. The initial migration populates the board. For local fixtures or an authorized maintenance session, run `select private.refresh_team_records();` as the database owner after changes. Refresh failures leave the previous board and queued work intact; inspect `cron.job_run_details` for failures. Deploy the database migration before the updated client.
 

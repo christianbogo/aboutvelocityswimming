@@ -11,11 +11,8 @@ import {
 import { timesViewHref } from "@/components/collection/times-url-state";
 import { worksharePath } from "@/features/workshare/lib/routes";
 import {
-  atlasViews,
-  overviewViews,
   timesViews,
   toolDirectory,
-  type AtlasView,
   type TimesView,
   type ToolId,
 } from "./tool-directory";
@@ -42,28 +39,12 @@ const timesDescriptions: Record<TimesView, string> = {
     "Find a swimmer to explore their results, personal bests, and progress.",
 };
 
-const atlasDescriptions: Record<AtlasView, string> = {
-  map: "Explore swimming locations and organizations on an interactive map.",
-  team: "Find swim teams and explore their locations and affiliations.",
-  meet: "Browse meets by date, region, and venue, with links to original sources.",
-  organization:
-    "Explore the zones, local swimming committees, and organizations behind the sport.",
-};
-
 // Keep landing-page summaries and sidebar destinations in sync.
 export function getToolPages(
   tool: ToolId,
   workshareAdmin: boolean,
 ): ToolPage[] {
   switch (tool) {
-    case "overview":
-      return overviewViews.map(([id, label, icon]) => ({
-        id,
-        label,
-        icon,
-        description: `Explore the swimming archive with ${label}.`,
-        href: `/tools/overview?view=${id}`,
-      }));
     case "times":
       return timesViews.map(([id, label, icon]) => ({
         id,
@@ -71,14 +52,6 @@ export function getToolPages(
         icon,
         description: timesDescriptions[id],
         href: timesViewHref(id),
-      }));
-    case "atlas":
-      return atlasViews.map(([id, label, icon]) => ({
-        id,
-        label,
-        icon,
-        description: atlasDescriptions[id],
-        href: `${toolDirectory.atlas.href}${id === "map" ? "" : `?view=${id}`}`,
       }));
     case "workshare":
       return [

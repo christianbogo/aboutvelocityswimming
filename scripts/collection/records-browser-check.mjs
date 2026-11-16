@@ -20,7 +20,7 @@ try {
   await page.waitForURL(base + "/tools");
 
   // First exercise the real browser -> Next route -> local database path.
-  const live = await page.request.get(base + "/api/times?view=records&team=velocity-swimming");
+  const live = await page.request.get(base + "/api/times?view=records");
   assert.equal(live.status(), 200);
   const board = await live.json();
   assert.ok(board.records && board.recordsUpdatedAt);
@@ -30,7 +30,7 @@ try {
   // rendering must use backend winners instead of recalculating in the client.
   const holder = {
     id: "stored-holder", athleteId: "stored-athlete", athleteName: "Stored record holder",
-    team: "record-fixture", teamName: "Record fixture", event: "100_FR", course: "SCY",
+    team: "velocity-swimming", teamName: "Velocity Swimming", event: "100_FR", course: "SCY",
     gender: "F", ageAtSwim: 12, time: 60000, date: "2026-10-01", status: "OK",
     official: true, relay: false, relayLeg: null, split: false,
   };
@@ -38,19 +38,18 @@ try {
   await page.route("**/api/times?*", (route) => {
     const kind = new URL(route.request().url()).searchParams.get("view");
     calls.push(kind);
-    const teams = [["record-fixture", "Record fixture"]];
     const data = kind === "records" ? {
       records: { "SCY:11-12:100_FR:F": [holder.id] },
       races: [holder, { ...holder, id: "unused-faster", athleteId: "unused", athleteName: "Unused faster race", time: 50000 }],
       recordsUpdatedAt: "2026-11-15T18:00:00Z",
-    } : { teams, rows: [], total: 0 };
+    } : { rows: [], total: 0 };
     return route.fulfill({ json: { ...data, expiresAt: Date.now() + 60_000 } });
   });
   await page.goto(base + "/tools/times?view=records");
   const records = page.getByRole("region", { name: "Team records", exact: true });
   await records.getByText("Stored record holder", { exact: true }).waitFor();
   assert.equal(await records.getByText("Unused faster race", { exact: true }).count(), 0);
-  assert.deepEqual([...new Set(calls)].sort(), ["record_teams", "records"]);
+  assert.deepEqual([...new Set(calls)].sort(), ["records"]);
   assert.ok(await records.getByText("Updated Nov 15, 2026", { exact: true }).count());
   const link = records.getByRole("button", { name: "View girls 11–12 SCY 100 FR rankings" });
   await link.click();
@@ -62,7 +61,7 @@ try {
   assert.equal(await records.getAttribute("data-mobile-gender"), "M");
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   assert.deepEqual(errors, []);
-  console.log("Team records: live API, stored selections, lightweight team picker, ranking links, and mobile display passed.");
+  console.log("Team records: live API, stored selections, Velocity-only results, ranking links, and mobile display passed.");
 } finally {
   await browser.close();
 }

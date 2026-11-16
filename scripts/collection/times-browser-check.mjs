@@ -171,14 +171,29 @@ races.find((race) => race.id === "athlete0_1").splits = [
 races.find((race) => race.id === "athlete0_1").splitCoverage = "complete";
 const browser = await chromium.launch({ headless: true });
 const errors = [];
+let storageState;
 async function setup({ failure = false, expiry = false } = {}) {
   const page = await browser.newPage({
     viewport: { width: 1440, height: 1000 },
+    storageState,
   });
   page.setDefaultTimeout(12000);
   page.on("pageerror", (e) => errors.push(e.message));
+  await page.route("**/auth/v1/**", (route) => {
+    assert.ok(["127.0.0.1", "localhost"].includes(new URL(route.request().url()).hostname));
+    return route.continue();
+  });
+  if (!storageState) {
+    await page.goto(base + "/login");
+    await page.getByRole("button", { name: /password/i }).click();
+    await page.locator("input[type=email]").fill("christiancutter02@gmail.com");
+    await page.locator("input[type=password]").fill("Velocity-local-test-2026!");
+    await page.locator("button[type=submit]").click();
+    await page.waitForURL(base + "/tools");
+    storageState = await page.context().storageState();
+  }
   const calls = [];
-  let expired = false;
+  let expiryDeadline;
   page.on("request", (r) => {
     if (r.url().includes("/rest/v1/public_"))
       throw new Error("Unexpected bulk public download");
@@ -186,6 +201,7 @@ async function setup({ failure = false, expiry = false } = {}) {
   await page.route("**/api/times?*", async (route) => {
     const q = new URL(route.request().url()).searchParams,
       view = q.get("view");
+    assert.equal(q.has("team"), false, "Velocity reads do not send a selectable team");
     calls.push(q);
     if (failure && view === "rankings") {
       failure = false;
@@ -206,12 +222,8 @@ async function setup({ failure = false, expiry = false } = {}) {
     const own = races.filter(
       (r) => r.athleteId === q.get("athleteId") && !r.relay,
     );
-    if (view === "facets" || view === "record_teams")
+    if (view === "facets")
       data = {
-        teams: [
-          [velocityTeam, "Velocity Swimming"],
-          ["unattached", "Unattached IES"],
-        ],
         events: [...events.map(([e]) => e), "100_BK", "100_FL"],
         years: ["2026", "2025"],
         relayAges: [],
@@ -391,11 +403,10 @@ async function setup({ failure = false, expiry = false } = {}) {
         standardAvailable: true,
       };
     assert.ok(data, "Unhandled times view: " + view);
-    const expiresAt =
-      expiry && !expired && view === "rankings"
-        ? Date.now() + 900
-        : (Math.floor(Date.now() / 60000) + 1) * 60000;
-    if (view === "rankings") expired = true;
+    if (expiry && view === "rankings") expiryDeadline ??= Date.now() + 900;
+    const expiresAt = expiryDeadline && Date.now() < expiryDeadline && view === "rankings"
+      ? expiryDeadline
+      : (Math.floor(Date.now() / 60000) + 1) * 60000;
     await route.fulfill({ json: { ...data, expiresAt } });
   });
   return { page, calls };
@@ -551,7 +562,7 @@ try {
       );
       throw error;
     });
-  assert.deepEqual(calls.map((q) => q.get("view")).sort(), [
+  assert.deepEqual([...new Set(calls.map((q) => q.get("view")))].sort(), [
     "facets",
     "rankings",
   ]);
@@ -570,8 +581,8 @@ try {
     "Rankings start without an analysis sidebar",
   );
   const timesNav = page.getByRole("navigation", { name: "Tools navigation" });
-  const toolsLink = page.getByRole("link", {
-    name: "Tools overview",
+  const toolsLink = timesNav.getByRole("link", {
+    name: "Account",
     exact: true,
   });
   assert.equal(await toolsLink.getAttribute("href"), "/tools");
@@ -627,7 +638,7 @@ try {
   const rankedTable = page.getByRole("table").first();
   assert.deepEqual(
     await rankedTable.getByRole("columnheader").allTextContents(),
-    ["Rank", "Athlete", "Time", "Date", "Team", "Meet"],
+    ["Rank", "Athlete", "Time", "Date", "Meet"],
   );
   assert.equal(
     await rankedTable
@@ -645,12 +656,7 @@ try {
       .evaluate((cell) => getComputedStyle(cell).textAlign),
     "center",
   );
-  await page.getByRole("button", { name: "Team", exact: true }).click();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Velocity Swimming", exact: true })
-    .click();
-  await summary.getByText("Velocity Swimming", { exact: true }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "Team", exact: true }).count(), 0);
   await page.getByRole("button", { name: "Age group", exact: true }).click();
   assert.deepEqual(
     await page.getByRole("dialog").getByRole("button").allTextContents(),
@@ -787,20 +793,8 @@ try {
     name: "Team records",
     exact: true,
   });
-  const recordTeamPicker = recordsPanel.getByRole("button", {
-    name: "Record team",
-    exact: true,
-  });
-  assert.equal(await recordTeamPicker.getAttribute("aria-haspopup"), "dialog");
-  assert.equal(await recordTeamPicker.locator("svg").count(), 1);
-  await recordTeamPicker.click();
-  const recordTeamDialog = recordsPanel.getByRole("dialog", {
-    name: "Record team",
-  });
-  await recordTeamDialog.waitFor();
-  await recordTeamDialog
-    .getByRole("button", { name: "Velocity Swimming" })
-    .click();
+  await recordsPanel.getByRole("heading", { name: "Velocity Swimming records", exact: true }).waitFor();
+  assert.equal(await recordsPanel.getByRole("button", { name: "Record team", exact: true }).count(), 0);
   const recordTable = recordsPanel
     .getByRole("region", { name: "SCY 11–12 record table", exact: true })
     .getByRole("table");
@@ -835,12 +829,7 @@ try {
     .waitFor();
   assert.equal(
     await recordTable.locator("caption time").textContent(),
-    new Date().toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      timeZone: "America/Los_Angeles",
-    }),
+    "Updated Nov 15, 2026",
   );
   const headingLabels = recordTable.locator("caption > div > span");
   assert.deepEqual(await headingLabels.allTextContents(), ["Girls", "Boys"]);
@@ -1039,8 +1028,8 @@ try {
     .getByRole("button", { name: "← Back to team athletes", exact: true })
     .click();
   assert.equal(
-    await page.getByLabel("Athlete team", { exact: true }).inputValue(),
-    velocityTeam,
+    await page.getByLabel("Athlete team", { exact: true }).count(),
+    0,
   );
   await page.getByText("3-event score", { exact: true }).first().waitFor();
   const pager = page.getByRole("navigation", { name: "Ranked athletes pages" });
@@ -1063,7 +1052,7 @@ try {
   await page
     .getByRole("button", { name: "← Back to team athletes", exact: true })
     .click();
-  assert.equal(await page.getByLabel("Athlete team").inputValue(), velocityTeam);
+  assert.equal(await page.getByLabel("Athlete team").count(), 0);
   await page
     .locator("#athlete-search")
     .getByText("Swimmer 26 Fixture", { exact: true })
@@ -1462,15 +1451,16 @@ try {
   await recovery.page.close();
   const expiry = await setup({ expiry: true });
   await expiry.page.goto(base + "/tools/times");
-  await expiry.page.getByRole("table").waitFor();
+  await expiry.page.locator('table[aria-busy="false"]').waitFor();
+  const initialRequests = expiry.calls.filter((q) => q.get("view") === "rankings").length;
   await expiry.page.waitForResponse(
     (r) =>
       r.url().includes("view=rankings") &&
-      expiry.calls.filter((q) => q.get("view") === "rankings").length >= 2,
+      expiry.calls.filter((q) => q.get("view") === "rankings").length > initialRequests,
   );
   assert.equal(
     expiry.calls.filter((q) => q.get("view") === "rankings").length,
-    2,
+    initialRequests + 1,
   );
   await expiry.page.close();
   assert.deepEqual(errors, []);

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { hasBackendConfiguration } from "@/lib/supabase/client";
 import { getTimesView, type TimesView } from "@/lib/tool-directory";
+import { VELOCITY_TEAM } from "@/features/swim-resources/lib/domain/entities";
 import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
 import {
   ageGroups,
@@ -337,7 +338,7 @@ function Performance({
               <h2>Every swim tells a story.</h2>
               <p className={s.note}>
                 Select any result time to see how it compares with the approved
-                IES dataset.
+                Velocity Swimming results.
               </p>
               <div className={s.percentile}>
                 <BarChart3 size={36} />
@@ -448,9 +449,10 @@ function Performance({
               <details className={s.note} open>
                 <summary>Understand this comparison</summary>
                 <p>
-                  Same event and course, using the selected team, year, gender,
-                  and age groups across all meets. Only valid times matching the
-                  selected round and official-result filters qualify.{" "}
+                  Same event and course, using Velocity Swimming results and the
+                  selected year, gender, and age groups across all meets. Only
+                  valid times matching the selected round and official-result
+                  filters qualify.{" "}
                   {race.relay
                     ? "Every eligible complete relay contributes one team performance."
                     : basis === "bests"
@@ -465,7 +467,7 @@ function Performance({
                   the reported event age group. Results without a reported age
                   are included only when no age group is selected. Gender
                   filters include only the selected reported genders. This is
-                  dataset coverage, not an official IES ranking.
+                  dataset coverage, not an official ranking.
                 </p>
                 {stats && stats.count < 10 && (
                   <p>
@@ -483,7 +485,7 @@ function Performance({
       </div>
       <div className={s.detail}>
         <div className={s.badge}>Built for the next personal best</div>
-        <p className={s.note}>Inland Empire athletes. Wherever they compete.</p>
+        <p className={s.note}>Velocity Swimming athletes. Wherever they compete.</p>
       </div>
     </aside>
   );
@@ -509,7 +511,6 @@ function TimesDatabaseContent() {
     "filters",
     initialFilters,
   );
-  const [recordTeam, setRecordTeam] = useTimesSelection("recordTeam", "");
   const [fromRecords, setFromRecords] = useState(false);
   const [search, setSearch] = useTimesSelection("search", "");
   const searchTerm = useDebouncedSearch(search);
@@ -518,7 +519,6 @@ function TimesDatabaseContent() {
   const [relayPage, setRelayPage] = useTimesSelection("relayPage", 0);
   const [meetId, setMeetId] = useTimesSelection("meetId", "");
   const [meetEventKey, setMeetEventKey] = useTimesSelection("meetEventKey", "");
-  const [meetTeam, setMeetTeam] = useTimesSelection("meetTeam", "");
   const [meetSearchOpen, setMeetSearchOpen] = useTimesSelection(
     "meetSearchOpen",
     true,
@@ -544,22 +544,9 @@ function TimesDatabaseContent() {
   const profileRef = useRef<HTMLElement>(null);
   const enabled = hasBackendConfiguration;
   const facets = useTimes(
-    enabled ? timesUrl(view === "records" ? "record_teams" : "facets") : null,
-  );
-  const teams = facets.data?.teams ?? [];
-  const recordTeams = teams.filter(
-    ([id, name]) =>
-      !/unattached/i.test(`${id} ${name}`) &&
-      !/^UN(?:AT|SC)(?:$|[-_\s])/i.test(id),
+    enabled && view !== "records" ? timesUrl("facets") : null,
   );
   const years = facets.data?.years ?? [];
-  const activeRecordTeam =
-    recordTeams.find(([id]) => id === recordTeam)?.[0] ||
-    recordTeams.find(([id]) => id === "velocity-swimming")?.[0] ||
-    recordTeams[0]?.[0] ||
-    "";
-  const recordTeamName =
-    teams.find(([id]) => id === activeRecordTeam)?.[1] ?? "";
   const queryFilters = {
     ...filters,
     genders: filters.genders.length ? filters.genders : undefined,
@@ -597,7 +584,6 @@ function TimesDatabaseContent() {
       ? timesUrl("meet_results", {
           meetId,
           meetEventKey: activeMeetEvent.key,
-          team: meetTeam,
           offset: page * pageSize,
         })
       : null,
@@ -632,9 +618,7 @@ function TimesDatabaseContent() {
       : null,
   );
   const recordsQuery = useTimes(
-    enabled && view === "records" && activeRecordTeam
-      ? timesUrl("records", { team: activeRecordTeam })
-      : null,
+    enabled && view === "records" ? timesUrl("records") : null,
   );
   const races = recordsQuery.data?.races ?? [];
   const history = historyQuery.data?.points ?? [];
@@ -680,12 +664,6 @@ function TimesDatabaseContent() {
       : view === "athletes" && !athleteSearchOpen
         ? activeEvent.split("_").slice(0, 2).join("_")
         : filters.event;
-  const summaryTeam =
-    view === "records"
-      ? recordTeamName
-      : teams.find(
-          ([id]) => id === (view === "meets" ? meetTeam : filters.team),
-        )?.[1];
   const selectedAgeLabels =
     view === "meets"
       ? activeMeetEvent?.ageGroup || "Event age group unreported"
@@ -751,7 +729,11 @@ function TimesDatabaseContent() {
     if (view === "rankings") setSearch("");
   }
   function changeView(next: TimesView) {
-    window.history.replaceState(null, "", timesViewHref(next, window.location.search, window.location.hash));
+    window.history.replaceState(
+      null,
+      "",
+      timesViewHref(next, window.location.search, window.location.hash),
+    );
     setFromRecords(false);
     setSelected(null);
   }
@@ -759,7 +741,6 @@ function TimesDatabaseContent() {
     changeView("rankings");
     setFilters({
       ...initialFilters,
-      team: activeRecordTeam,
       course: selection.course,
       event: selection.event,
       genders: [selection.gender],
@@ -874,9 +855,6 @@ function TimesDatabaseContent() {
               <th scope="col">{view === "rankings" ? "Date" : "Round"}</th>
               {view === "rankings" && (
                 <>
-                  <th scope="col" className={s.rankingTeam}>
-                    Team
-                  </th>
                   <th scope="col" className={s.rankingMeet}>
                     Meet
                   </th>
@@ -928,12 +906,6 @@ function TimesDatabaseContent() {
                     </td>
                     {view === "rankings" && (
                       <>
-                        <td className={s.rankingTeam}>
-                          <span
-                            className={loadingStyles.bar}
-                            style={{ width: 120 }}
-                          />
-                        </td>
                         <td className={s.rankingMeet}>
                           <span
                             className={loadingStyles.bar}
@@ -1011,7 +983,6 @@ function TimesDatabaseContent() {
                         changeView("meets");
                         setMeetId(race.meetId);
                         setMeetEventKey("");
-                        setMeetTeam("");
                         setMeetSearchOpen(false);
                         showProfile();
                       }}
@@ -1024,11 +995,6 @@ function TimesDatabaseContent() {
                 </td>
                 {view === "rankings" && (
                   <>
-                    <td className={`${s.teamCell} ${s.rankingTeam}`}>
-                      {race.teamName ||
-                        teams.find(([id]) => id === race.team)?.[1] ||
-                        "Team unavailable"}
-                    </td>
                     <td className={s.rankingMeet}>
                       <button
                         className={s.link}
@@ -1037,7 +1003,6 @@ function TimesDatabaseContent() {
                           changeView("meets");
                           setMeetId(race.meetId);
                           setMeetEventKey("");
-                          setMeetTeam("");
                           setMeetSearchOpen(false);
                           showProfile();
                         }}
@@ -1092,10 +1057,12 @@ function TimesDatabaseContent() {
               compact={view === "rankings"}
               items={[
                 ["Course", summaryCourse],
-                ["Event", summaryEvent ? eventLabel(summaryEvent) : "All events"],
+                [
+                  "Event",
+                  summaryEvent ? eventLabel(summaryEvent) : "All events",
+                ],
                 ["Age group", selectedAgeLabels],
                 ["Gender", selectedGenderLabels],
-                ["Team", summaryTeam],
               ]}
             />
           )}
@@ -1125,21 +1092,10 @@ function TimesDatabaseContent() {
                   races={races}
                   recordBoard={recordsQuery.data?.records}
                   updatedAt={recordsQuery.data?.recordsUpdatedAt}
-                  teamName={recordTeamName}
                   ready={Boolean(recordsQuery.data)}
-                  loading={recordsQuery.loading || facets.loading}
+                  loading={recordsQuery.loading}
                   names={names}
                   onRecord={openRecord}
-                  selector={
-                    <PopupPicker
-                      label="Record team"
-                      hideLabel
-                      value={activeRecordTeam}
-                      onChange={setRecordTeam}
-                      options={recordTeams}
-                      searchPlaceholder="Search teams"
-                    />
-                  }
                 />
               </>
             ) : (
@@ -1188,8 +1144,8 @@ function TimesDatabaseContent() {
                           ← Team records
                         </button>
                         <span>
-                          {teams.find(([id]) => id === filters.team)?.[1]} ·{" "}
-                          {filters.course} {filters.event.replace("_", " ")} ·{" "}
+                          {VELOCITY_TEAM.name} · {filters.course}{" "}
+                          {filters.event.replace("_", " ")} ·{" "}
                           {filters.genders[0] === "F"
                             ? "Girls"
                             : filters.genders[0] === "M"
@@ -1221,7 +1177,10 @@ function TimesDatabaseContent() {
                               updateResultCategory(event.endsWith("-R"));
                               updateFilter("event", event);
                             }}
-                            options={rankingEvents.map((e) => [e, eventLabel(e)])}
+                            options={rankingEvents.map((e) => [
+                              e,
+                              eventLabel(e),
+                            ])}
                           />
                           <div className={s.secondaryFilters}>
                             <fieldset className={s.courseField}>
@@ -1269,14 +1228,6 @@ function TimesDatabaseContent() {
                               )}
                             />
                             <PopupPicker
-                              label="Team"
-                              value={filters.team}
-                              onChange={(v) => updateFilter("team", v)}
-                              all="All IES Teams"
-                              options={teams}
-                              searchPlaceholder="Search teams"
-                            />
-                            <PopupPicker
                               label="Year"
                               value={filters.year}
                               onChange={(v) => updateFilter("year", v)}
@@ -1289,7 +1240,9 @@ function TimesDatabaseContent() {
                           {searchField}
                           <button
                             className={s.link}
-                            onClick={() => applyRankingFilters(initialFilters, "")}
+                            onClick={() =>
+                              applyRankingFilters(initialFilters, "")
+                            }
                           >
                             Reset filters
                           </button>
@@ -1339,7 +1292,6 @@ function TimesDatabaseContent() {
                     )}
                     {view === "athletes" ? (
                       <AthleteBrowser
-                        teams={teams}
                         onAthlete={openAthlete}
                         enabled={enabled && athleteSearchOpen}
                       />
@@ -1389,7 +1341,6 @@ function TimesDatabaseContent() {
                                       onClick={() => {
                                         setMeetId(m.id);
                                         setMeetEventKey("");
-                                        setMeetTeam("");
                                         setMeetSearchOpen(false);
                                         showProfile();
                                         setPage(0);
@@ -1495,20 +1446,6 @@ function TimesDatabaseContent() {
                               ? "Official event order"
                               : "Event order unavailable — grouped by event"}
                           </p>
-                          <div className={s.filters}>
-                            <PopupPicker
-                              label="Meet team"
-                              value={meetTeam}
-                              onChange={(team) => {
-                                setMeetTeam(team);
-                                setPage(0);
-                                setSelected(null);
-                              }}
-                              all="All IES Teams"
-                              options={teams}
-                              searchPlaceholder="Search teams"
-                            />
-                          </div>
                           <QueryNotice query={rowsQuery} />
                           {(rowsQuery.data || rowsQuery.loading) && table}
                         </section>
@@ -1718,16 +1655,15 @@ function TimesDatabaseContent() {
                   </section>
                 )}
                 <p className={s.footer}>
-                  Approved IES dataset only; coverage may be incomplete.
-                  Rankings exclude disqualifications, scratches, and missing
-                  times. Verified flat-start relay lead-offs can count toward
-                  individual personal bests; flying-start splits remain relay
-                  details. Relay rankings use complete team results. Equal times
-                  share a rank. Individual age groups use age at the swim; relay
-                  groups use the reported event age group. All IES Teams
-                  includes unattached IES entries. Gender filters include only
-                  the selected reported genders. Unreported ages are included
-                  when no age group is selected.
+                  Approved Velocity Swimming results only; coverage may be
+                  incomplete. Rankings exclude disqualifications, scratches, and
+                  missing times. Verified flat-start relay lead-offs can count
+                  toward individual personal bests; flying-start splits remain
+                  relay details. Relay rankings use complete team results. Equal
+                  times share a rank. Individual age groups use age at the swim;
+                  relay groups use the reported event age group. Gender filters
+                  include only the selected reported genders. Unreported ages
+                  are included when no age group is selected.
                 </p>
               </>
             )}

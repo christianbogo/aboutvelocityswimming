@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import SearchableSelect from "@/components/shared/SearchableSelect";
-import { VELOCITY_TEAM } from "@/features/swim-resources/lib/domain/entities";
 import { useTimesSelection } from "./use-times-selection";
 import {
   type AthleteRankingOptions,
@@ -113,18 +111,15 @@ function RankingList({
   );
 }
 export default function AthleteBrowser({
-  teams,
   onAthlete,
   enabled = true,
 }: {
-  teams: [string, string][];
   onAthlete: (id: string) => void;
   enabled?: boolean;
 }) {
   const [options, setOptions] = useTimesSelection<
-    Omit<AthleteRankingOptions, "today">
+    Omit<AthleteRankingOptions, "today" | "team">
   >("athleteOptions", {
-    team: VELOCITY_TEAM.id,
     course: "SCY",
     period: "recent",
   });
@@ -132,13 +127,11 @@ export default function AthleteBrowser({
   const [search, setSearch] = useTimesSelection("athleteSearch", "");
   const searchTerm = useDebouncedSearch(search).trim().toLowerCase();
   const query = useTimes(
-    options.team
-      ? timesUrl("athletes", {
-          ...options,
-          search: searchTerm,
-          ageGroups: ages,
-        })
-      : null,
+    timesUrl("athletes", {
+      ...options,
+      search: searchTerm,
+      ageGroups: ages,
+    }),
     enabled,
   );
   const groups = query.data?.groups ?? [];
@@ -149,10 +142,6 @@ export default function AthleteBrowser({
     : null;
   const visible = groups;
   const sections = [...new Set(visible.map((g) => g.ageGroup))];
-  const hasVelocity = teams.some(([id]) => id === VELOCITY_TEAM.id);
-  const teamOptions: [string, string][] = hasVelocity
-    ? teams
-    : [[VELOCITY_TEAM.id, VELOCITY_TEAM.name], ...teams];
   const resetKey = JSON.stringify([
     options,
     ages,
@@ -161,15 +150,6 @@ export default function AthleteBrowser({
   ]);
   const filterPanel = (
     <div className={`${s.filters} ${s.athleteFilters}`}>
-      <SearchableSelect
-        label="Athlete team"
-        fieldClassName={`${s.field} ${s.athleteFilterWide}`}
-        value={options.team}
-        onChange={(team) => setOptions((o) => ({ ...o, team }))}
-        options={teamOptions}
-        emptyLabel="Select a team…"
-        searchPlaceholder="Search teams"
-      />
       <label className={s.field}>
         Athlete course
         <select
@@ -282,100 +262,93 @@ export default function AthleteBrowser({
           listed alphabetically without scores.
         </p>
       )}
-      {!options.team ? (
-        <p className={s.empty}>
-          Select a team to explore athletes by recorded age group.
+      <>
+        <p className={s.muted}>
+          {options.period === "recent"
+            ? "Latest recorded affiliation and age · past 12 months"
+            : "Historical affiliation and age at the swim"}{" "}
+          · {options.course}
         </p>
-      ) : (
-        <>
-          <p className={s.muted}>
-            {options.period === "recent"
-              ? "Latest recorded affiliation and age · past 12 months"
-              : "Historical affiliation and age at the swim"}{" "}
-            · {options.course}
+        {query.data && !visible.length && (
+          <p className={s.empty}>
+            No matching athletes. Try another name, age group, or period.
           </p>
-          {query.data && !visible.length && (
-            <p className={s.empty}>
-              No matching athletes. Try another name, age group, team, or
-              period.
-            </p>
-          )}
-          <div key={resetKey}>
-            {sections.map((age) => (
-              <section
-                key={age}
-                className={s.athleteAgeSection}
-                aria-label={visible.find((g) => g.ageGroup === age)!.label}
-              >
-                <h3>{visible.find((g) => g.ageGroup === age)!.label}</h3>
-                <div className={s.athleteColumns}>
-                  {visible
-                    .filter((g) => g.ageGroup === age)
-                    .map((g) => (
-                      <div key={g.gender}>
-                        <h3 className={s.athleteGender}>
-                          {g.gender === "F"
-                            ? "Female"
-                            : g.gender === "M"
-                              ? "Male"
-                              : "Other / gender unavailable"}
-                        </h3>
-                        <RankingList
-                          title="Ranked athletes"
-                          enabled={enabled}
-                          total={g.totals.ranked}
-                          status="ranked"
-                          input={{
-                            ...options,
-                            search: searchTerm,
-                            groupAge: g.ageGroup,
-                            groupGender: g.gender,
-                          }}
-                          athletes={g.athletes.filter(
-                            (a) => a.status === "ranked",
-                          )}
-                          onAthlete={onAthlete}
-                        />
-                        <RankingList
-                          title="Provisional — fewer than three events"
-                          enabled={enabled}
-                          total={g.totals.provisional}
-                          status="provisional"
-                          input={{
-                            ...options,
-                            search: searchTerm,
-                            groupAge: g.ageGroup,
-                            groupGender: g.gender,
-                          }}
-                          athletes={g.athletes.filter(
-                            (a) => a.status === "provisional",
-                          )}
-                          onAthlete={onAthlete}
-                        />
-                        <RankingList
-                          title="Not scored"
-                          enabled={enabled}
-                          total={g.totals.unscored}
-                          status="unscored"
-                          input={{
-                            ...options,
-                            search: searchTerm,
-                            groupAge: g.ageGroup,
-                            groupGender: g.gender,
-                          }}
-                          athletes={g.athletes.filter(
-                            (a) => a.status === "unscored",
-                          )}
-                          onAthlete={onAthlete}
-                        />
-                      </div>
-                    ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        </>
-      )}
+        )}
+        <div key={resetKey}>
+          {sections.map((age) => (
+            <section
+              key={age}
+              className={s.athleteAgeSection}
+              aria-label={visible.find((g) => g.ageGroup === age)!.label}
+            >
+              <h3>{visible.find((g) => g.ageGroup === age)!.label}</h3>
+              <div className={s.athleteColumns}>
+                {visible
+                  .filter((g) => g.ageGroup === age)
+                  .map((g) => (
+                    <div key={g.gender}>
+                      <h3 className={s.athleteGender}>
+                        {g.gender === "F"
+                          ? "Female"
+                          : g.gender === "M"
+                            ? "Male"
+                            : "Other / gender unavailable"}
+                      </h3>
+                      <RankingList
+                        title="Ranked athletes"
+                        enabled={enabled}
+                        total={g.totals.ranked}
+                        status="ranked"
+                        input={{
+                          ...options,
+                          search: searchTerm,
+                          groupAge: g.ageGroup,
+                          groupGender: g.gender,
+                        }}
+                        athletes={g.athletes.filter(
+                          (a) => a.status === "ranked",
+                        )}
+                        onAthlete={onAthlete}
+                      />
+                      <RankingList
+                        title="Provisional — fewer than three events"
+                        enabled={enabled}
+                        total={g.totals.provisional}
+                        status="provisional"
+                        input={{
+                          ...options,
+                          search: searchTerm,
+                          groupAge: g.ageGroup,
+                          groupGender: g.gender,
+                        }}
+                        athletes={g.athletes.filter(
+                          (a) => a.status === "provisional",
+                        )}
+                        onAthlete={onAthlete}
+                      />
+                      <RankingList
+                        title="Not scored"
+                        enabled={enabled}
+                        total={g.totals.unscored}
+                        status="unscored"
+                        input={{
+                          ...options,
+                          search: searchTerm,
+                          groupAge: g.ageGroup,
+                          groupGender: g.gender,
+                        }}
+                        athletes={g.athletes.filter(
+                          (a) => a.status === "unscored",
+                        )}
+                        onAthlete={onAthlete}
+                      />
+                    </div>
+                  ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </>
     </div>
   );
   return (

@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs, promisify } from "node:util";
 import { createClient } from "@supabase/supabase-js";
 import { assertCollectionTarget } from "./target.mjs";
+import { assertVelocityImportBatch } from "./velocity-scope.mjs";
 
 const run = promisify(execFile);
 const parser = fileURLToPath(new URL("./velocity_import.py", import.meta.url));
@@ -64,6 +65,8 @@ function compactReasons(counts) {
 }
 
 export async function stageImportBatches({ client, workerToken, batches }) {
+  // Validate the entire upload before the first request, including linked rows.
+  for (const batch of batches) assertVelocityImportBatch(batch);
   const totals = { staged: 0, duplicates: 0, blocked: 0 };
   const batchIds = new Set();
   const exceptions = new Map();

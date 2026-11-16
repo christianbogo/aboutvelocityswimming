@@ -100,7 +100,7 @@ describe("bounded completed review history", () => {
   });
   it("searches the displayed division labels as well as stored division IDs", () => {
     expect(historySearchFilter("Velocity")).toContain("division.in.(workshare,times)");
-    expect(historySearchFilter("Swim Atlas")).toContain("division.in.(knowledge)");
+    expect(historySearchFilter("Meet Catalog")).toContain("division.in.(knowledge)");
   });
   it("propagates staff RLS errors without retry or privileged fallback", async () => {
     const fetcher = backend(() => new Response(JSON.stringify({ code: "42501", message: "permission denied", details: "", hint: "" }), {

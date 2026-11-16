@@ -33,39 +33,14 @@ const admin = createClient(config.API_URL, config.SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
   });
 const prefix = "ies-fixture-",
-  team = prefix + "team",
+  team = "velocity-swimming",
   outside = prefix + "outside",
-  unattached = prefix + "unattached",
-  linked = prefix + "linked",
   meet = prefix + "meet";
 const today = new Date().toLocaleDateString("en-CA", {
   timeZone: "America/Los_Angeles",
 });
 const races = [];
 const writes = [
-  {
-    path: "teams/" + team,
-    after: { name: "IES Fixture Club", lscCode: "IE", clubCode: "FIX" },
-  },
-  {
-    path: "teams/" + outside,
-    after: { name: "Outside Fixture Club", lscCode: "PN" },
-  },
-  {
-    path: "teams/" + unattached,
-    after: { name: "Unattached IES", lscCode: "IE", clubCode: "UNSC" },
-  },
-  { path: "teams/" + linked, after: { name: "Linked IES Club" } },
-  {
-    path: "knowledge_entries/" + prefix + "directory",
-    after: {
-      kind: "team",
-      title: "Linked IES Club",
-      sourceUrl: "https://example.test/ies-directory",
-      lscId: "usa-lsc-ie",
-      canonicalRecordPath: "teams/" + linked,
-    },
-  },
   { path: "meets/" + meet, after: { name: "IES fixture meet" } },
 ];
 for (let i = 0; i < 7; i++)
@@ -116,13 +91,11 @@ swim("dq", 4, 50000, { status: "DQ" });
 swim("raw-timing-split", 4, 10000, { isSplit: true });
 swim("zero", 4, 0, { status: "DQ" });
 swim("unofficial", 4, 58000, { isOfficial: false, round: "P" });
-swim("unattached", 3, 50000, { teamId: unattached });
-swim("linked", 4, 55000, { teamId: linked });
+swim("valid", 4, 65000);
 swim("old", 0, 58000, {
   ageAtSwim: 14,
   meet: { id: meet, name: "IES fixture meet", date: "2025-09-01" },
 });
-swim("out", 3, 20000, { teamId: outside });
 swim("fr50", 0, 29000, { eventCode: "50_FR_SCY" });
 swim("im", 0, 130000, { eventCode: "200_IM_SCY" });
 swim("scoretie-fr", 6, 59000);
@@ -156,13 +129,6 @@ swim("badleg", 0, 9000, {
   relay: { teamName: "Malformed leg fixture", leg: "" },
 });
 swim("transfer", 5, 60000);
-swim("transferaway", 5, 59000, {
-  teamId: outside,
-  course: "LCM",
-  eventCode: "100_FR_LCM",
-  meet: { id: meet, name: "IES fixture meet", date: today },
-  ageAtSwim: 13,
-});
 // Whole relays do not create an athlete swim for any flying-start member.
 const nativeRelays = [];
 function relayResult(id, extra = {}) {
@@ -271,8 +237,16 @@ const standard = {
   },
 };
 writes.push({ path: "standards/" + standard.id, after: standard });
-const collected = await admin.rpc("collect_records", { reads: [], writes });
-assert.ifError(collected.error);
+const seedTeam = await admin.from("teams").select("data").eq("id", team).single();
+assert.ifError(seedTeam.error);
+const publishedSeeds = {};
+for (const table of ["public_swims", "public_relay_results"]) {
+  const result = await admin.from(table).select("id");
+  assert.ifError(result.error);
+  publishedSeeds[table] = result.data.map(({ id }) => id);
+}
+const localSql = (statement) => execFileSync("docker", ["exec", "-i", "supabase_db_aboutvelocityswimming", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-qAt"], { input: statement, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+const quoteSql = (value) => "'" + String(value).replaceAll("'", "''") + "'";
 const query = async (kind, input = {}) => {
   if (kind === "records") {
     // Run the scheduled worker explicitly; readers never rebuild the board.
@@ -302,7 +276,7 @@ const normalized = [...races, ...nativeRelays].map((row) => ({
         splits: row.data.splits ?? [],
         teamName:
           row.data.teamId === team
-            ? "IES Fixture Club"
+            ? "Velocity Swimming"
             : "Outside Fixture Club",
       },
     }),
@@ -313,6 +287,21 @@ const normalized = [...races, ...nativeRelays].map((row) => ({
   })),
   ies = normalized.filter((r) => r.team === team);
 try {
+  // Only public projections are hidden; canonical seed rows and the shared team remain intact.
+  localSql("delete from public.public_swims; delete from public.public_relay_results;");
+  const collected = await admin.rpc("collect_records", { reads: [], writes });
+  assert.ifError(collected.error);
+  await test("the database rejects non-Velocity teams, results and retired directory entries", async () => {
+    for (const [table, data] of [
+      ["teams", { name: "Other team" }],
+      ["swims", { ...races[0].data, id: outside, teamId: outside, raceIdentity: { ...races[0].data.raceIdentity, occurrence: "rejected-outside-swim" } }],
+      ["relay_results", { ...nativeRelays[0].data, id: outside, teamId: outside, raceIdentity: { ...nativeRelays[0].data.raceIdentity, occurrence: "rejected-outside-relay" } }],
+      ["knowledge_entries", { kind: "team", title: "Other team", sourceUrl: "https://example.test/team" }],
+    ]) {
+      const rejected = await admin.rpc("collect_records", { reads: [], writes: [{ path: table + "/" + outside, after: data }] });
+      assert.equal(rejected.error?.code, "23514", table + " must reject out-of-scope data");
+    }
+  });
   await test("full-cohort ranking, ties, name search and pagination match domain helpers", async () => {
     for (const mode of ["bests", "performances"])
       for (const genders of [["F"], ["M"], ["F", "M"]]) {
@@ -688,7 +677,7 @@ try {
       seen.length,
       normalized.filter(
         (r) =>
-          [team, linked, unattached].includes(r.team) &&
+          r.team === team &&
           (!r.relay || r.relayLeg == null),
       ).length,
     );
@@ -813,32 +802,30 @@ try {
     const facets = await query("facets");
     assert.ok(facets.teams.some(([id]) => id === team));
     assert.ok(!facets.teams.some(([id]) => id === outside));
-    assert.ok(facets.teams.some(([id]) => id === unattached));
-    assert.ok(facets.teams.some(([id]) => id === linked));
+    assert.equal(facets.teams.length, 1);
     const all = await query("rankings", {
       ...initialFilters,
       genders: ["F", "M"],
       mode: "performances",
       limit: 100,
     });
-    assert.ok(all.rows.some(({ race }) => race.id === prefix + "unattached"));
-    assert.ok(all.rows.some(({ race }) => race.id === prefix + "linked"));
+    assert.ok(all.rows.every(({ race }) => race.team === team));
     assert.ok(!all.rows.some(({ race }) => race.team === outside));
     const result = await query("meet_results", { meetId: meet, limit: 100 });
     assert.equal(
       result.total,
       normalized.filter(
-        (r) => [team, unattached, linked].includes(r.team) && !r.relay,
+        (r) => r.team === team && !r.relay,
       ).length,
     );
     assert.ok(
       result.rows.every(({ race }) =>
-        [team, unattached, linked].includes(race.team),
+        race.team === team,
       ),
     );
     assert.ok(!JSON.stringify(result).includes("dob"));
     const meetRaces = normalized.filter((r) =>
-      [team, unattached, linked].includes(r.team),
+      r.team === team,
     );
     assert.equal(result.meet.count, meetRaces.length);
     for (const extra of [
@@ -1270,40 +1257,40 @@ try {
       result.rows.find((r) => r.race.athleteId === prefix + "0").race.id,
       prefix + "old",
     );
-    const reclassified = await admin.rpc("collect_records", {
-      reads: [],
-      writes: [
-        {
-          path: "teams/" + linked,
-          after: { name: "Moved Fixture Club", lscCode: "PN" },
-        },
-      ],
-    });
-    assert.ifError(reclassified.error);
-    assert.ok(
-      !(await query("facets")).teams.some(([id]) => id === linked),
-      "An explicit outside-IES LSC takes priority over a legacy directory link",
-    );
   });
 } finally {
-  const people = await admin
-    .from("athletes")
-    .select("person_id")
-    .like("id", prefix + "%");
-  assert.ifError(people.error);
-  const reversed = [...writes]
-    .reverse()
-    .map((w) => ({ path: w.path, after: null }));
-  const cleanup = await admin.rpc("collect_records", {
-    reads: [],
-    writes: [
-      ...reversed.filter((w) => !w.path.startsWith("teams/")),
-      ...people.data.map((p) => ({
-        path: "people/" + p.person_id,
-        after: null,
-      })),
-      ...reversed.filter((w) => w.path.startsWith("teams/")),
-    ],
-  });
-  assert.ifError(cleanup.error);
+  try {
+    const people = await admin
+      .from("athletes")
+      .select("person_id")
+      .like("id", prefix + "%");
+    assert.ifError(people.error);
+    const reversed = [...writes]
+      .reverse()
+      .filter((write) => !write.path.startsWith("teams/"))
+      .map((write) => ({ path: write.path, after: null }));
+    const cleanup = await admin.rpc("collect_records", {
+      reads: [],
+      writes: [
+        ...reversed,
+        ...people.data.map((person) => ({
+          path: "people/" + person.person_id,
+          after: null,
+        })),
+      ],
+    });
+    assert.ifError(cleanup.error);
+  } finally {
+    const restored = await admin.rpc("collect_records", {
+      reads: [],
+      writes: [{ path: "teams/" + team, after: seedTeam.data.data }],
+    });
+    assert.ifError(restored.error);
+    for (const [table, ids] of Object.entries(publishedSeeds)) {
+      if (!ids.length) continue;
+      const source = table === "public_swims" ? "swims" : "relay_results";
+      localSql(`update public.${source} set data=data where id in (${ids.map(quoteSql).join(",")});`);
+    }
+    localSql("select private.refresh_team_records();");
+  }
 }

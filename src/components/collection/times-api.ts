@@ -1,8 +1,8 @@
+import { VELOCITY_TEAM_ID } from "@/features/swim-resources/lib/domain/entities";
 import type { AthleteRankingGroup } from "./athlete-rankings";
 import type { Race } from "./times-data";
 export const timesKinds = [
   "facets",
-  "record_teams",
   "rankings",
   "analysis",
   "meets",
@@ -39,7 +39,6 @@ export interface TimesResponse {
   expiresAt: number;
   rows?: { race: Race; rank?: number }[];
   total?: number;
-  teams?: [string, string][];
   events?: string[];
   years?: string[];
   relayAges?: string[];
@@ -76,7 +75,7 @@ export function timesUrl(kind: TimesKind, input: TimesInput = {}) {
   const params = new URLSearchParams({ view: kind });
   for (const key of Object.keys(input).sort()) {
     const value = input[key];
-    if (value !== undefined)
+    if (key !== "team" && value !== undefined)
       params.set(
         key,
         Array.isArray(value) ? [...value].sort().join(",") : String(value),
@@ -91,9 +90,8 @@ export function parseTimesQuery(params: URLSearchParams): {
 } {
   const kind = params.get("view") as TimesKind;
   if (!timesKinds.includes(kind)) throw new Error("Choose a valid times view.");
-  const input: TimesInput = {};
+  const input: TimesInput = { team: VELOCITY_TEAM_ID };
   for (const key of [
-    "team",
     "course",
     "event",
     "year",
@@ -199,8 +197,6 @@ export function parseTimesQuery(params: URLSearchParams): {
     athlete_history: ["athleteId", "historyEvent"],
     athlete_relays: ["athleteId"],
     race: ["raceId"],
-    records: ["team"],
-    athletes: ["team"],
   };
   if (required[kind]?.some((key) => !input[key]))
     throw new Error("Select a " + required[kind]!.join(" and ") + ".");

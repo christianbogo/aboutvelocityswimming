@@ -24,11 +24,47 @@ function matchesShape(value: unknown, fallback: unknown): boolean {
   return typeof value === typeof fallback;
 }
 
+function knownSelection<T>(value: T, fallback: T): T {
+  if (fallback && typeof fallback === "object" && !Array.isArray(fallback)) {
+    return Object.fromEntries(
+      Object.entries(fallback).map(([key, sample]) => [
+        key,
+        knownSelection((value as Record<string, unknown>)[key], sample),
+      ]),
+    ) as T;
+  }
+  return value;
+}
+
+function removeTeamSelections(params: URLSearchParams) {
+  for (const key of ["team", "recordTeam", "meetTeam"]) params.delete(key);
+  for (const key of ["filters", "athleteOptions"]) {
+    const raw = params.get(key);
+    if (!raw) continue;
+    try {
+      const value = JSON.parse(raw);
+      if (
+        value &&
+        typeof value === "object" &&
+        !Array.isArray(value) &&
+        "team" in value
+      ) {
+        delete value.team;
+        params.set(key, JSON.stringify(value));
+      }
+    } catch {
+      // The selection reader handles malformed shared links.
+    }
+  }
+}
+
 export function readTimesSelection<T>(raw: string | null, fallback: T): T {
   if (raw === null) return fallback;
   try {
     const value: unknown = typeof fallback === "string" ? raw : JSON.parse(raw);
-    return matchesShape(value, fallback) ? (value as T) : fallback;
+    return matchesShape(value, fallback)
+      ? knownSelection(value as T, fallback)
+      : fallback;
   } catch {
     return fallback;
   }
@@ -40,6 +76,7 @@ export function writeTimesSelection<T>(
   value: T,
   fallback: T,
 ) {
+  value = knownSelection(value, fallback);
   if (JSON.stringify(value) === JSON.stringify(fallback))
     url.searchParams.delete(key);
   else
@@ -47,17 +84,30 @@ export function writeTimesSelection<T>(
       key,
       typeof value === "string" ? value : JSON.stringify(value),
     );
+  removeTeamSelections(url.searchParams);
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
 export function timesViewHref(view: TimesView, search = "", hash = "") {
   const params = new URLSearchParams(search);
-  for (const key of ["view", "meetSearchOpen", "athleteSearchOpen", "listPage", "search", "page", "filters"]) {
+  removeTeamSelections(params);
+  for (const key of [
+    "view",
+    "meetSearchOpen",
+    "athleteSearchOpen",
+    "listPage",
+    "search",
+    "page",
+    "filters",
+  ]) {
     params.delete(key);
   }
   if (view !== "rankings") {
     params.set("view", view);
-    params.set("filters", JSON.stringify({ ...initialFilters, course: "", event: "", genders: [] }));
+    params.set(
+      "filters",
+      JSON.stringify({ ...initialFilters, course: "", event: "", genders: [] }),
+    );
   }
   if (params.get("athleteId")) params.set("athleteSearchOpen", "false");
   const query = params.toString();

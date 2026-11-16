@@ -16,16 +16,12 @@ const admin = createClient(config.API_URL, config.SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 const prefix = `meet-nav-${Date.now()}`;
-const team = prefix + "-team",
+const team = "velocity-swimming",
   athlete = prefix + "-athlete";
 const title = prefix + " numbered",
   otherTitle = prefix + " fallback";
 const date = "2026-10-13";
 const writes = [
-  {
-    path: "teams/" + team,
-    after: { name: prefix + " Club", lscCode: "IE", clubCode: "NAV" },
-  },
   {
     path: "athletes/" + athlete,
     after: {
@@ -209,12 +205,11 @@ try {
       await admin.rpc("collect_records", {
         reads: [],
         writes: [
-          ...cleanup.filter((w) => !w.path.startsWith("teams/")),
+          ...cleanup,
           ...(people.data || []).map((p) => ({
             path: "people/" + p.person_id,
             after: null,
           })),
-          ...cleanup.filter((w) => w.path.startsWith("teams/")),
         ],
       })
     ).error,

@@ -9,7 +9,7 @@ import { Suspense, useId, useSyncExternalStore, type ReactNode } from "react";
 import { timesViewHref } from "@/components/collection/times-url-state";
 import { useAuth } from "@/features/workshare/contexts/auth";
 import { worksharePath } from "@/features/workshare/lib/routes";
-import { getAtlasView, getAvailableTools, getOverviewView, getTimesView, toolDirectory, type TimesView, type ToolId } from "@/lib/tool-directory";
+import { getAvailableTools, getTimesView, toolDirectory, type TimesView, type ToolId } from "@/lib/tool-directory";
 import { getToolPages } from "@/lib/tool-pages";
 import ToolSidebar from "./ToolSidebar";
 import styles from "./ToolSidebar.module.css";
@@ -45,26 +45,18 @@ function ToolsNavigation({ pathname, currentTool }: { pathname: string; currentT
   const hash = useSyncExternalStore(subscribeToHash, () => window.location.hash, () => "");
   const sectionId = useId();
   const onTimes = pathname === toolDirectory.times.href;
-  const onAtlas = pathname === toolDirectory.atlas.href;
   const timesView = getTimesView(params.get("view"));
-  const atlasView = getAtlasView(params.get("view"));
   const timesSearch = onTimes ? params.toString() : "";
   const timesHash = onTimes ? hash : "";
   const workshareAdmin = isAdmin && !clientMode;
 
   const subpages = currentTool ? getToolPages(currentTool, workshareAdmin).map(page => {
-    if (currentTool === "overview") {
-      const query = new URLSearchParams(params);
-      query.set("view", page.id);
-      return { ...page, href: `/tools/overview?${query}`, active: getOverviewView(params.get("view")) === page.id };
-    }
     if (currentTool === "times") {
       const active = onTimes && timesView === page.id;
       return { ...page, active, href: active
         ? `${pathname}${timesSearch ? `?${timesSearch}` : ""}${timesHash}`
         : timesViewHref(page.id as TimesView, timesSearch, timesHash) };
     }
-    if (currentTool === "atlas") return { ...page, active: onAtlas && atlasView === page.id };
     if (page.activePaths?.includes(pathname)) {
       return { ...page, active: true };
     }

@@ -2,7 +2,7 @@ import TimesDatabase from "@/components/collection/TimesDatabase";
 export const metadata = {
   title: "Velocity Times | Velocity Swimming",
   description:
-    "Explore Inland Empire swimming results, event rankings, performance percentiles, and athlete personal bests with Velocity Swimming.",
+    "Explore Velocity Swimming results, event rankings, performance percentiles, and athlete personal bests.",
 };
 export default function Page() {
   return <TimesDatabase />;

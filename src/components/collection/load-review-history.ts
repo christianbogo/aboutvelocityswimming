@@ -5,7 +5,7 @@ export const HISTORY_PAGE_SIZE = 20;
 export const reviewDivisions: Record<string, string> = {
   workshare: "Velocity Workshare",
   times: "Velocity Times",
-  knowledge: "Swim Atlas",
+  knowledge: "Meet Catalog",
 };
 export const HISTORY_COLUMNS =
   "id,division,scope,source_url,captured_at,received_at,coverage,status,review_note,reviewed_at";

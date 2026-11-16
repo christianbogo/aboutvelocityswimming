@@ -27,11 +27,12 @@ assert.ifError(account.error);
 const uid = account.data.user.id;
 const result = await admin.from("administrators").insert({ user_id: uid });
 assert.ifError(result.error);
-const team = id + "-team",
+const team = "velocity-swimming",
   athlete = id + "-athlete",
   meet = id + "-meet",
   bad = id + "-bad",
   next = id + "-next";
+const swimmerName = `Maison Velasquez ${id}`;
 const swim = (rid, time) => ({
   id: rid,
   athleteId: athlete,
@@ -53,10 +54,6 @@ const swim = (rid, time) => ({
 });
 const writes = [
   {
-    path: "teams/" + team,
-    after: { name: "Atomic browser fixture " + id, lscCode: "IE" },
-  },
-  {
     path: "meets/" + meet,
     after: { name: "2026 IE PSA Pendleton Open fixture" },
   },
@@ -64,7 +61,7 @@ const writes = [
     path: "athletes/" + athlete,
     after: {
       id: athlete,
-      name: { first: "Maison", last: "Velasquez" },
+      name: { first: "Maison", last: `Velasquez ${id}` },
       status: "active",
       teamId: team,
     },
@@ -96,8 +93,8 @@ const rankings = () =>
   page.request
     .get(
       base +
-        "/api/times?view=rankings&team=" +
-        team +
+        "/api/times?view=rankings&search=" +
+        encodeURIComponent(id) +
         "&course=LCM&event=100_FR&genders=M",
     )
     .then((r) => r.json());
@@ -111,13 +108,10 @@ try {
   await page.goto(base + "/tools/times");
   await page.getByRole("button", { name: "LCM", exact: true }).first().click();
   await page.getByRole("button", { name: "Male", exact: true }).click();
-  await page.getByRole("button", { name: "Team", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Atomic browser fixture " + id, exact: true })
-    .click();
+  await page.getByRole("searchbox", { name: "Search athletes", exact: true }).fill(id);
   await page
     .getByRole("button", {
-      name: "Analyze 26.15 by Maison Velasquez",
+      name: `Analyze 26.15 by ${swimmerName}`,
       exact: true,
     })
     .click();
@@ -137,13 +131,10 @@ try {
   await page.goto(base + "/tools/times");
   await page.getByRole("button", { name: "LCM", exact: true }).first().click();
   await page.getByRole("button", { name: "Male", exact: true }).click();
-  await page.getByRole("button", { name: "Team", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Atomic browser fixture " + id, exact: true })
-    .click();
+  await page.getByRole("searchbox", { name: "Search athletes", exact: true }).fill(id);
   await page
     .getByRole("button", {
-      name: "Analyze 26.15 by Maison Velasquez",
+      name: `Analyze 26.15 by ${swimmerName}`,
       exact: true,
     })
     .click();
@@ -190,12 +181,12 @@ try {
   );
   await page
     .getByRole("button", {
-      name: "Analyze 1:00.00 by Maison Velasquez",
+      name: `Analyze 1:00.00 by ${swimmerName}`,
       exact: true,
     })
     .waitFor();
   await page.goto(base + "/tools/review/results");
-  const card = page.locator("article").filter({ hasText: "Maison" });
+  const card = page.locator("article").filter({ hasText: swimmerName });
   await card
     .getByRole("button", { name: "Review details and history" })
     .click();
@@ -212,7 +203,7 @@ try {
     "restoration expires server cache",
   );
   await page.getByLabel("Include restored results").check();
-  const restored = page.locator("article").filter({ hasText: "Maison" });
+  const restored = page.locator("article").filter({ hasText: swimmerName });
   await restored
     .getByRole("button", { name: "Review details and history" })
     .click();
@@ -239,15 +230,15 @@ try {
   await browser.close();
   // Synthetic source rows are removed; immutable audit history remains local.
   await admin.from("result_moderation").delete().in("result_id", [bad, next]);
+  const person = await admin.from("athletes").select("person_id").eq("id", athlete).maybeSingle();
+  assert.ifError(person.error);
   const cleanup = await admin.rpc("collect_records", {
     reads: [],
     writes: [...writes]
       .reverse()
-      .filter(({ path }) => !path.startsWith("teams/"))
       .map(({ path }) => ({ path, after: null })),
   });
   if (cleanup.error) console.error("Fixture cleanup:", cleanup.error.message);
-  await admin.from("people").delete().eq("team_id", team);
-  await admin.from("teams").delete().eq("id", team);
+  if (person.data) await admin.from("people").delete().eq("id", person.data.person_id);
   await admin.auth.admin.deleteUser(uid);
 }

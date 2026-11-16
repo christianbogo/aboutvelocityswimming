@@ -3,6 +3,7 @@ import { validateStandard } from "../../src/components/collection/validate-stand
 import { readFile } from "node:fs/promises";
 import { createClient } from "@supabase/supabase-js";
 import { assertCollectionTarget } from "./target.mjs";
+import { assertVelocityCollectionBatch } from "./velocity-scope.mjs";
 const path = process.argv[2];
 if (!path)
   throw new Error(
@@ -26,6 +27,7 @@ if (
   batch.writes.length > 100
 )
   throw new Error("A batch requires 1–100 proposed records.");
+assertVelocityCollectionBatch(batch);
 for (const write of batch.writes) if (write.path.startsWith("standards/")) {
   validateStandard(write.after, write.path.slice(10));
   if (batch.coverage !== "complete" || !batch.reads?.some(read => read.path === write.path && Object.hasOwn(read, "before")))

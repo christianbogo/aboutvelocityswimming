@@ -114,6 +114,52 @@ def capture_batches(manifest, directory):
             yield {**capture_metadata, "division": division, "rows": candidates}
 
 
+def velocity_batches(batches, holds):
+    """Keep meets while excluding results and prerequisites from other teams."""
+    for batch in batches:
+        selected = []
+        for candidate in batch["rows"]:
+            problem = None
+            parents = candidate.get("prerequisites", [])
+            historical_teams = {parent["data"]["teamId"] for parent in parents
+                                if parent["kind"] == "athlete" and parent["data"].get("teamId") not in (None, "", races.VELOCITY_TEAM_ID)}
+            normalized = []
+            for parent in parents:
+                if parent["kind"] == "team" and parent["id"] in historical_teams:
+                    continue
+                if parent["kind"] == "athlete" and parent["data"].get("teamId") in historical_teams:
+                    data = dict(parent["data"])
+                    team = next((linked for linked in parents if linked["kind"] == "team" and linked["id"] == data["teamId"]), None)
+                    if not data.get("teamName") and team and team["data"].get("name"):
+                        data["teamName"] = team["data"]["name"]
+                    data.pop("teamId")
+                    parent = {**parent, "data": data}
+                normalized.append(parent)
+            if parents:
+                candidate = {**candidate, "prerequisites": normalized}
+            if candidate["kind"] == "meet" and candidate["data"].get("teamId") not in (None, "", races.VELOCITY_TEAM_ID):
+                data = dict(candidate["data"])
+                host = next((parent for parent in candidate.get("prerequisites", [])
+                             if parent["kind"] == "team" and parent["id"] == data["teamId"]), None)
+                if not data.get("teamName") and host and host["data"].get("name"):
+                    data["teamName"] = host["data"]["name"]
+                data.pop("teamId")
+                candidate = {**candidate, "data": data,
+                             "prerequisites": [parent for parent in candidate.get("prerequisites", [])
+                                               if parent["kind"] != "team" or parent["id"] == races.VELOCITY_TEAM_ID]}
+            if candidate["kind"] in ("swim", "relay") and candidate["data"].get("teamId") != races.VELOCITY_TEAM_ID:
+                problem = "Result is outside the Velocity Swimming team scope"
+            for parent in candidate.get("prerequisites", []):
+                if parent["kind"] == "team" and parent["id"] != races.VELOCITY_TEAM_ID:
+                    problem = "Linked team is outside the Velocity Swimming team scope"
+            if problem:
+                holds.append({"kind": "team_scope", "id": candidate["id"], "reason": problem})
+            else:
+                selected.append(candidate)
+        if selected:
+            yield {**batch, "rows": selected}
+
+
 def prepare_archives(manifest, directory, mappings):
     races.validate_sources(manifest)
     if manifest.get("scope") == "whole-catalog":
@@ -195,6 +241,7 @@ def prepare(manifest_path, mappings_path=None):
             raise ValueError("--mappings applies to paired race archives")
         batches = list(capture_batches(manifest, manifest_path.parent))
         holds, duplicates = [], []
+    batches = list(velocity_batches(batches, holds))
     return {"project": manifest["project"], "batches": batches, "holds": holds, "duplicates": duplicates}
 
 

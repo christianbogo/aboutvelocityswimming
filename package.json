@@ -17,7 +17,8 @@
     "test:calendar": "node scripts/test-calendar.mjs",
     "test:workshare": "node --import ./scripts/workshare/register-typescript.mjs --test tests/workshare/*.test.ts",
     "test:reminders": "node --test tests/reminders.test.mjs",
-    "test:database": "node --test tests/unified.integration.mjs && npm run test:records:database && npm run test:times:database && npm run test:meets:database && npm run test:moderation:database && npm run test:standards:database && npm run test:identity:database && npm run test:profile:database && npm run test:imports:database",
+    "test:database": "node --test tests/unified.integration.mjs && npm run test:records:database && npm run test:times:database && npm run test:meets:database && npm run test:moderation:database && npm run test:standards:database && npm run test:identity:database && npm run test:profile:database && npm run test:imports:database && npm run test:scope:database",
+    "test:scope:database": "node --test tests/velocity-scope.integration.mjs",
     "test:profile:database": "node --test tests/account-profile.integration.mjs",
     "test:profile:browser": "node scripts/unified/account-profile-browser-check.mjs",
     "test:moderation:database": "node --test tests/result-moderation.integration.mjs",
@@ -49,9 +50,7 @@
     "test:imports:browser": "node scripts/collection/imports-browser-check.mjs",
     "test:baseline:browser": "node scripts/collection/baseline-browser-check.mjs",
     "test:updates": "node --test tests/updates/*.test.ts",
-    "test:updates:browser": "node scripts/updates/browser-check.mjs",
-    "test:overview:database": "node scripts/observatory/database-check.mjs",
-    "test:overview:browser": "node scripts/observatory/browser-check.mjs"
+    "test:updates:browser": "node scripts/updates/browser-check.mjs"
   },
   "dependencies": {
     "@stripe/stripe-js": "^9.8.0",

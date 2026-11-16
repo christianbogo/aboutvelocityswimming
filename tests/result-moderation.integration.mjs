@@ -25,6 +25,9 @@ const run = (sql) =>
     },
   );
 const fixture = `
+-- Keep this rollback-only fixture independent from the shared Velocity seed.
+DELETE FROM public.public_swims;
+DELETE FROM public.public_relay_results;
 CREATE FUNCTION pg_temp.check_ok(ok boolean, message text) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN IF ok IS DISTINCT FROM true THEN RAISE EXCEPTION '%',message; END IF; END; $$;
 INSERT INTO auth.users(id,email,email_confirmed_at) VALUES
@@ -32,24 +35,24 @@ INSERT INTO auth.users(id,email,email_confirmed_at) VALUES
  ('1f25093a-a2ed-4ea6-a3ae-e38fe783cb82','moderation-user@example.test',now()),
  ('1f25093a-a2ed-4ea6-a3ae-e38fe783cb83','moderation-unverified@example.test',null);
 INSERT INTO public.administrators(user_id) VALUES ('1f25093a-a2ed-4ea6-a3ae-e38fe783cb81'),('1f25093a-a2ed-4ea6-a3ae-e38fe783cb83');
-SELECT private.put_record('teams/mod-fixture-team','{"name":"Atomic Swim Club fixture","lscCode":"IE"}');
+SELECT private.put_record('teams/velocity-swimming','{"name":"Atomic Swim Club fixture","lscCode":"IE"}');
 SELECT private.put_record('meets/mod-fixture-meet','{"name":"2026 IE PSA Pendleton Open fixture"}');
-SELECT private.put_record('athletes/mod-fixture-athlete','{"id":"mod-fixture-athlete","name":{"first":"Maison","last":"Velasquez"},"status":"active","teamId":"mod-fixture-team"}');
-SELECT private.put_record('athletes/mod-fixture-other','{"id":"mod-fixture-other","name":{"first":"Other","last":"Swimmer"},"status":"active","teamId":"mod-fixture-team"}');
+SELECT private.put_record('athletes/mod-fixture-athlete','{"id":"mod-fixture-athlete","name":{"first":"Maison","last":"Velasquez"},"status":"active","teamId":"velocity-swimming"}');
+SELECT private.put_record('athletes/mod-fixture-other','{"id":"mod-fixture-other","name":{"first":"Other","last":"Swimmer"},"status":"active","teamId":"velocity-swimming"}');
 CREATE FUNCTION pg_temp.swim(rid text, athlete text, ms integer, extra jsonb default '{}') RETURNS void LANGUAGE sql AS $$
  SELECT private.put_record('swims/'||rid,jsonb_build_object('id',rid,'athleteId',athlete,'eventCode','100_FR_LCM','course','LCM','distance',100,'stroke','FR',
- 'raceIdentity',jsonb_build_object('occurrence',rid,'reviewed',true,'basis','Independent synthetic moderation starts','sourceUrl','https://example.test/fixture-starts'),'timeMs',ms,'status','OK','round','F','isOfficial',true,'isRelay',false,'gender','M','ageAtSwim',12,'teamId','mod-fixture-team',
+ 'raceIdentity',jsonb_build_object('occurrence',rid,'reviewed',true,'basis','Independent synthetic moderation starts','sourceUrl','https://example.test/fixture-starts'),'timeMs',ms,'status','OK','round','F','isOfficial',true,'isRelay',false,'gender','M','ageAtSwim',12,'teamId','velocity-swimming',
  'meet',jsonb_build_object('id','mod-fixture-meet','name','2026 IE PSA Pendleton Open','date','2026-07-04'),'sourceObservation','private-source-marker')||extra); $$;
 SELECT pg_temp.swim('mod-fixture-bad','mod-fixture-athlete',26150);
 SELECT pg_temp.swim('mod-fixture-next','mod-fixture-athlete',60000);
 SELECT pg_temp.swim('mod-fixture-tie','mod-fixture-other',60000);
 SELECT pg_temp.swim('mod-fixture-split','mod-fixture-athlete',22000,'{"isSplit":true}');
-SELECT private.put_record('relay_results/mod-fixture-relay','{"id":"mod-fixture-relay","relayName":"Atomic fixture A","splitCoverage":"unavailable","eventCode":"200_FR-R_LCM","course":"LCM","distance":200,"stroke":"FR","timeMs":125000,"status":"OK","round":"F","isRelay":true,"isOfficial":true,"gender":"M","ageGroup":"11-12","teamId":"mod-fixture-team","meet":{"id":"mod-fixture-meet","name":"2026 IE PSA Pendleton Open","date":"2026-07-04"},"members":[{"leg":1,"athleteId":"mod-fixture-athlete","name":"Maison Velasquez","stroke":"FR","timeMs":29000}]}');
+SELECT private.put_record('relay_results/mod-fixture-relay','{"id":"mod-fixture-relay","relayName":"Atomic fixture A","splitCoverage":"unavailable","eventCode":"200_FR-R_LCM","course":"LCM","distance":200,"stroke":"FR","timeMs":125000,"status":"OK","round":"F","isRelay":true,"isOfficial":true,"gender":"M","ageGroup":"11-12","teamId":"velocity-swimming","meet":{"id":"mod-fixture-meet","name":"2026 IE PSA Pendleton Open","date":"2026-07-04"},"members":[{"leg":1,"athleteId":"mod-fixture-athlete","name":"Maison Velasquez","stroke":"FR","timeMs":29000}]}');
 SELECT pg_temp.swim('mod-fixture-leadoff','mod-fixture-athlete',29000,'{"eventCode":"50_FR_LCM","distance":50,"resultOrigin":"relay_leadoff","parentRelayResultId":"mod-fixture-relay","leadOffVerification":{"verified":true,"flatStart":true,"timingVerified":true,"leadOffStatus":"OK","sourceUrl":"https://example.test/source"}}');
 SELECT private.rebuild_bests_for_events(array['100_FR_LCM','50_FR_LCM']);
 SELECT private.refresh_team_records();
 CREATE FUNCTION pg_temp.query(kind text, extra jsonb default '{}') RETURNS jsonb LANGUAGE sql AS $$
- SELECT public.ies_times_query(kind,'{"team":"mod-fixture-team","event":"100_FR","course":"LCM","mode":"bests","genders":["M"],"athleteId":"mod-fixture-athlete","historyEvent":"100_FR_LCM","meetId":"mod-fixture-meet","period":"all"}'::jsonb||extra); $$;
+ SELECT public.ies_times_query(kind,'{"team":"velocity-swimming","event":"100_FR","course":"LCM","mode":"bests","genders":["M"],"athleteId":"mod-fixture-athlete","historyEvent":"100_FR_LCM","meetId":"mod-fixture-meet","period":"all"}'::jsonb||extra); $$;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims','{"sub":"1f25093a-a2ed-4ea6-a3ae-e38fe783cb81","role":"authenticated"}',true);
 `;

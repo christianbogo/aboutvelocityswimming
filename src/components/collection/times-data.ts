@@ -54,7 +54,6 @@ export interface Race {
 export interface Filters {
   course: string;
   event: string;
-  team: string;
   year: string;
   round: string;
   official: string;
@@ -66,7 +65,6 @@ export interface Filters {
 export const initialFilters: Filters = {
   course: "SCY",
   event: "100_FR",
-  team: "",
   year: "",
   round: "",
   official: "",
@@ -344,7 +342,7 @@ export function recordAgeGroups(races: Race[]): [string, string][] {
     ]),
   ];
 }
-export function matches(race: Race, filters: Filters) {
+export function matches(race: Race, filters: Filters & { team?: string }) {
   return (
     race.relay === (filters.relay ?? false) &&
     (!race.relay || race.relayLeg == null) &&

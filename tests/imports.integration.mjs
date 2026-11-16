@@ -45,7 +45,7 @@ function batch(label, rows, division = "times") {
 }
 
 const athlete = { id: `${prefix}-swimmer`, name: { first: "Synthetic", last: "Swimmer" }, gender: "F", status: "active" };
-const team = { id: `${prefix}-team`, name: "Synthetic Imports Team", lscCode: "IE", clubCode: "IEIMPORT" };
+const team = { id: "velocity-swimming", name: "Velocity Swimming", lscCode: "IE", clubCode: "VS" };
 const meet = { id: `${prefix}-meet`, name: `${prefix} Synthetic Imports Meet`, dates: { startDate: "2026-11-10", endDate: "2026-11-10" } };
 const earlierMeet = { id: `${prefix}-prior`, name: `${prefix} Prior Imports Meet`, dates: { startDate: "2026-10-10", endDate: "2026-10-10" } };
 const earlier = {
@@ -102,7 +102,6 @@ test("private import, frozen review and transactional publication", async (t) =>
       delete from public.athletes where id like ${sql(`${prefix}%`)};
       delete from public.people where id like ${sql(`person_${prefix}%`)};
       delete from public.meets where id like ${sql(`${prefix}%`)};
-      delete from public.teams where id = ${sql(team.id)};
       delete from public.knowledge_entries where id like ${sql(`${prefix}%`)};
       commit;`);
     for (const userId of userIds) {
@@ -132,7 +131,6 @@ test("private import, frozen review and transactional publication", async (t) =>
     if (query_kind === "records") db("select private.refresh_team_records()");
     return rpc(anon, "ies_times_query", { query_kind, input });
   };
-  const archive = () => rpc(anon, "archive_observatory", { input: { meet: meet.id } });
   const best = () => db(`select data->>'swimId' from public.athlete_bests where athlete_id=${sql(athlete.id)} and event_code='100_FR_SCY';`);
   const source = batch("main", [
     row("meet", meet), row("swim", faster, { locator: "Event 1" }),
@@ -140,7 +138,6 @@ test("private import, frozen review and transactional publication", async (t) =>
   ]);
 
   db(`insert into private.collection_workers(name,token_hash,divisions) values (${sql(prefix)},${sql(digest(token))},array['times']);
-    ${write(`teams/${team.id}`, team)}
     ${write(`athletes/${athlete.id}`, athlete)}
     ${write(`meets/${earlierMeet.id}`, earlierMeet)}
     ${write(`swims/${earlier.id}`, earlier)}`);
@@ -166,7 +163,6 @@ test("private import, frozen review and transactional publication", async (t) =>
   assert.equal(detail.sha256, source.sha256);
   assert.equal(detail.locator, "Event 1");
   assert.equal((await times("meet_results", { meetId: meet.id })).total, 0);
-  assert.equal((await archive()).totals.swims, 0);
   assert.equal(best(), earlier.id);
   assert.ok((await times("records", { team: team.id })).races.some((race) => race.id === earlier.id));
 
@@ -188,7 +184,6 @@ test("private import, frozen review and transactional publication", async (t) =>
   assert.ok(receipts.every(({ done, approved }) => done && approved === 3));
   assert.equal(receipts.reduce((sum, result) => sum + result.published, 0), 3);
   assert.equal((await times("meet_results", { meetId: meet.id })).total, 2);
-  assert.equal((await archive()).totals.swims, 2);
   assert.equal(best(), faster.id);
   assert.ok((await times("records", { team: team.id })).races.some((race) => race.id === faster.id));
   const remaining = await list("swims", { batchId: staged.batchId });

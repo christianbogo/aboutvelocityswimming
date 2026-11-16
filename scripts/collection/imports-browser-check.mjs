@@ -46,14 +46,14 @@ const meet = {
   id: `${prefix}-meet`,
   data: { name: `${scope} Results meet`, startsOn: date, endsOn: date, course: "SCY" },
 };
-const team = { kind: "team", id: `${prefix}-team`, data: { name: `Browser Fresh Team ${prefix}` } };
+const teamId = "velocity-swimming";
 const athlete = {
   kind: "athlete",
   id: `${prefix}-athlete`,
   data: {
     name: { first: "Browser Fresh", last: `Athlete ${prefix}` },
     sourceObservation: { memberIdHash: sha256(prefix).slice(0, 24) },
-    teamId: team.id,
+    teamId,
   },
 };
 const swim = {
@@ -61,12 +61,12 @@ const swim = {
   id: `${prefix}-swim`,
   data: {
     athleteId: athlete.id,
-    teamId: team.id,
+    teamId,
     meet: { id: meet.id, name: meet.data.name, date },
     eventCode: "100_FR_SCY", course: "SCY", distance: 100, stroke: "FR", round: "F",
     gender: "F", ageAtSwim: 15, ageGroup: "15-16", timeMs: 60000, status: "OK", isOfficial: true,
   },
-  prerequisites: [athlete, team],
+  prerequisites: [athlete],
 };
 const excluded = catalog("Catalog 01", "catalog-1");
 const late = catalog("Late meet", "late");
@@ -187,8 +187,8 @@ try {
   await page.getByRole("button", { name: "Preview approval" }).click();
   const preview = page.getByRole("dialog", { name: "Approval preview" });
   await preview.getByText("300 meets · 1 swim").waitFor();
-  await preview.getByText("2 linked records to publish", { exact: true }).click();
-  await preview.getByText("Browser Fresh Team", { exact: false }).waitFor();
+  await preview.getByText("1 linked record to publish", { exact: true }).click();
+  await preview.locator("details").filter({ hasText: "1 linked record to publish" }).getByText(swimLabel, { exact: false }).waitFor();
   await preview.getByText("301 selected rows", { exact: true }).click();
   await preview.getByLabel("Selected table").selectOption("swims");
   await preview.getByText(swimLabel, { exact: true }).waitFor();

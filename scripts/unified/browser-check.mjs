@@ -41,7 +41,7 @@ try {
   const account = navigation.getByRole("link", { name: "Account", exact: true });
   const home = page.getByRole("link", { name: "Back to Home", exact: true });
   const importPage = page.getByRole("main", { name: "Velocity Imports", exact: true });
-  const toolNames = ["Velocity Times", "Velocity Workshare", "Swim Atlas", "Velocity Imports"];
+  const toolNames = ["Velocity Times", "Velocity Workshare", "Velocity Imports"];
   const toolLink = (name) => navigation.getByRole("link", { name, exact: true });
   async function toolSection(name) {
     const sectionId = await toolLink(name).getAttribute("aria-controls");
@@ -87,18 +87,6 @@ try {
   await page.waitForURL(base + "/tools/times/overview");
   await page.getByRole("heading", { name: "Explore Velocity Times", exact: true }).waitFor();
   assert.equal(await toolLink("Velocity Times").getAttribute("aria-current"), "page");
-  const atlasNavigation = await openTool("Swim Atlas");
-  assert.deepEqual(await atlasNavigation.getByRole("link").allTextContents(), ["Map", "Teams", "Meets", "Organizations"]);
-  const atlasMeets = atlasNavigation.getByRole("link", { name: "Meets", exact: true });
-  await atlasMeets.click();
-  await page.waitForURL((url) => url.pathname === "/tools/knowledge");
-  await page.getByRole("searchbox", { name: "Search meets" }).waitFor();
-  assert.equal(await atlasMeets.getAttribute("aria-current"), "page");
-  await page.reload();
-  const restoredAtlasMeets = (await toolSection("Swim Atlas")).getByRole("link", { name: "Meets", exact: true });
-  await restoredAtlasMeets.waitFor();
-  assert.equal(await restoredAtlasMeets.getAttribute("aria-current"), "page");
-
   let reviewNavigation = await openTool("Velocity Imports");
   let queueItem = reviewNavigation.getByRole("link", { name: "Import", exact: true });
   await importPage.waitFor();
@@ -134,7 +122,7 @@ try {
   await page.getByRole("heading", { name: "Status", exact: true }).waitFor();
   await page.getByRole("link", { name: "Batch review and history", exact: true }).waitFor();
   assert.equal(await status.getAttribute("aria-current"), "page");
-  console.log("Tool landing pages, exclusive navigation, browser back, Atlas deep link, and retired staff URLs verified");
+  console.log("Tool landing pages, exclusive navigation, browser back, and retired staff URLs verified");
   const viewer = reviewNavigation.getByRole("link", { name: "Viewer", exact: true });
   await viewer.click();
   await page.waitForURL(base + "/tools/review/swims");
@@ -203,7 +191,6 @@ try {
     for (const [name, path, count] of [
       ["Velocity Times", "times", 5],
       ["Velocity Workshare", "workshare", 5],
-      ["Swim Atlas", "knowledge", 4],
       ["Velocity Imports", "review", 3],
     ]) {
       if (width < 768) await openDrawer.click();

@@ -16,10 +16,9 @@ const asyncRun=(body,onChunk=()=>{})=>new Promise((resolve,reject)=>{const p=spa
 const staff=`select set_config('request.jwt.claims',(select jsonb_build_object('sub',id,'email',email,'role','authenticated')::text from auth.users where email='coach@velocity-swimming.com'),true); SET LOCAL ROLE authenticated;`;
 const assertSql=(condition,message)=>`if not coalesce((${condition}),false) then raise exception ${q(message)}; end if;`;
 const expect=(body,state)=>`declare caught boolean:=false; begin begin ${body} exception when sqlstate '${state}' then caught:=true; end; ${assertSql('caught','Expected rejection '+state)} end;`;
-function fixture(prefix){return `select private.put_record(${q('teams/'+prefix)},${j({name:'Synthetic identity club'})});
- select private.put_record(${q('athletes/'+prefix)},${j({id:prefix,name:{first:'Synthetic',last:'Identity'}})});
+function fixture(prefix){return `select private.put_record(${q('athletes/'+prefix)},${j({id:prefix,name:{first:'Synthetic',last:'Identity'}})});
  select private.put_record(${q('meets/'+prefix)},${j({id:prefix,name:'Synthetic identity meet'})});`;}
-function race(prefix,id='race',changes={}){return {id:prefix+'-'+id,athleteId:prefix,teamId:prefix,eventCode:'100_FR_SCY',course:'SCY',distance:100,stroke:'FR',round:'F',gender:'F',ageAtSwim:15,ageGroup:'15-16',timeMs:60000,status:'OK',isOfficial:false,isRelay:false,meet:{id:prefix,date:'2001-01-01',name:'Synthetic identity meet'},...changes};}
+function race(prefix,id='race',changes={}){return {id:prefix+'-'+id,athleteId:prefix,teamId:'velocity-swimming',eventCode:'100_FR_SCY',course:'SCY',distance:100,stroke:'FR',round:'F',gender:'F',ageAtSwim:15,ageGroup:'15-16',timeMs:60000,status:'OK',isOfficial:false,isRelay:false,meet:{id:prefix,date:'2001-01-01',name:'Synthetic identity meet'},...changes};}
 const putRace=b=>`select private.put_record(${q('swims/'+b.id)},${j(b)});`;
 const proof=occurrence=>({occurrence,reviewed:true,basis:'Synthetic reviewed separate start evidence',sourceUrl:'https://example.test/starts'});
 const id=()=> 'identity-fixture-'+randomUUID();
@@ -48,8 +47,9 @@ await test('fresh athlete and meet additions rebuild only incoming events, and p
 await test('existing athlete, meet, and team changes retain full rebuild and failure rolls back claims and all writes',()=>{
  for(const root of ['athletes','meets','teams']){
   const p=id(),a=p+'-added',swim=race(p,'added',{athleteId:a});
-  const after=root==='athletes'?{id:p,name:{first:'Synthetic',last:'Identity'},status:'active'}:{id:p,name:'Changed synthetic '+root};
-  const writes=[{path:root+'/'+p,after},{path:'athletes/'+a,after:{name:{first:'Rollback',last:'Fixture'}}},{path:'swims/'+swim.id,after:swim}];
+  const recordId=root==='teams'?'velocity-swimming':p;
+  const after=root==='athletes'?{id:p,name:{first:'Synthetic',last:'Identity'},status:'active'}:{id:recordId,name:'Changed synthetic '+root};
+  const writes=[{path:root+'/'+recordId,after},{path:'athletes/'+a,after:{name:{first:'Rollback',last:'Fixture'}}},{path:'swims/'+swim.id,after:swim}];
   run(fixture(p)+workerFixture(p)+fullRebuildMustNotRun+localStaff+`DO $$ declare bid uuid; rev bigint; caught boolean:=false; begin
    bid:=private.stage_collection(${q(p)},${j(collectionBatch(p,writes))}); select revision into rev from private.canonical_revision;
    begin perform private.review_collection(bid,'approved','Synthetic fallback test'); exception when raise_exception then if sqlerrm='Unexpected full rebuild' then caught:=true; else raise; end if; end;
@@ -135,7 +135,7 @@ function createBatches(p){
 }
 function cleanup(p){run(`delete from public.collection_reviews where batch_id in (select id from public.collection_batches where scope=${q(p)}); delete from public.collection_batches where scope=${q(p)}; delete from private.collection_workers where name=${q(p)};
  delete from public.swims where data->>'athleteId'=${q(p)}; delete from public.meets where id=${q(p)};
- delete from public.athletes where id=${q(p)} or id like ${q(p+'-extra-%')}; delete from public.public_athletes where id like ${q(p+'%')}; delete from public.people where id like ${q('person_'+p+'%')}; delete from public.teams where id=${q(p)};`,true);}
+ delete from public.athletes where id=${q(p)} or id like ${q(p+'-extra-%')}; delete from public.public_athletes where id like ${q(p+'%')}; delete from public.people where id like ${q('person_'+p+'%')};`,true);}
 await test('competing approvals with different source IDs yield one result and roll back every losing write and receipt',async()=>{
  const p=id();
  try{
@@ -273,7 +273,7 @@ await test('the existing staging CLI refreshes an unchanged old collector propos
 });
 
 await test('actual verified lead-off producer keeps an equal-time individual final and same-batch relay start distinct',()=>{
- const p=id(),parent={id:p+'-relay',teamId:p,eventCode:'200_FR-R_SCY',distance:200,stroke:'FR',course:'SCY',round:'F',status:'OK',isRelay:true,isOfficial:true,timeMs:120000,gender:'F',ageGroup:'15-16',relayName:'Synthetic relay',meet:{id:p,date:'2001-01-01',name:'Synthetic identity meet'},members:[{leg:1,athleteId:p,name:'Synthetic Identity',gender:'F',stroke:'FR',timeMs:30000}],splits:[50,100,150,200].map(distance=>({distance,cumulativeMs:distance*600,lapMs:30000})),splitCoverage:'complete',sourceObservation:{memberNames:{'1':{first:'Synthetic',last:'Identity'}},memberAges:{'1':15}}};
+ const p=id(),parent={id:p+'-relay',teamId:'velocity-swimming',eventCode:'200_FR-R_SCY',distance:200,stroke:'FR',course:'SCY',round:'F',status:'OK',isRelay:true,isOfficial:true,timeMs:120000,gender:'F',ageGroup:'15-16',relayName:'Synthetic relay',meet:{id:p,date:'2001-01-01',name:'Synthetic identity meet'},members:[{leg:1,athleteId:p,name:'Synthetic Identity',gender:'F',stroke:'FR',timeMs:30000}],splits:[50,100,150,200].map(distance=>({distance,cumulativeMs:distance*600,lapMs:30000})),splitCoverage:'complete',sourceObservation:{memberNames:{'1':{first:'Synthetic',last:'Identity'}},memberAges:{'1':15}}};
  const verification={verified:true,flatStart:true,timingVerified:true,leadOffStatus:'OK',sourceUrl:'https://example.test/lead-proof',relayResultId:parent.id,athleteId:p,timeMs:30000};
  const individual=race(p,'final',{eventCode:'50_FR_SCY',distance:50,timeMs:30000,isOfficial:true});
  const python=`import importlib.util,json,sys\ns=importlib.util.spec_from_file_location('producer','scripts/swim-resources/prepare-ies-relays.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)\nv=json.load(sys.stdin);body,error=m.verified_leadoff(v['parent'],v['verification'],{m.fingerprint(v['individual'])});assert error is None,error;print(json.dumps(body))`;
@@ -293,7 +293,7 @@ await test('actual verified lead-off producer keeps an equal-time individual fin
 });
 
 for (const root of ['teams','athletes']) await test(`indexed ${root} snapshots preserve evidence-only, collision, and joined data semantics`,()=>{
- const p=id(),path=root+'/'+p,only=root+'/'+p+'-evidence-only';
+ const p=id(),path=root+'/'+(root==='teams'?'velocity-swimming':p),only=root+'/'+p+'-evidence-only';
  const evidence={fixture:'Evidence-only snapshot',sourceUrl:'https://example.test/snapshot'};
  const setup=fixture(p)+(root==='athletes'?`
  update public.people set data=data||'{"name":"Renamed Synthetic"}'::jsonb where id=(select person_id from public.athletes where id=${q(p)});

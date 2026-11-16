@@ -63,10 +63,8 @@ try {
   const about = main.getByRole("region", { name: "About the tools", exact: true });
   await about.waitFor();
   for (const [name, description] of [
-    ["Overview", /Data Observatory/],
     ["Velocity Times", /approved results and time standards/],
     ["Velocity Workshare", /volunteer opportunities/],
-    ["Swim Atlas", /original source links/],
     ["Velocity Imports", /review proposed changes/],
   ]) {
     assert.ok(await about.getByText(name, { exact: true }).isVisible());

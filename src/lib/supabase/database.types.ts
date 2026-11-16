@@ -794,7 +794,6 @@ export type Database = {
       };
       public_swims: {
         Row: {
-          archive_added_at: string | null;
           athlete_id: string;
           data: NonNullable<Json>;
           id: string;
@@ -814,7 +813,6 @@ export type Database = {
           times_time: number | null;
         };
         Insert: {
-          archive_added_at?: string | null;
           athlete_id: string;
           data: NonNullable<Json>;
           id: string;
@@ -834,7 +832,6 @@ export type Database = {
           times_time?: never;
         };
         Update: {
-          archive_added_at?: string | null;
           athlete_id?: string;
           data?: NonNullable<Json>;
           id?: string;
@@ -1062,7 +1059,6 @@ export type Database = {
       };
       swims: {
         Row: {
-          archive_added_at: string | null;
           athlete_id: string;
           course: string;
           data: NonNullable<Json>;
@@ -1077,7 +1073,6 @@ export type Database = {
           time_ms: number | null;
         };
         Insert: {
-          archive_added_at?: string | null;
           athlete_id?: never;
           course?: never;
           data: NonNullable<Json>;
@@ -1092,7 +1087,6 @@ export type Database = {
           time_ms?: never;
         };
         Update: {
-          archive_added_at?: string | null;
           athlete_id?: never;
           course?: never;
           data?: NonNullable<Json>;
@@ -1620,7 +1614,6 @@ export type Database = {
         Args: { input?: Json; query_kind: string };
         Returns: Json;
       };
-      archive_observatory: { Args: { input?: Json }; Returns: Json };
       is_staff: { Args: Record<PropertyKey, never>; Returns: boolean };
       list_result_moderation: {
         Args: {

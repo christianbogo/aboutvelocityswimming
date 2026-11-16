@@ -70,8 +70,38 @@ class VelocityImportTests(unittest.TestCase):
                     **binding}}]})
         return manifest
 
+    def test_structured_capture_excludes_other_teams_and_keeps_meets(self):
+        capture = self.capture("mixed.json", {"rows": [
+            {"kind": "meet", "id": "meet", "data": {"name": "Mixed teams meet", "teamId": "host"},
+             "prerequisites": [{"kind": "team", "id": "host", "data": {"name": "Host club"}}]},
+            {"kind": "swim", "id": "velocity", "data": {"teamId": "velocity-swimming"},
+             "prerequisites": [{"kind": "athlete", "id": "former-member", "data": {"teamId": "current-club"}},
+                               {"kind": "team", "id": "current-club", "data": {"name": "Current club"}}]},
+            {"kind": "swim", "id": "visitor", "data": {"teamId": "visiting"}},
+            {"kind": "relay", "id": "unattached", "data": {}},
+            {"kind": "swim", "id": "foreign-parent", "data": {"teamId": "velocity-swimming"},
+             "prerequisites": [{"kind": "team", "id": "visiting", "data": {"name": "Visitor"}}]},
+        ]})
+        manifest = self.write("manifest.json", {"version": 1, "project": self.project, "captures": [capture]})
+        result = imports.prepare(manifest)
+        self.assertEqual([row["id"] for row in result["batches"][0]["rows"]], ["meet", "velocity"])
+        meet, swim = result["batches"][0]["rows"]
+        self.assertEqual(meet["data"], {"name": "Mixed teams meet", "teamName": "Host club"})
+        self.assertEqual(meet["prerequisites"], [])
+        self.assertEqual(swim["prerequisites"], [{"kind": "athlete", "id": "former-member", "data": {"teamName": "Current club"}}])
+        self.assertEqual({row["id"] for row in result["holds"]}, {"visitor", "unattached", "foreign-parent"})
+
+    def test_paired_archive_keeps_meet_when_all_results_are_outside_velocity(self):
+        manifest, mappings = self.paired_manifest(), self.mappings()
+        source = json.loads(mappings.read_text())
+        source["teams"][0]["teamId"] = "visiting"
+        mappings.write_text(json.dumps(source))
+        result = imports.prepare(manifest, mappings)
+        self.assertEqual([row["kind"] for row in result["batches"][0]["rows"]], ["meet"])
+        self.assertTrue(any("outside the Velocity Swimming team scope" in row["reason"] for row in result["holds"]))
+
     def mappings(self, identities=None):
-        return self.write("mappings.json", {"teams": [{"teamId": "source-club", "clubCode": "VS", "lscCode": "IE",
+        return self.write("mappings.json", {"teams": [{"teamId": "velocity-swimming", "clubCode": "VS", "lscCode": "IE",
             "name": "Source Club", "validFrom": "2025-10-25", "validThrough": "2025-10-25",
             "reviewed": True, "basis": "Synthetic dated code", "sourceUrl": self.url}], "identities": identities or []})
 

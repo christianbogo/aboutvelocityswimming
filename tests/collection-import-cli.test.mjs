@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { splitImportBatches, stageImportBatches } from "../scripts/collection/upload-import.mjs";
+import { assertVelocityCollectionBatch } from "../scripts/collection/velocity-scope.mjs";
 
 test("chunked upload preserves source provenance and counts receipts", async () => {
   const capture = {
@@ -14,7 +15,7 @@ test("chunked upload preserves source provenance and counts receipts", async () 
   const rows = Array.from({ length: 101 }, (_, index) => ({
     kind: "swim",
     id: `swim-${index}`,
-    data: { timeMs: 60_000 },
+    data: { timeMs: 60_000, teamId: "velocity-swimming" },
   }));
   const batches = splitImportBatches([{ ...capture, rows }]);
   assert.deepEqual(batches.map((batch) => batch.rows.length), [100, 1]);
@@ -59,4 +60,40 @@ test("size checks account for UTF-8 payload bytes", () => {
   const rows = [{ data: "é".repeat(500_000) }, { data: "é".repeat(300_000) }];
   assert.deepEqual(splitImportBatches([{ rows }]).map((batch) => batch.rows.length), [1, 1]);
   assert.throws(() => splitImportBatches([{ rows: [{ data: "é".repeat(800_000) }] }]), /size limit/);
+});
+
+test("uploads reject every out-of-scope batch before sending any requests", async () => {
+  let calls = 0;
+  const client = { rpc() { calls += 1; } };
+  for (const row of [
+    { kind: "swim", id: "visitor", data: { teamId: "visitor" } },
+    { kind: "relay", id: "unknown", data: {} },
+    { kind: "swim", id: "mixed", data: { teamId: "velocity-swimming" },
+      prerequisites: [{ kind: "team", id: "visitor", data: {} }] },
+  ]) {
+    await assert.rejects(stageImportBatches({ client, workerToken: "collector", batches: [
+      { rows: [{ kind: "meet", id: "retained", data: { name: "Retained meet" } }] },
+      { rows: [row] },
+    ] }), /Only/);
+  }
+  assert.equal(calls, 0);
+});
+
+test("legacy staging preserves meets and deletions while rejecting other teams", () => {
+  assert.doesNotThrow(() => assertVelocityCollectionBatch({ writes: [
+    { path: "meets/away", after: { name: "Away meet", teamId: "host" } },
+    { path: "teams/visitor", after: null },
+    { path: "athletes/historical", after: { name: { first: "Historical" } } },
+    { path: "athletes/former-member", after: { teamName: "Visitor" } },
+    { path: "swims/velocity", after: { teamId: "velocity-swimming" } },
+    { path: "knowledge_entries/meet", after: { kind: "meet" } },
+    { path: "knowledge_entries/old-team", after: null },
+  ] }));
+  for (const [path, after] of [
+    ["teams/visitor", {}], ["swims/visitor", { teamId: "visitor" }],
+    ["relay_results/unknown", {}], ["athletes/foreign-link", { teamId: "visitor" }],
+    ["knowledge_entries/team", { kind: "team" }], ["knowledge_entries/organization", { kind: "organization" }],
+  ]) {
+    assert.throws(() => assertVelocityCollectionBatch({ writes: [{ path, after }] }), /Only|historical athlete/);
+  }
 });

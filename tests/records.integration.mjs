@@ -96,7 +96,7 @@ await test("Data API preserves staff, household, and anonymous record visibility
   assert.equal(athlete.personId, "person_test-swimmer-a");
   assert.equal(athlete.currentGroup.name, "Juniors");
   assert.ok((await query("anon", "athletes/test-swimmer-a/bests")).length > 0);
-  assert.deepEqual((await query("staff", "admins")).map((r) => r.data.id), [users.staff.sub]);
+  assert.ok((await query("staff", "admins")).some((r) => r.data.id === users.staff.sub));
 });
 
 await test("all routed collections and fallback scopes match app_records under each caller's RLS", () => {

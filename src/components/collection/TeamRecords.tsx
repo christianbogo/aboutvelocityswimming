@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useMemo, useState, type ReactNode } from "react";
+import { useId, useMemo, useState } from "react";
+import { VELOCITY_TEAM } from "@/features/swim-resources/lib/domain/entities";
 import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
 import {
   ageGroups,
@@ -122,9 +123,7 @@ export default function TeamRecords({
   races,
   recordBoard = emptyRecordBoard,
   updatedAt,
-  teamName,
   names,
-  selector,
   onRecord,
   ready = true,
   loading = false,
@@ -132,9 +131,7 @@ export default function TeamRecords({
   races: Race[];
   recordBoard?: Record<string, string[]>;
   updatedAt?: string | null;
-  teamName: string;
   names: Map<string, string>;
-  selector: ReactNode;
   onRecord: (selection: RecordSelection) => void;
   ready?: boolean;
   loading?: boolean;
@@ -158,17 +155,14 @@ export default function TeamRecords({
       ),
     [races],
   );
-  const records = useMemo(
-    () => {
-      const byId = new Map(visibleRaces.map((race) => [race.id, race]));
-      return new Map(
-        Object.entries(recordBoard)
-          .filter(([key]) => !key.startsWith("SCM:") && !key.endsWith(":X"))
-          .map(([key, ids]) => [key, ids.flatMap((id) => byId.get(id) ?? [])]),
-      );
-    },
-    [recordBoard, visibleRaces],
-  );
+  const records = useMemo(() => {
+    const byId = new Map(visibleRaces.map((race) => [race.id, race]));
+    return new Map(
+      Object.entries(recordBoard)
+        .filter(([key]) => !key.startsWith("SCM:") && !key.endsWith(":X"))
+        .map(([key, ids]) => [key, ids.flatMap((id) => byId.get(id) ?? [])]),
+    );
+  }, [recordBoard, visibleRaces]);
   const groups = ageGroups.map(
     ([key, label, minAge]) => [key, label, minAge] as const,
   );
@@ -192,8 +186,7 @@ export default function TeamRecords({
       data-mobile-gender={mobileGender}
     >
       <div id={`${prefix}-top`} className={s.controls}>
-        <h2 className="sr-only">{teamName || "Team"} records</h2>
-        <div className={s.selector}>{selector}</div>
+        <h2 className={s.title}>{VELOCITY_TEAM.name} records</h2>
         <nav className={s.jumpLinks} aria-label="Record sections">
           {visibleCourses.map(([course, label]) => (
             <div
@@ -242,7 +235,7 @@ export default function TeamRecords({
           </div>
           {!loading && ready && !records.size && (
             <p className={s.empty}>
-              No eligible records for this team in the available results.
+              No eligible Velocity Swimming records in the available results.
             </p>
           )}
           {visibleCourses.map(([course, courseName]) => (
@@ -285,8 +278,7 @@ export default function TeamRecords({
                               <span>Updating records</span>
                             )}
                             <h3>
-                              {teamName || "Team records"} · {ageLabel} ·{" "}
-                              {course}
+                              {VELOCITY_TEAM.name} · {ageLabel} · {course}
                             </h3>
                           </div>
                           <span className={s.genderLabel} aria-hidden="true">

@@ -30,6 +30,7 @@ from hytek_relays import (COURSES, STROKES, STATUS, cl2_index, digest, display,
                           time_ms, verified_splits, verify_hy3)
 
 COLLECTIONS = ("teams", "meets", "athletes", "swims", "relay_results")
+VELOCITY_TEAM_ID = "velocity-swimming"
 ID = re.compile(r"^[a-zA-Z0-9_-]{1,128}$")
 VERSION = 1
 _relay_spec = spec_from_file_location("race_prep_relays", ROOT / "scripts/swim-resources/prepare-ies-relays.py")
@@ -984,6 +985,8 @@ def plan(manifest, snapshots, mappings, parsed_sources):
                         raise ValueError("Companion athlete category disagrees with the HY3 identity")
                     mapping = historical_team(row["team"], row["date"], teams)
                     tid = mapping["teamId"]
+                    if tid != VELOCITY_TEAM_ID:
+                        raise ValueError("Result is outside the Velocity Swimming team scope")
                     team_path = "teams/" + tid
                     dependency(team_path, {"id": tid, "name": mapping.get("name", row["team"]["name"]),
                         "sourceObservation": {"identityBasis": "Reviewed canonical team identity; historical codes and affiliations remain on each result"}})
@@ -1346,12 +1349,12 @@ def prepare(sources_path, baseline_path, mappings_path, output, resume=False):
                "individualsPrepared": sum(p.startswith("swims/") for p in clean), "relaysPrepared": sum(p.startswith("relay_results/") for p in clean),
                "prerequisites": len(dependencies), "duplicateRows": sum(v["duplicates"] for v in tally.values()), "reviewItems": len(holds), "batches": len(listing),
                "reconciliation": {sid: dict(counts) for sid, counts in sorted(tally.items())}}
-    summary["meetCoverage"] = [{"meetId": mid, "requestedScope": "Every swimmer at the listed meet, including visiting teams",
+    summary["meetCoverage"] = [{"meetId": mid, "requestedScope": "Velocity Swimming results at the listed meet",
         "suppliedSourceScopes": [s.get("sourceScope", {"kind": "unavailable", "basis": s.get("reason")}) for s in manifest["sources"] if s["meetId"] == mid],
         "observedIndividualRows": sum(tally[s["id"]]["individualSourceRows"] for s in manifest["sources"] if s["meetId"] == mid),
         "observedRelayRows": sum(tally[s["id"]]["relaySourceRows"] for s in manifest["sources"] if s["meetId"] == mid),
         "meetWideCompletenessVerified": False, "status": "partial",
-        "remaining": "Compare all supplied archives and held rows with the official full meet result listing, including PDF-only swimmers/relays. No full-meet completion asserted."}
+        "remaining": "Compare Velocity Swimming results in supplied archives and held rows with the official meet result listing, including PDF-only swimmers/relays. No full-meet completion asserted."}
         for mid in manifest["selectedMeetIds"]]
     launch_blockers = ["Fresh complete baseline preflight and staff pilot review required; no staging or approval performed"]
     if not complete(baseline):

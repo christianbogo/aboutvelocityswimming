@@ -50,7 +50,7 @@ class RacePreparationTests(unittest.TestCase):
                          "completeCollections": list(prep.COLLECTIONS), "collectionCounts": {k: 0 for k in prep.COLLECTIONS},
                          **{k: [] for k in prep.COLLECTIONS}}
         self.manifest = {"version": 1, "project": "synthetic-test", "selectedMeetIds": ["meet"], "sources": []}
-        self.mappings = {"teams": [{"teamId": "source-club", "clubCode": "VS", "lscCode": "IE", "name": "Source Club",
+        self.mappings = {"teams": [{"teamId": "velocity-swimming", "clubCode": "VS", "lscCode": "IE", "name": "Source Club",
             "sourceNames": ["Source Club"], "validFrom": "2025-10-25", "validThrough": "2025-10-25", "reviewed": True,
             "basis": "Synthetic official C1 plus reviewed historical club identity", "sourceUrl": "https://example.test/results"}], "identities": []}
         self.source()
@@ -817,14 +817,14 @@ class RacePreparationTests(unittest.TestCase):
         self.baseline["athletes"].append({"id": "other", "data": {"id": "other", "sourceObservation": {"memberIdHash": prep.digest("MEMBER000001")}}})
         self.assertEqual(self.run_prep("ambiguous")["summary"]["individualsPrepared"], 0)
 
-    def test_historical_affiliation_preserves_visitors_and_does_not_use_current_team(self):
+    def test_visiting_team_results_are_held_without_creating_their_prerequisites(self):
         self.source(club="VIS", lsc="PN")
         self.mappings["teams"][0].update({"teamId": "visiting", "clubCode": "VIS", "lscCode": "PN"})
         self.baseline["teams"] = [{"id": "ies-now", "data": {"id": "ies-now", "name": "Current Team", "lscCode": "IE"}}]
         self.run_prep()
-        swim = next(w["after"] for w in self.writes() if w["path"].startswith("swims/"))
-        self.assertEqual(swim["teamId"], "visiting")
-        self.assertEqual(swim["sourceObservation"]["affiliation"]["lscCode"], "PN")
+        self.assertEqual(self.writes(), [])
+        held = prep.read(self.root / "run/manual-review.json")
+        self.assertTrue(any("outside the Velocity Swimming team scope" in row["reason"] for row in held))
         audit = prep.read(self.root / "run/record-audit.json")
         self.assertEqual([t["teamId"] for t in audit["teams"]], ["ies-now"])
         self.assertEqual(audit["teams"][0]["eligibleRows"], 0)
@@ -1029,7 +1029,7 @@ class RacePreparationTests(unittest.TestCase):
         races = [w["after"] for w in self.writes() if w["path"].startswith("swims/")]
         self.assertEqual(len({r["athleteId"] for r in races}), 1)
         self.assertEqual({r["sourceObservation"]["affiliation"]["lscCode"] for r in races}, {"IE", "PN"})
-        team = next(w["after"] for w in self.writes() if w["path"] == "teams/source-club")
+        team = next(w["after"] for w in self.writes() if w["path"] == "teams/velocity-swimming")
         self.assertNotIn("lscCode", team)
         self.assertNotIn("clubCode", team)
         athlete = next(w["after"] for w in self.writes() if w["path"].startswith("athletes/"))
@@ -1123,7 +1123,7 @@ class RacePreparationTests(unittest.TestCase):
         self.mappings["teams"].append({**self.mappings["teams"][0], "clubCode": "BAD", "lscCode": "PN", "name": "Held-only draft name"})
         result = self.run_prep()
         self.assertEqual(result["summary"]["individualsPrepared"], 1)
-        self.assertEqual(next(w["after"]["name"] for w in self.writes() if w["path"] == "teams/source-club"), "Source Club")
+        self.assertEqual(next(w["after"]["name"] for w in self.writes() if w["path"] == "teams/velocity-swimming"), "Source Club")
 
     def test_conflicting_clean_prerequisites_hold_all_affected_results(self):
         self.source(sid="conflict", raw=fixture(club="OTHER", lsc="PN", rows=[("F", "L", " ", "  61.00", " 2", "10252025")]))

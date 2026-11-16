@@ -12,23 +12,9 @@
   max-width: 960px;
   margin: 0 auto 24px;
 }
-.selector {
-  width: min(100%, 420px);
-}
-.selector > div > button {
-  min-height: 48px;
-  padding: 9px 14px;
-  border-radius: 10px;
+.title {
   font-size: clamp(18px, 3vw, 24px);
   font-weight: 700;
-}
-.selector > div > button:hover {
-  border-color: var(--accent);
-}
-.selector > div > button svg {
-  width: 22px;
-  height: 22px;
-  color: var(--accent);
 }
 .jumpLinks {
   display: grid;

@@ -76,17 +76,9 @@ try {
   await page.locator("input[type=password]").fill("Velocity-local-test-2026!");
   await page.locator("button[type=submit]").click();
   await page.waitForURL(base + "/tools");
-  await page.goto(base + "/tools/knowledge");
-  await page
-    .getByRole("heading", { name: "Swim Atlas", exact: true })
-    .waitFor();
-  await navigation.getByRole("link", { name: "Meets", exact: true }).click();
-  await page.getByText("Loading…", { exact: true }).waitFor({state:"hidden"});
-  assert.equal(
-    await page.getByRole("heading", { name: title, exact: true }).count(),
-    0,
-  );
-  await page.goto(base + "/tools");
+  const unpublished = await client.from("knowledge_entries").select("id").eq("id", id);
+  assert.ifError(unpublished.error);
+  assert.deepEqual(unpublished.data, []);
   await navigation.getByRole("link", { name: "Velocity Imports", exact: true }).click();
   await navigation.getByRole("link", { name: "Status", exact: true }).click();
   await page.waitForURL(base + "/tools/review/meets");
@@ -104,19 +96,11 @@ try {
     .getByRole("button", { name: "Approve all changes", exact: true })
     .click();
   await article.waitFor({ state: "detached" });
-  await page.goto(base + "/tools/knowledge");
-  await navigation.getByRole("link", { name: "Meets", exact: true }).click();
-  await page.getByRole("heading", { name: title, exact: true }).waitFor();
-  await page.getByRole("searchbox", { name: "Search meets" }).fill(title);
-  await page.getByLabel("From", { exact: true }).fill("2026-10-03");
-  await page.getByLabel("Through", { exact: true }).fill("2026-10-04");
-  await page.getByText("Loading…", { exact: true }).waitFor({ state: "hidden" });
-  await page.getByRole("heading", { name: title, exact: true }).waitFor();
-  await page.getByLabel("Through", { exact: true }).fill("2026-10-10");
-  await page.getByLabel("From", { exact: true }).fill("2026-10-06");
-  await page.getByText("No entries match these filters.", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "Clear filters", exact: true }).click();
-  await page.getByRole("heading", { name: title, exact: true }).waitFor();
+  const published = await client.from("knowledge_entries").select("title").eq("id", id).single();
+  assert.ifError(published.error);
+  assert.equal(published.data.title, title);
+  await page.goto(base + "/tools/review/meet-inventory?" + new URLSearchParams({ search: title }));
+  await page.getByRole("table", { name: "Meet inventory", exact: true }).getByText(title, { exact: true }).waitFor();
   await page.goto(base + "/tools/times");
   await page
     .getByRole("button", { name: "Avery Example", exact: true })
@@ -133,7 +117,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "Verified staging → hold → approval → public Knowledge Base, public race history, and mobile review page.",
+    "Verified staging → hold → approval → approved meet inventory, public race history, and mobile review page.",
   );
 } finally {
   await browser.close();

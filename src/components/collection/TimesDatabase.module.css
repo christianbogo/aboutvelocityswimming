@@ -158,10 +158,6 @@
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
-.teamCell {
-  max-width: 220px;
-  white-space: normal;
-}
 .pager {
   display: flex;
   align-items: center;
@@ -841,18 +837,10 @@
 .rankingTable td {
   width: 1%;
 }
-.rankingTable .rankingTeam {
-  width: auto;
-  max-width: none;
-}
 .rankingTable .rankingMeet {
   display: none;
 }
 @container times-results (min-width: 960px) {
-  .rankingTable .rankingTeam {
-    width: 1%;
-    white-space: nowrap;
-  }
   .rankingTable .rankingMeet {
     display: table-cell;
     width: auto;

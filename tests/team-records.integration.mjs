@@ -15,21 +15,24 @@ function check(sql) {
 const fixture = `
 -- Match bulk publication: these checks concern records, not per-row PB rebuilds.
 SELECT set_config('velocity.defer_bests','true',true);
+-- Keep this rollback-only fixture independent from the shared Velocity seed.
+DELETE FROM public.public_swims;
+DELETE FROM public.public_relay_results;
 CREATE FUNCTION pg_temp.check_ok(ok boolean, message text) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN IF ok IS DISTINCT FROM true THEN RAISE EXCEPTION '%',message; END IF; END; $$;
-SELECT private.put_record('teams/record-cache-fixture','{"name":"Record cache fixture","lscCode":"IE"}');
+SELECT private.put_record('teams/velocity-swimming','{"name":"Record cache fixture","lscCode":"IE"}');
 SELECT private.put_record('meets/record-cache-meet','{"name":"Record fixture"}');
-SELECT private.put_record('athletes/record-cache-a','{"id":"record-cache-a","name":{"first":"First","last":"Fixture"},"status":"active","teamId":"record-cache-fixture"}');
-SELECT private.put_record('athletes/record-cache-b','{"id":"record-cache-b","name":{"first":"Second","last":"Fixture"},"status":"active","teamId":"record-cache-fixture"}');
+SELECT private.put_record('athletes/record-cache-a','{"id":"record-cache-a","name":{"first":"First","last":"Fixture"},"status":"active","teamId":"velocity-swimming"}');
+SELECT private.put_record('athletes/record-cache-b','{"id":"record-cache-b","name":{"first":"Second","last":"Fixture"},"status":"active","teamId":"velocity-swimming"}');
 CREATE FUNCTION pg_temp.swim(rid text, athlete text, ms integer, extra jsonb default '{}') RETURNS void LANGUAGE sql AS $$
-  SELECT private.put_record('swims/'||rid,jsonb_build_object('id',rid,'athleteId',athlete,'teamId','record-cache-fixture',
+  SELECT private.put_record('swims/'||rid,jsonb_build_object('id',rid,'athleteId',athlete,'teamId','velocity-swimming',
     'eventCode','100_FR_SCY','course','SCY','timeMs',ms,'status','OK','round','F','isRelay',false,'isOfficial',true,'gender','F','ageAtSwim',12,
     'raceIdentity',jsonb_build_object('occurrence',rid,'reviewed',true,'basis','Independent synthetic starts','sourceUrl','https://example.test/records'),
     'meet',jsonb_build_object('id','record-cache-meet','name','Record fixture','date','2026-10-01'),
     'sourceObservation',jsonb_build_object('private','never-public'))||extra);
 $$;
 CREATE FUNCTION pg_temp.board() RETURNS jsonb LANGUAGE sql AS $$
-  SELECT public.ies_times_query('records','{"team":"record-cache-fixture"}');
+  SELECT public.ies_times_query('records','{"team":"velocity-swimming"}');
 $$;
 SELECT pg_temp.swim('record-cache-first','record-cache-a',60000);
 SELECT pg_temp.swim('record-cache-tie','record-cache-b',60000);
@@ -44,7 +47,7 @@ test("reads reuse the stored board; imports queue one refresh and preserve ties"
   SELECT pg_temp.check_ok((SELECT count(*)=1 FROM private.team_record_refresh_queue WHERE transaction_id=txid_current()),'one marker per import transaction');
   SET LOCAL ROLE anon;
   SELECT pg_temp.check_ok(pg_temp.board()#>>'{records,SCY:11-12:100_FR:F,0}'='record-cache-first','page reads previous board without computing');
-  SELECT pg_temp.check_ok(public.ies_times_query('record_teams')->'teams' @> '[["record-cache-fixture","Record cache fixture"]]','lightweight team picker');
+  SELECT pg_temp.check_ok(public.ies_times_query('record_teams')->'teams' @> '[["velocity-swimming","Record cache fixture"]]','Velocity record scope');
   RESET ROLE;
   SELECT pg_temp.check_ok(private.refresh_team_records(),'queued refresh runs');
   SET LOCAL ROLE anon;
@@ -93,7 +96,7 @@ test("public callers cannot write the board or invoke the background worker", ()
 
 test("failed refreshes keep the previous board and retryable work", () => check(`
   SELECT pg_temp.swim('record-cache-faster','record-cache-a',55000);
-  ALTER TABLE public.team_record_holders ADD CONSTRAINT simulated_refresh_failure CHECK(team<>'record-cache-fixture') NOT VALID;
+  ALTER TABLE public.team_record_holders ADD CONSTRAINT simulated_refresh_failure CHECK(team<>'velocity-swimming') NOT VALID;
   DO $$ BEGIN
     BEGIN
       PERFORM private.refresh_team_records();

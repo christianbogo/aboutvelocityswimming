@@ -1,4 +1,5 @@
 import "server-only";
+import { VELOCITY_TEAM_ID } from "@/features/swim-resources/lib/domain/entities";
 import { createClient } from "@supabase/supabase-js";
 import { unstable_cache, revalidateTag } from "next/cache";
 import type { Database } from "@/lib/supabase/database.types";
@@ -34,25 +35,40 @@ const readCached = unstable_cache(
     });
     const input = JSON.parse(serialized);
     const started = performance.now();
-    const { data, error, status } = await (kind === "rankings" && input.mode === "recent"
+    const { data, error, status } = await (kind === "rankings" &&
+    input.mode === "recent"
       ? client.rpc("ies_times_recent", { input })
       : client.rpc("ies_times_query", { query_kind: kind, input }));
-    const timing = { kind, durationMs: Math.round(performance.now() - started), status };
+    const timing = {
+      kind,
+      durationMs: Math.round(performance.now() - started),
+      status,
+    };
     if (error) {
-      console.error("[velocity:times] database read failed", { ...timing, code: diagnosticCode(error) });
-      throw Object.assign(new Error("Times query failed"), { code: error.code });
+      console.error("[velocity:times] database read failed", {
+        ...timing,
+        code: diagnosticCode(error),
+      });
+      throw Object.assign(new Error("Times query failed"), {
+        code: error.code,
+      });
     }
     console.info("[velocity:times] database read completed", timing);
     const result = data as unknown as TimesResponse;
     return { ...result, expiresAt: timesExpiry(bucket) };
   },
-  ["ies-times-v3"],
+  ["velocity-times-v4"],
   { tags: [tag], revalidate: 60 },
 );
 export async function readTimes(
   kind: TimesKind,
   input: TimesInput,
 ): Promise<TimesResponse> {
+  input = Object.fromEntries(
+    Object.entries({ ...input, team: VELOCITY_TEAM_ID }).sort(([a], [b]) =>
+      a.localeCompare(b),
+    ),
+  );
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL,
     key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) throw new Error("Times database is not configured.");
