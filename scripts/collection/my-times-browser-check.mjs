@@ -417,7 +417,7 @@ try {
   assert.equal(event.rankGender, "F");
   assert.match(
     await freestyle().innerText(),
-    new RegExp(`#${event.allTimeRank}\\b`),
+    new RegExp(`Rank ${event.allTimeRank}\\b`),
   );
   const toggle = myTimes.getByRole("button", {
     name: "Time filters",
@@ -483,7 +483,7 @@ try {
   await showTime("39.40");
   assert.match(
     await freestyle().innerText(),
-    new RegExp(`#${event.allTimeRank}\\b`),
+    new RegExp(`Rank ${event.allTimeRank}\\b`),
     "Age filtering preserves the all-time rank",
   );
   await chooseAge(13);
@@ -508,7 +508,7 @@ try {
   await showTime("39.40");
   assert.match(
     await freestyle().innerText(),
-    new RegExp(`#${event.allTimeRank}\\b`),
+    new RegExp(`Rank ${event.allTimeRank}\\b`),
     "Year filtering preserves the all-time rank",
   );
   await filters.getByRole("button", { name: "All time", exact: true }).click();

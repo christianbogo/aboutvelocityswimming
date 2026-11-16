@@ -3,9 +3,11 @@ import type { Race } from "./times-data";
 export const timesKinds = [
   "facets",
   "rankings",
+  "ranking_years",
   "analysis",
   "race",
   "records",
+  "records_board",
   "my_times",
   "my_times_bests",
 ] as const;

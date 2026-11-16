@@ -401,8 +401,8 @@ export default function TimesDatabase() {
 }
 
 function TimesDatabaseContent() {
-  const standards = useStandards();
   const view = getTimesView(useSearchParams().get("view"));
+  const standards = useStandards(view !== "records");
   const standardSelection = useTimeStandardsSelection(
     standards.sets,
     view === "standards",
@@ -425,12 +425,10 @@ function TimesDatabaseContent() {
   }
   const detailRef = useRef<HTMLDivElement>(null);
   const enabled = hasBackendConfiguration;
-  const facets = useTimes(
-    enabled && view !== "records" && view !== "my-times"
-      ? timesUrl("facets")
-      : null,
+  const rankingYears = useTimes(
+    enabled && view === "rankings" ? timesUrl("ranking_years") : null,
   );
-  const years = facets.data?.years ?? [];
+  const years = rankingYears.data?.years ?? [];
   const queryFilters = {
     ...filters,
     genders: filters.genders.length ? filters.genders : undefined,
@@ -445,7 +443,7 @@ function TimesDatabaseContent() {
       : null,
   );
   const recordsQuery = useTimes(
-    enabled && view === "records" ? timesUrl("records") : null,
+    enabled && view === "records" ? timesUrl("records_board") : null,
   );
   const races = recordsQuery.data?.races ?? [];
   const displayed = rankingsQuery.data?.rows ?? [];
@@ -766,7 +764,7 @@ function TimesDatabaseContent() {
             appear here once it is available.
           </div>
         )}
-        <QueryNotice query={facets} />
+        <QueryNotice query={rankingYears} />
         <div
           className={`${s.workspace} ${view !== "rankings" || !selected ? s.recordsWorkspace : ""}`}
         >

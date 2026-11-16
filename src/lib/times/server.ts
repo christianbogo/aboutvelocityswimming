@@ -34,16 +34,30 @@ const readCached = unstable_cache(
     });
     const input = JSON.parse(serialized);
     const started = performance.now();
-    const { data, error, status } = await (kind === "my_times"
-      ? client.rpc(
+    let query;
+    switch (kind) {
+      case "my_times":
+        query = client.rpc(
           input.rankPeriod === "all" ? "ies_my_times_all_time" : "ies_my_times",
           { input },
-        )
-      : kind === "my_times_bests"
-        ? client.rpc("ies_my_times_bests", { input })
-        : kind === "rankings" && input.mode === "recent"
-          ? client.rpc("ies_times_recent", { input })
-          : client.rpc("ies_times_query", { query_kind: kind, input }));
+        );
+        break;
+      case "my_times_bests":
+        query = client.rpc("ies_my_times_bests", { input });
+        break;
+      case "ranking_years":
+        query = client.rpc("ies_times_ranking_years", { input });
+        break;
+      case "records_board":
+        query = client.rpc("ies_team_records_board", { input });
+        break;
+      default:
+        query =
+          kind === "rankings" && input.mode === "recent"
+            ? client.rpc("ies_times_recent", { input })
+            : client.rpc("ies_times_query", { query_kind: kind, input });
+    }
+    const { data, error, status } = await query;
     const timing = {
       kind,
       durationMs: Math.round(performance.now() - started),

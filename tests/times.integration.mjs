@@ -119,6 +119,7 @@ swim("leg", 0, 10000, {
   eventCode: "100_FR-R_SCY",
   ageGroup: "11-12",
   relay: { teamName: "Fixture relay", leg: 1 },
+  meet: { id: meet, name: "IES fixture meet", date: "2001-04-02" },
 });
 swim("badleg", 0, 9000, {
   isRelay: true,
@@ -167,7 +168,7 @@ function relayResult(id, extra = {}) {
     sourceObservation: { evidence: "private-relay-evidence" },
     ...extra,
   };
-  nativeRelays.push({ id: data.id, athlete_id: "", swim_date: today, data });
+  nativeRelays.push({ id: data.id, athlete_id: "", swim_date: data.meet.date, data });
   writes.push({ path: "relay_results/" + data.id, after: data });
   return data;
 }
@@ -178,6 +179,7 @@ relayResult("medley-relay", {
   stroke: "IM",
   gender: "F",
   ageGroup: "13-14",
+  meet: { id: meet, name: "IES fixture meet", date: "2004-08-01" },
   members: [
     { leg: 1, athleteId: prefix + "0", name: "Synthetic 0", stroke: "BK" },
   ],
@@ -473,6 +475,16 @@ try {
     assert.ok(denied.error);
     const privateRows = await anon.from("teams").select("id");
     assert.deepEqual(privateRows.data, []);
+  });
+  await test("ranking years match all published facets, including relay-only years", async () => {
+    const oldFacets = await query("facets");
+    const { data, error } = await anon.rpc("ies_times_ranking_years", {
+      input: { team, course: "LCM" },
+    });
+    assert.ifError(error);
+    assert.deepEqual(data, { years: oldFacets.years });
+    assert.ok(data.years.includes("2001"), "legacy relay split year is included");
+    assert.ok(data.years.includes("2004"), "native whole relay year is included");
   });
   await test("team relay totals, ties, lineups and splits are public once per race", async () => {
     const result = await query("rankings", {

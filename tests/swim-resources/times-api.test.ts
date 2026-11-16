@@ -121,7 +121,13 @@ describe("Velocity times requests", () => {
       ).toThrow();
   });
   it("always scopes reads to Velocity and ignores legacy team selections", () => {
-    for (const view of ["rankings", "records", "facets"]) {
+    for (const view of [
+      "rankings",
+      "ranking_years",
+      "records",
+      "records_board",
+      "facets",
+    ]) {
       for (const team of ["", "other-club", "velocity-swimming"]) {
         expect(
           parseTimesQuery(new URLSearchParams({ view, team })).input.team,

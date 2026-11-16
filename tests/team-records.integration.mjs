@@ -32,7 +32,7 @@ CREATE FUNCTION pg_temp.swim(rid text, athlete text, ms integer, extra jsonb def
     'sourceObservation',jsonb_build_object('private','never-public'))||extra);
 $$;
 CREATE FUNCTION pg_temp.board() RETURNS jsonb LANGUAGE sql AS $$
-  SELECT public.ies_times_query('records','{"team":"velocity-swimming"}');
+  SELECT public.ies_team_records_board('{"team":"velocity-swimming"}');
 $$;
 SELECT pg_temp.swim('record-cache-first','record-cache-a',60000);
 SELECT pg_temp.swim('record-cache-tie','record-cache-b',60000);
@@ -83,6 +83,42 @@ test("flagged, edited, hidden and deleted holders disappear before the next refr
   RESET ROLE;
   SELECT private.refresh_team_records();
   SELECT pg_temp.check_ok(jsonb_array_length(pg_temp.board()->'races')=0,'empty board refresh removes old winners');
+`));
+
+test("the compact board keeps legacy ties, relay lineups, and verified lead-offs", () => check(`
+  SELECT private.put_record('relay_results/record-cache-relay', '{
+    "id":"record-cache-relay", "relayName":"Record Fixture Relay", "teamId":"velocity-swimming", "eventCode":"200_FR-R_SCY", "course":"SCY",
+    "distance":200, "stroke":"FR", "timeMs":125000, "status":"OK", "round":"F", "isRelay":true,
+    "isOfficial":true, "gender":"F", "ageGroup":"11-12", "splitCoverage":"partial",
+    "meet":{"id":"record-cache-meet", "name":"Record fixture", "date":"2026-10-01"},
+    "members":[{"leg":1, "athleteId":"record-cache-a", "name":"First Fixture", "stroke":"FR", "timeMs":28000}],
+    "splits":[{"distance":50,"cumulativeMs":28000}]
+  }');
+  SELECT pg_temp.swim('record-cache-leadoff', 'record-cache-a', 28000, '{
+    "eventCode":"50_FR_SCY", "distance":50, "stroke":"FR", "resultOrigin":"relay_leadoff", "parentRelayResultId":"record-cache-relay",
+    "leadOffVerification":{"verified":true,"flatStart":true,"timingVerified":true,"leadOffStatus":"OK","sourceUrl":"https://example.test/source"}
+  }');
+  SELECT private.refresh_team_records();
+  SET LOCAL ROLE anon;
+  WITH boards AS MATERIALIZED (
+    SELECT pg_temp.board() current_board, public.ies_team_records('velocity-swimming') legacy_board
+  )
+  SELECT pg_temp.check_ok(current_board->'records'=legacy_board->'records', 'identical winners and tie order'),
+    pg_temp.check_ok(current_board->'recordsUpdatedAt'=legacy_board->'recordsUpdatedAt', 'same freshness timestamp'),
+    pg_temp.check_ok(current_board->'races' @> '[{"id":"record-cache-relay","members":[{"leg":1,"name":"First Fixture"}]}]', 'preserves the inline relay lineup'),
+    pg_temp.check_ok(current_board->'races' @> '[{"id":"record-cache-leadoff","resultOrigin":"relay_leadoff"}]', 'preserves the lead-off label'),
+    pg_temp.check_ok(NOT jsonb_path_exists(current_board, '$.races[*].splits'), 'board skips full splits'),
+    pg_temp.check_ok(jsonb_path_exists(legacy_board, '$.races[*].splits'), 'legacy response retains full race metadata')
+  FROM boards;
+  RESET ROLE;
+  INSERT INTO public.result_moderation VALUES ('relay','record-cache-relay',true,1);
+  SET LOCAL ROLE anon;
+  SELECT pg_temp.check_ok(NOT (pg_temp.board()::text LIKE '%record-cache-relay%' OR pg_temp.board()::text LIKE '%record-cache-leadoff%'), 'relay flag immediately hides parent and lead-off');
+  RESET ROLE;
+  UPDATE public.result_moderation SET flagged=false,version=2 WHERE result_id='record-cache-relay';
+  SET LOCAL ROLE anon;
+  SELECT pg_temp.check_ok(pg_temp.board()->'races' @> '[{"id":"record-cache-relay"},{"id":"record-cache-leadoff"}]','restore makes the current winners visible again');
+  RESET ROLE;
 `));
 
 test("public callers cannot write the board or invoke the background worker", () => check(`

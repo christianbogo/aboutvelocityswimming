@@ -215,12 +215,7 @@ async function setup({ failure = false, expiry = false } = {}) {
       relay: q.get("relay") === "true",
     };
     let data;
-    if (view === "facets")
-      data = {
-        events: [...events.map(([e]) => e), "100_BK", "100_FL"],
-        years: ["2026", "2025"],
-        relayAges: [],
-      };
+    if (view === "ranking_years") data = { years: ["2026", "2025"] };
     if (view === "rankings") {
       const all = rankedTimes(
         races.filter((r) => matches(r, filters)),
@@ -259,7 +254,7 @@ async function setup({ failure = false, expiry = false } = {}) {
       const chosen = races.find((race) => race.id === q.get("raceId"));
       data = { rows: chosen ? [{ race: chosen }] : [], total: chosen ? 1 : 0 };
     }
-    if (view === "records")
+    if (view === "records_board")
       data = {
         records: Object.fromEntries([...teamRecords(races, velocityTeam)].map(([key, holders]) => [key, holders.map((race) => race.id)])),
         recordsUpdatedAt: "2026-11-15T18:00:00Z",
@@ -381,7 +376,7 @@ try {
       throw error;
     });
   assert.deepEqual([...new Set(calls.map((q) => q.get("view")))].sort(), [
-    "facets",
+    "ranking_years",
     "rankings",
   ]);
   assert.equal(

@@ -3,13 +3,13 @@ import { useEffect, useState } from "react";
 import { browserClient, hasBackendConfiguration } from "@/lib/supabase/client";
 import type { StandardSet } from "@/features/swim-resources/types/schema";
 
-export function useStandards() {
+export function useStandards(enabled = true) {
   const [sets, setSets] = useState<StandardSet[]>([]);
   const [loading, setLoading] = useState(hasBackendConfiguration);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   useEffect(() => {
-    if (!hasBackendConfiguration) return;
+    if (!hasBackendConfiguration || !enabled) return;
     let alive = true;
     async function load() {
       setLoading(true);
@@ -45,11 +45,11 @@ export function useStandards() {
       window.removeEventListener("ies-times-changed", refresh);
       window.removeEventListener("focus", refresh);
     };
-  }, [revision]);
+  }, [enabled, revision]);
   return {
     sets,
-    loading,
-    error,
+    loading: enabled && loading,
+    error: enabled ? error : "",
     retry: () => setRevision((value) => value + 1),
   };
 }

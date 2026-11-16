@@ -471,7 +471,7 @@ function MyTimesResults({
                             >
                               {event.allTimeRank !== null ? (
                                 <>
-                                  Team #{event.allTimeRank}
+                                  Rank {event.allTimeRank}
                                   <span>
                                     of {event.allTimeCount} ·{" "}
                                     {cohortLabel(

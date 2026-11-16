@@ -1569,6 +1569,7 @@ export type Database = {
         Returns: undefined;
       };
       ies_team_records: { Args: { team_id: string }; Returns: Json };
+      ies_team_records_board: { Args: { input?: Json }; Returns: Json };
       ies_times_age: {
         Args: { age: number; relay: boolean; relay_age: string };
         Returns: string;
@@ -1628,6 +1629,7 @@ export type Database = {
         Returns: Json;
       };
       ies_times_json_id: { Args: { race_id: string }; Returns: Json };
+      ies_times_ranking_years: { Args: { input?: Json }; Returns: Json };
       ies_times_recent: { Args: { input?: Json }; Returns: Json };
       ies_my_times: { Args: { input?: Json }; Returns: Json };
       ies_my_times_all_time: { Args: { input?: Json }; Returns: Json };

@@ -20,7 +20,7 @@ try {
   await page.waitForURL(base + "/tools");
 
   // First exercise the real browser -> Next route -> local database path.
-  const live = await page.request.get(base + "/api/times?view=records");
+  const live = await page.request.get(base + "/api/times?view=records_board");
   assert.equal(live.status(), 200);
   const board = await live.json();
   assert.ok(board.records && board.recordsUpdatedAt);
@@ -32,31 +32,37 @@ try {
     id: "stored-holder", athleteId: "stored-athlete", athleteName: "Stored record holder",
     team: "velocity-swimming", teamName: "Velocity Swimming", event: "100_FR", course: "SCY",
     gender: "F", ageAtSwim: 12, time: 60000, date: "2026-10-01", status: "OK",
-    official: true, relay: false, relayLeg: null, split: false,
+    official: true, relay: false, relayLeg: null, split: false, resultOrigin: "relay_leadoff",
+  };
+  const relay = {
+    ...holder, id: "stored-relay", event: "200_FR-R", relay: true,
+    resultOrigin: undefined, members: [{ leg: 1, name: "First Fixture" }],
   };
   const calls = [];
   await page.route("**/api/times?*", (route) => {
     const kind = new URL(route.request().url()).searchParams.get("view");
     calls.push(kind);
-    const data = kind === "records" ? {
-      records: { "SCY:11-12:100_FR:F": [holder.id] },
-      races: [holder, { ...holder, id: "unused-faster", athleteId: "unused", athleteName: "Unused faster race", time: 50000 }],
+    const data = kind === "records_board" ? {
+      records: { "SCY:11-12:100_FR:F": [holder.id], "SCY:11-12:200_FR-R:F": [relay.id] },
+      races: [holder, relay, { ...holder, id: "unused-faster", athleteId: "unused", athleteName: "Unused faster race", time: 50000 }],
       recordsUpdatedAt: "2026-11-15T18:00:00Z",
     } : { rows: [], total: 0 };
     return route.fulfill({ json: { ...data, expiresAt: Date.now() + 60_000 } });
   });
   await page.goto(base + "/tools/times?view=records");
   const records = page.getByRole("region", { name: "Records", exact: true });
-  await records.getByText("Stored record holder", { exact: true }).waitFor();
+  await records.getByText("Stored record holder").waitFor();
+  assert.ok(await records.getByText("Verified relay lead-off", { exact: true }).count());
+  assert.ok(await records.getByRole("list", { name: "Relay swimmers" }).getByTitle("First Fixture").count());
   assert.equal(await records.getByText("Unused faster race", { exact: true }).count(), 0);
-  assert.deepEqual([...new Set(calls)].sort(), ["records"]);
+  assert.deepEqual([...new Set(calls)].sort(), ["records_board"]);
   assert.ok(await records.getByText("Updated Nov 15, 2026", { exact: true }).count());
   const link = records.getByRole("button", { name: "View girls 11–12 SCY 100 FR rankings" });
   await link.click();
   assert.equal(new URL(page.url()).searchParams.get("view") ?? "rankings", "rankings");
   await page.goto(base + "/tools/times?view=records");
   await page.setViewportSize({ width: 390, height: 844 });
-  await records.getByText("Stored record holder", { exact: true }).waitFor();
+  await records.getByText("Stored record holder").waitFor();
   await records.getByRole("button", { name: "Boys", exact: true }).click();
   assert.equal(await records.getAttribute("data-mobile-gender"), "M");
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);

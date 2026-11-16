@@ -104,6 +104,36 @@ it("loads filtered bests without invoking the all-time cohort query", async () =
     input: { ...input, team: "velocity-swimming" },
   });
 });
+it.each([
+  ["ranking_years", "ies_times_ranking_years", { years: ["2026"] }],
+  [
+    "records_board",
+    "ies_team_records_board",
+    { records: {}, races: [], recordsUpdatedAt: null },
+  ],
+] as const)(
+  "loads %s from its dedicated public query",
+  async (view, rpc, data) => {
+    mocks.rpc.mockResolvedValueOnce({ data, error: null });
+    expect(await readTimes(view, {})).toEqual({
+      ...data,
+      expiresAt: expect.any(Number),
+    });
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith(rpc, {
+      input: { team: "velocity-swimming" },
+    });
+  },
+);
+it.each(["facets", "records"] as const)(
+  "retains the legacy %s query for open clients",
+  async (view) => {
+    await readTimes(view, {});
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith("ies_times_query", {
+      query_kind: view,
+      input: { team: "velocity-swimming" },
+    });
+  },
+);
 it("preserves the season RPC for clients opened before the all-time update", async () => {
   for (const rankPeriod of [undefined, "season"]) {
     await readTimes("my_times", { athleteId: "a", rankPeriod });
