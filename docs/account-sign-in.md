@@ -17,7 +17,7 @@ References: [Supabase identity linking](https://supabase.com/docs/guides/auth/au
 
 ## Athlete following and family preview
 
-Apply `supabase/migrations/20261116192721_account_followed_athletes.sql` before deploying this account page. Primary and favorite athlete selections are stored privately for each account, using canonical public athlete IDs. The new search/load/save functions enforce account ownership; they do not grant ownership of an athlete or change Velocity Times yet.
+Apply `supabase/migrations/20261116194519_account_followed_athletes.sql` before deploying this account page. Primary and favorite athlete selections are stored privately for each account, using canonical public athlete IDs. The new search/load/save functions enforce account ownership; they do not grant ownership of an athlete or change Velocity Times yet.
 
 Velocity Family appears only when the signed-in email has a family membership. Its additional accounts are labeled sample content until the family account backend is ready. Admin client previews do not change which family appears on the Account page.
 
