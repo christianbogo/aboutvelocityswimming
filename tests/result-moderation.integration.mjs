@@ -106,9 +106,14 @@ test("flag excludes incorrect 26.15 from all calculations, retains public histor
 `));
 test("relay exclusion propagates to lead-offs, child flags survive parent restoration, splits are independently flaggable", () =>
   check(`
+ SELECT pg_temp.check_ok(pg_temp.query('records')->'races' @> '[{"id":"mod-fixture-relay"},{"id":"mod-fixture-leadoff"}]','records initially include relay and lead-off');
  ${flag("mod-fixture-relay", 0, "relay")}
  SELECT pg_temp.check_ok(public.ies_times_json_id('mod-fixture-leadoff')->>'moderationInherited'='true','parent propagation');
  SELECT pg_temp.check_ok(NOT ((pg_temp.query('profile')->'pbs')::text LIKE '%mod-fixture-leadoff%'),'lead-off PB excluded');
+ SELECT pg_temp.check_ok(NOT EXISTS (
+  SELECT 1 FROM jsonb_array_elements(pg_temp.query('records')->'races') race
+  WHERE race->>'id' IN ('mod-fixture-relay','mod-fixture-leadoff')
+ ),'records exclude flagged relay and its lead-off');
  SELECT pg_temp.check_ok(pg_temp.query('rankings','{"relay":true,"event":"200_FR-R"}')->>'total'='0','relay ranking excludes');
  SELECT pg_temp.check_ok(pg_temp.query('athlete_relays')#>>'{rows,0,race,moderationStatus}'='flagged','relay participation labelled');
  ${flag("mod-fixture-leadoff")}
@@ -116,6 +121,7 @@ test("relay exclusion propagates to lead-offs, child flags survive parent restor
  SELECT pg_temp.check_ok(public.result_is_excluded('swim','mod-fixture-leadoff'),'child flag survives');
  ${restore("mod-fixture-leadoff")}
  SELECT pg_temp.check_ok(public.ies_times_json_id('mod-fixture-leadoff')->>'calculationEligible'='true','lead-off restored');
+ SELECT pg_temp.check_ok(pg_temp.query('records')->'races' @> '[{"id":"mod-fixture-relay"},{"id":"mod-fixture-leadoff"}]','records include restored relay and lead-off');
  ${flag("mod-fixture-split")}
  ${restore("mod-fixture-split")}
  SELECT pg_temp.check_ok(public.ies_times_json_id('mod-fixture-split')->>'calculationEligible'='false','restored split remains ineligible');
