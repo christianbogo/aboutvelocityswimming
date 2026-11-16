@@ -6,6 +6,8 @@ interface AuthContextType {
   user: User | null;
   isAdmin: boolean;
   familyId: string | null;
+  // The signed-in account's membership, independent of an admin's client preview.
+  accountFamilyId: string | null;
   loading: boolean;
   logout: () => Promise<void>;
   clientMode: boolean;
@@ -18,6 +20,7 @@ export const AuthContext = createContext<AuthContextType>({
   user: null,
   isAdmin: false,
   familyId: null,
+  accountFamilyId: null,
   loading: true,
   logout: async () => {},
   clientMode: false,

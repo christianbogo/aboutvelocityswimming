@@ -183,6 +183,7 @@ describe("Workshare auth membership lifecycle", () => {
     expect(state()).toMatchObject({
       isAdmin: true,
       familyId: "preview-family",
+      accountFamilyId: "staff-family",
       loading: false,
       clientMode: true,
       previewFamilyId: "preview-family",
@@ -190,6 +191,7 @@ describe("Workshare auth membership lifecycle", () => {
     next.resolve("updated-family");
     await refreshing;
     expect(state().familyId).toBe("preview-family");
+    expect(state().accountFamilyId).toBe("updated-family");
     state().setClientMode(false);
     expect(state().familyId).toBe("updated-family");
     expect(harness.membership).toHaveBeenCalledTimes(2);

@@ -81,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isAdmin,
         familyId: effectiveFamilyId,
+        accountFamilyId: familyId,
         loading,
         logout,
         clientMode,

@@ -34,6 +34,20 @@ export type Database = {
   };
   public: {
     Tables: {
+      account_followed_athletes: {
+        Row: { user_id: string; athlete_id: string; is_primary: boolean };
+        Insert: { user_id: string; athlete_id: string; is_primary?: boolean };
+        Update: { user_id?: string; athlete_id?: string; is_primary?: boolean };
+        Relationships: [
+          {
+            foreignKeyName: "account_followed_athletes_athlete_id_fkey";
+            columns: ["athlete_id"];
+            isOneToOne: false;
+            referencedRelation: "public_athletes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       account_profiles: {
         Row: {
           user_id: string;
@@ -1504,6 +1518,32 @@ export type Database = {
     };
     Functions: {
       claim_shift_reminders: { Args: { dry_run?: boolean }; Returns: Json };
+      get_account_athletes: {
+        Args: { account_user_id: string };
+        Returns: {
+          id: string;
+          name: string;
+          team_name: string | null;
+          is_primary: boolean;
+        }[];
+      };
+      search_account_athletes: {
+        Args: { search_text: string };
+        Returns: { id: string; name: string; team_name: string | null }[];
+      };
+      save_account_athletes: {
+        Args: {
+          account_user_id: string;
+          primary_id?: string;
+          favorite_ids?: string[];
+        };
+        Returns: {
+          id: string;
+          name: string;
+          team_name: string | null;
+          is_primary: boolean;
+        }[];
+      };
       collect_records: {
         Args: { reads: Json; writes: Json };
         Returns: undefined;

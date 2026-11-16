@@ -2,15 +2,16 @@ import { withUpdateHold } from "@/lib/update-safety"
 import { useUpdateBlocker } from "@/hooks/useUpdateBlocker"
 import { errorCode, errorMessage } from "../../lib/errors"
 import { useState, useEffect, useRef } from "react"
-import { signInWithGoogle, signInWithEmailAndPassword } from "@/lib/auth"
+import { signInWithEmailAndPassword } from "@/lib/auth"
 import { browserClient } from "@/lib/supabase/client"
+import { accountSecurityError, configuredSignInProviders, signInWithAccountPasskey, signInWithAccountProvider, type AccountProvider } from "@/lib/account-security"
 import { auth } from "../../lib/backend"
 import { useAuth } from "../../contexts/auth"
 import { isToolsAdmin } from "@/lib/tools-access"
 import { Button } from "../ui/Button"
 import { Input } from "../ui/Input"
 import { Card } from "../ui/Card"
-import { Mail, ArrowLeft, CheckCircle2, KeyRound } from "lucide-react"
+import { Mail, ArrowLeft, CheckCircle2, Fingerprint, KeyRound } from "lucide-react"
 
 export function Login() {
   const [email, setEmail] = useState("")
@@ -22,13 +23,17 @@ export function Login() {
   const [error, setError] = useState("")
   const [successMessage, setSuccessMessage] = useState("")
   const [loading, setLoading] = useState(false)
-  const [googleLoading, setGoogleLoading] = useState(false)
+  const [providerLoading, setProviderLoading] = useState<AccountProvider | null>(null)
+  const [passkeyLoading, setPasskeyLoading] = useState(false)
   const [countdown, setCountdown] = useState(0)
 
   const otpInputRef = useRef<HTMLInputElement>(null)
+  const passkeyRequest = useRef<AbortController | null>(null)
   const { user, loading: authLoading, logout } = useAuth()
-  useUpdateBlocker(authLoading || loading || googleLoading)
+  useUpdateBlocker(authLoading || loading || providerLoading !== null || passkeyLoading)
   const canOpenTools = isToolsAdmin(user?.email, user?.emailVerified === true)
+
+  useEffect(() => () => passkeyRequest.current?.abort(), [])
 
   useEffect(() => {
     if (!authLoading && canOpenTools) {
@@ -111,27 +116,33 @@ export function Login() {
     }
   }
 
-  const handleGoogleAdminLogin = async () => {
+  const handleProviderLogin = async (provider: AccountProvider) => {
+    if (loading || providerLoading || passkeyLoading) return
     setError("")
     setSuccessMessage("")
-    setGoogleLoading(true)
+    setProviderLoading(provider)
     try {
-      await signInWithGoogle()
+      await signInWithAccountProvider(provider)
     } catch (err: unknown) {
-      console.error("Google sign in error:", err)
-      if (errorCode(err) === "auth/operation-not-allowed" || errorCode(err) === "auth/configuration-not-found") {
-        setError("Google sign-in is temporarily unavailable. Please use your email code.")
-      } else if (errorCode(err) === "auth/unauthorized-domain") {
-        setError("Google sign-in is unavailable on this address. Please use your email code.")
-      } else if (errorCode(err) === "auth/popup-blocked") {
-        setError("Sign-in popup was blocked by your browser. Please allow popups for this site and try again.")
-      } else if (errorCode(err) === "auth/popup-closed-by-user") {
-        setError("Sign-in window was closed. Please try again.")
-      } else {
-        setError(errorMessage(err) || "Google sign-in could not be completed.")
-      }
+      setError(accountSecurityError(err, "Sign-in could not be completed. Please try again or use your email code."))
+      setProviderLoading(null)
+    }
+  }
+
+  const handlePasskeyLogin = async () => {
+    if (loading || providerLoading !== null || passkeyLoading) return
+    const controller = new AbortController()
+    passkeyRequest.current = controller
+    setError("")
+    setSuccessMessage("")
+    setPasskeyLoading(true)
+    try {
+      await signInWithAccountPasskey(controller.signal)
+    } catch (err: unknown) {
+      if (!controller.signal.aborted) setError(accountSecurityError(err, "Passkey sign-in could not be completed. Please try again or use your email code."))
     } finally {
-      setGoogleLoading(false)
+      if (!controller.signal.aborted) setPasskeyLoading(false)
+      if (passkeyRequest.current === controller) passkeyRequest.current = null
     }
   }
 
@@ -203,7 +214,7 @@ export function Login() {
                     variant="primary" 
                     size="lg" 
                     className="w-full mt-2" 
-                    disabled={loading || googleLoading || !email.trim()}
+                    disabled={loading || providerLoading !== null || passkeyLoading || !email.trim()}
                   >
                     {loading ? "Sending Code..." : "Send 8-Digit Code"}
                   </Button>
@@ -245,7 +256,7 @@ export function Login() {
                     variant="primary" 
                     size="lg" 
                     className="w-full" 
-                    disabled={loading || otpCode.length !== 8}
+                    disabled={loading || passkeyLoading || otpCode.length !== 8}
                   >
                     {loading ? "Verifying..." : "Verify & Sign In"}
                   </Button>
@@ -300,7 +311,7 @@ export function Login() {
                   autoComplete="current-password"
                 />
               </div>
-              <Button type="submit" variant="primary" size="lg" className="w-full mt-2" disabled={loading || googleLoading}>
+              <Button type="submit" variant="primary" size="lg" className="w-full mt-2" disabled={loading || providerLoading !== null || passkeyLoading}>
                 {loading ? "Signing in..." : "Sign In with Password"}
               </Button>
             </form>
@@ -318,34 +329,27 @@ export function Login() {
             </button>
           </div>
 
-          {/* Show OAuth only after the provider is configured in Supabase. */}
-          {process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true" && <div className="mt-6 pt-6 border-t border-slate-100 text-center">
-            <button
+          <div className="mt-4 text-center">
+            <Button type="button" variant="outline" className="w-full"
+              disabled={loading || providerLoading !== null || passkeyLoading}
+              onClick={() => void handlePasskeyLogin()}>
+              <Fingerprint className="mr-2 size-4" aria-hidden="true" />
+              {passkeyLoading ? "Waiting for your passkey…" : "Sign in with passkey"}
+            </Button>
+          </div>
+
+          {/* Show OAuth only after each provider is configured in Supabase. */}
+          {configuredSignInProviders.length > 0 && <div className="mt-6 space-y-2 border-t border-slate-100 pt-6 text-center">
+            {configuredSignInProviders.map((provider) => <Button
+              key={provider.id}
               type="button"
-              onClick={handleGoogleAdminLogin}
-              disabled={loading || googleLoading}
-              className="inline-flex items-center justify-center gap-2 text-xs font-semibold text-slate-600 hover:text-accent transition-colors py-2 px-3 rounded-lg hover:bg-bg cursor-pointer"
+              variant="outline"
+              className="w-full"
+              onClick={() => void handleProviderLogin(provider.id)}
+              disabled={loading || providerLoading !== null || passkeyLoading}
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                />
-              </svg>
-              <span>{googleLoading ? "Connecting to Google..." : "Sign in with Google"}</span>
-            </button>
+              {providerLoading === provider.id ? `Connecting to ${provider.name}…` : `Sign in with ${provider.name}`}
+            </Button>)}
           </div>}
         </Card>
         <p className="mt-4 text-center text-sm text-slate-500"><a href="/tools" className="hover:underline">← Back to Account</a></p>

@@ -5,7 +5,10 @@ export async function GET(request: Request) {
     code = url.searchParams.get("code"),
     candidate = url.searchParams.get("next") ?? "/tools";
   const next =
-    candidate.startsWith("/") && !candidate.startsWith("//")
+    candidate.startsWith("/") &&
+    !candidate.startsWith("//") &&
+    !candidate.includes("\\") &&
+    !/[\r\n\t]/.test(candidate)
       ? candidate
       : "/tools";
   if (code) {
@@ -13,5 +16,9 @@ export async function GET(request: Request) {
     const { error } = await client.auth.exchangeCodeForSession(code);
     if (!error) return NextResponse.redirect(new URL(next, url.origin));
   }
-  return NextResponse.redirect(new URL("/login?error=callback", url.origin));
+  const failure =
+    url.searchParams.get("flow") === "link"
+      ? "/tools?account-link=error"
+      : "/login?error=callback";
+  return NextResponse.redirect(new URL(failure, url.origin));
 }
