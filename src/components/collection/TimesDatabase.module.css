@@ -107,6 +107,9 @@
 .toolbar .field {
   flex: 1;
 }
+.rankingToolbar {
+  background: var(--background-alt);
+}
 .link {
   color: var(--accent);
   background: transparent;
@@ -149,6 +152,7 @@
   font-weight: 700;
   color: var(--accent);
   background: none;
+  vertical-align: middle;
 }
 .table .rank {
   width: 1%;

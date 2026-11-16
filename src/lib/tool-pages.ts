@@ -28,7 +28,7 @@ export type ToolPage = {
 
 const timesDescriptions: Record<TimesView, string> = {
   "my-times":
-    "Follow your primary and favorite athletes’ best times, motivational ranks, and current-season team rankings.",
+    "Follow your primary and favorite athletes’ best times, motivational ranks, and all-time team rankings.",
   rankings:
     "Compare swimmers by event, age, and course, and explore performance rankings.",
   records: "Browse team records and the swimmers behind the fastest times.",

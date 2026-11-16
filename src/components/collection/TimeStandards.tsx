@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, ChevronDown } from "lucide-react";
+import { useId, useState } from "react";
 import { hasBackendConfiguration } from "@/lib/supabase/client";
 import type { StandardSet } from "@/features/swim-resources/types/schema";
 import { useTimesSelection } from "./use-times-selection";
@@ -21,6 +22,7 @@ import DiscreteSlider from "./DiscreteSlider";
 import { MotivationalRankIcon } from "./MotivationalRankIcon";
 import s from "./TimeStandards.module.css";
 import timesStyles from "./TimesDatabase.module.css";
+import rankingFilters from "./RankingFilters.module.css";
 
 const genderLabels: Record<string, string> = {
   F: "Female",
@@ -80,6 +82,8 @@ export default function TimeStandards({
   query: ReturnType<typeof useStandards>;
   state: TimeStandardsSelection;
 }) {
+  const filtersId = useId();
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const { sets, loading, error, retry } = query;
   const { day, set, filters, setSelected, setSelection } = state;
   const eventKeys =
@@ -90,8 +94,8 @@ export default function TimeStandards({
     if (filters) setSelection({ ...filters.selection, [key]: value });
   }
   return (
-    <section className={s.page} aria-label="Time Standards">
-      <h1 className="text-2xl font-bold">Time Standards</h1>
+    <section className={s.page} aria-label="Standards">
+      <h1 className="text-2xl font-bold">Standards</h1>
       {loading && <p role="status">Loading approved standards…</p>}
       {error && (
         <p role="alert">
@@ -106,56 +110,75 @@ export default function TimeStandards({
       )}
       {set && filters && (
         <>
-          <div className={`${timesStyles.filters} ${s.filters}`}>
-            <PopupPicker
-              label="Standard"
-              value={set.id}
-              onChange={(value) => {
-                setSelected(value);
-                setSelection(filters.selection);
-              }}
-              options={orderedStandards(sets, day).map((item) => [
-                item.id,
-                `${item.name} · ${standardStatus(item, day)}`,
-              ])}
-            />
-            <FilterChips
-              label="Course"
-              value={filters.selection.course}
-              onChange={(value) => updateFilter("course", value)}
-              options={filters.courses.map((course) => [course, course])}
-            />
-            <FilterChips
-              label="Gender"
-              value={filters.selection.gender}
-              onChange={(value) => updateFilter("gender", value)}
-              options={filters.genders.map((gender) => [
-                gender,
-                genderLabels[gender] ?? gender,
-              ])}
-            />
-            <DiscreteSlider
-              label="Age group"
-              value={filters.selection.age}
-              onChange={(value) => updateFilter("age", value)}
-              options={filters.ages.map((age) => [age, age])}
-            />
-            <DiscreteSlider
-              label="Tier"
-              value={filters.selection.tier}
-              onChange={(value) => updateFilter("tier", value)}
-              options={filters.tiers.map((tier) => [tier, tier])}
-              valueAdornment={
-                set.governingBody === "USA_Swimming" &&
-                set.category === "motivational" ? (
-                  <MotivationalRankIcon
-                    tier={filters.selection.tier}
-                    size={24}
-                  />
-                ) : undefined
-              }
-            />
-          </div>
+          <section
+            className={s.filterPanel}
+            aria-label="Time standards filters"
+          >
+            <div className={rankingFilters.heading}>
+              <button
+                type="button"
+                className={rankingFilters.toggle}
+                aria-expanded={filtersOpen}
+                aria-controls={filtersId}
+                onClick={() => setFiltersOpen((open) => !open)}
+              >
+                <ChevronDown size={17} aria-hidden="true" />
+                Standard filters
+              </button>
+            </div>
+            <div id={filtersId} hidden={!filtersOpen}>
+              <div className={`${timesStyles.filters} ${s.filters}`}>
+                <PopupPicker
+                  label="Standard"
+                  value={set.id}
+                  onChange={(value) => {
+                    setSelected(value);
+                    setSelection(filters.selection);
+                  }}
+                  options={orderedStandards(sets, day).map((item) => [
+                    item.id,
+                    `${item.name} · ${standardStatus(item, day)}`,
+                  ])}
+                />
+                <FilterChips
+                  label="Course"
+                  value={filters.selection.course}
+                  onChange={(value) => updateFilter("course", value)}
+                  options={filters.courses.map((course) => [course, course])}
+                />
+                <FilterChips
+                  label="Gender"
+                  value={filters.selection.gender}
+                  onChange={(value) => updateFilter("gender", value)}
+                  options={filters.genders.map((gender) => [
+                    gender,
+                    genderLabels[gender] ?? gender,
+                  ])}
+                />
+                <DiscreteSlider
+                  label="Age group"
+                  value={filters.selection.age}
+                  onChange={(value) => updateFilter("age", value)}
+                  options={filters.ages.map((age) => [age, age])}
+                />
+                <DiscreteSlider
+                  label="Tier"
+                  value={filters.selection.tier}
+                  onChange={(value) => updateFilter("tier", value)}
+                  options={filters.tiers.map((tier) => [tier, tier])}
+                  valueAdornment={
+                    set.governingBody === "USA_Swimming" &&
+                    set.category === "motivational" ? (
+                      <MotivationalRankIcon
+                        tier={filters.selection.tier}
+                        size={24}
+                      />
+                    ) : undefined
+                  }
+                />
+              </div>
+            </div>
+          </section>
           <div className={s.grid}>
             {strokeColumns.map(([stroke, heading, title]) => (
               <section key={stroke} className={s.column} aria-label={title}>

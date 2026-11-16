@@ -14,6 +14,29 @@ import {
   type Race,
 } from "@/components/collection/times-data";
 describe("Velocity times requests", () => {
+  it("opts into all-time ranks while preserving legacy requests", () => {
+    const legacy = parseTimesQuery(
+      new URLSearchParams("view=my_times&athleteId=a"),
+    );
+    expect(legacy.input).not.toHaveProperty("rankPeriod");
+    for (const rankPeriod of ["all", "season"]) {
+      expect(
+        parseTimesQuery(
+          new URLSearchParams({ view: "my_times", athleteId: "a", rankPeriod }),
+        ).input.rankPeriod,
+      ).toBe(rankPeriod);
+    }
+    for (const rankPeriod of ["", "recent", "any"]) {
+      expect(() =>
+        parseTimesQuery(
+          new URLSearchParams({ view: "my_times", athleteId: "a", rankPeriod }),
+        ),
+      ).toThrow("Invalid rankPeriod");
+    }
+    expect(
+      timesUrl("my_times", { athleteId: "a", rankPeriod: "all" }),
+    ).toContain("rankPeriod=all");
+  });
   it("validates exact-age and inclusive calendar-year personal best filters", () => {
     expect(
       parseTimesQuery(

@@ -773,8 +773,6 @@ function TimesDatabaseContent() {
       event: selection.event,
       genders: selection.gender ? [selection.gender] : [],
       ageGroups: selection.ageGroup ? [selection.ageGroup] : [],
-      startDate: selection.startDate,
-      endDate: selection.endDate,
     });
     setFromMyTimes(true);
     setSearch("");
@@ -860,8 +858,8 @@ function TimesDatabaseContent() {
               ? filters.mode === "recent"
                 ? "Recent event results, newest first"
                 : filters.mode === "bests" && !tableRelay
-                  ? "Event Rankings, one best swim per athlete in the selected age groups"
-                  : "Event Rankings, every matching performance"
+                  ? "Rankings, one best swim per athlete in the selected age groups"
+                  : "Rankings, every matching performance"
               : tableRelay
                 ? "Relay team results"
                 : "Individual swim results"}
@@ -1139,7 +1137,7 @@ function TimesDatabaseContent() {
                   className={s.panel}
                   aria-label={
                     view === "rankings"
-                      ? "Event Rankings"
+                      ? "Rankings"
                       : view === "meets"
                         ? "Meet browser"
                         : "Athlete browser"
@@ -1174,7 +1172,7 @@ function TimesDatabaseContent() {
                           className={s.link}
                           onClick={() => changeView("records")}
                         >
-                          ← Team records
+                          ← Records
                         </button>
                         <span>
                           {VELOCITY_TEAM.name} · {filters.course}{" "}
@@ -1200,7 +1198,7 @@ function TimesDatabaseContent() {
                               className={s.link}
                               onClick={() => changeView("my-times")}
                             >
-                              ← My Times
+                              ← Times
                             </button>
                           )}
                           {(filters.startDate || filters.endDate) && (
@@ -1310,7 +1308,7 @@ function TimesDatabaseContent() {
                             />
                           </div>
                         </div>
-                        <div className={s.toolbar}>
+                        <div className={`${s.toolbar} ${s.rankingToolbar}`}>
                           {searchField}
                           <button
                             className={s.link}
@@ -1455,7 +1453,7 @@ function TimesDatabaseContent() {
                   <section className={s.panel} ref={profileRef} tabIndex={-1}>
                     <div className={s.panelHead}>
                       <div>
-                        <span className={s.badge}>Meet results</span>
+                        <span className={s.badge}>Meets</span>
                         <h2>{chosenMeet.name}</h2>
                         <p>
                           {date(chosenMeet.date)} · {number(chosenMeet.count)}{" "}

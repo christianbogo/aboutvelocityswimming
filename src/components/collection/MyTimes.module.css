@@ -37,11 +37,14 @@
 .accountLink:hover {
   text-decoration: underline;
 }
+.filterPanel {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
 .filters {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
-  border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 0 0 14px 14px;
 }
 .periodFilter {
   grid-column: 1 / -1;
@@ -87,6 +90,9 @@
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
 }
+.page button.card[data-rank] {
+  background: color-mix(in srgb, var(--rank-color) 8%, var(--surface));
+}
 .cardHeading {
   display: flex;
   flex-wrap: wrap;
@@ -104,7 +110,10 @@
   font-size: 0.65rem;
   min-height: 2.3em;
 }
-.seasonRank {
+.swimAge {
+  white-space: nowrap;
+}
+.teamRank {
   display: block;
   padding-top: 0.5rem;
   border-top: 1px solid var(--border);
@@ -112,7 +121,7 @@
   font-size: 0.8rem;
   font-weight: 650;
 }
-.seasonRank > span {
+.teamRank > span {
   display: block;
   margin-top: 0.2rem;
   font-size: 0.6rem;

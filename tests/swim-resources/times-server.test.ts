@@ -73,22 +73,33 @@ it("uses the recent results query for a date-ordered ranking page", async () => 
     input: { ...input, team: "velocity-swimming" },
   });
 });
-it("loads personal bests and complete season ranks from the dedicated public query", async () => {
+it("loads personal bests and complete all-time ranks from the dedicated public query", async () => {
   await readTimes("my_times", {
     athleteId: "a",
     course: "SCY",
     startYear: "2024",
     endYear: "2025",
+    rankPeriod: "all",
   });
-  expect(mocks.rpc).toHaveBeenCalledWith("ies_my_times", {
+  expect(mocks.rpc).toHaveBeenCalledWith("ies_my_times_all_time", {
     input: {
       team: "velocity-swimming",
       athleteId: "a",
       course: "SCY",
       startYear: "2024",
       endYear: "2025",
+      rankPeriod: "all",
     },
   });
+});
+it("preserves the season RPC for clients opened before the all-time update", async () => {
+  for (const rankPeriod of [undefined, "season"]) {
+    await readTimes("my_times", { athleteId: "a", rankPeriod });
+  }
+  expect(mocks.rpc).toHaveBeenCalledTimes(2);
+  expect(mocks.rpc.mock.calls.every(([name]) => name === "ies_my_times")).toBe(
+    true,
+  );
 });
 it("shares the scored cohort cache across athlete searches and list pages", async () => {
   const athletes = Array.from({ length: 30 }, (_, i) => ({

@@ -1,6 +1,6 @@
-# Time Standards
+# Standards
 
-Velocity Times → Time Standards displays published `standards` records with one exact cut per event. Filters come from each edition's matrix. No cut is converted or inferred. Editions outside their validity dates remain selectable and are labeled Upcoming or Expired. Legacy standards pages remain available.
+Velocity Times → Standards displays published `standards` records with one exact cut per event. Filters come from each edition's matrix. No cut is converted or inferred. Editions outside their validity dates remain selectable and are labeled Upcoming or Expired. Legacy standards pages remain available.
 
 ## Collect and review
 

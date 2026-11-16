@@ -38,13 +38,34 @@ export interface MeetEventEntry {
 export interface MyTimesEvent {
   event: string;
   race: Race | null;
+  rankRace: Race | null;
+  allTimeRank: number | null;
+  allTimeCount: number;
+  rankAgeGroup: string | null;
+  rankGender: string | null;
+}
+export interface MyTimesResponse {
+  period: "all";
+  athleteId: string;
+  ages: number[];
+  years: string[];
+  /** Age at the latest unflagged individual swim; no date of birth is inferred. */
+  latestAge: number | null;
+  latestAgeGroup: string | null;
+  events: MyTimesEvent[];
+}
+/** Retained for clients opened before the all-time ranking update. */
+export interface LegacyMyTimesEvent {
+  event: string;
+  race: Race | null;
   seasonRace: Race | null;
   seasonRank: number | null;
   seasonCount: number;
   rankAgeGroup: string | null;
   rankGender: string | null;
 }
-export interface MyTimesResponse {
+export interface LegacyMyTimesResponse {
+  period?: "season";
   athleteId: string;
   ages: number[];
   years: string[];
@@ -54,10 +75,10 @@ export interface MyTimesResponse {
   /** Age at the latest unflagged individual swim; no date of birth is inferred. */
   seasonAge: number | null;
   seasonAgeGroup: string | null;
-  events: MyTimesEvent[];
+  events: LegacyMyTimesEvent[];
 }
 export interface TimesResponse {
-  myTimes?: MyTimesResponse;
+  myTimes?: MyTimesResponse | LegacyMyTimesResponse;
   meetEvents?: MeetEventEntry[];
   expiresAt: number;
   rows?: { race: Race; rank?: number }[];
@@ -136,6 +157,7 @@ export function parseTimesQuery(params: URLSearchParams): {
     "endDate",
     "startYear",
     "endYear",
+    "rankPeriod",
   ]) {
     const value = params.get(key);
     if (value !== null) {
@@ -153,6 +175,7 @@ export function parseTimesQuery(params: URLSearchParams): {
     round: ["", "F", "P", "S", "TT"],
     groupGender: ["", "F", "M"],
     status: ["ranked", "provisional", "unscored"],
+    rankPeriod: ["all", "season"],
   })) {
     if (input[key] !== undefined && !allowed.includes(String(input[key])))
       throw new Error("Invalid " + key + ".");

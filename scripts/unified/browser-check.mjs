@@ -77,9 +77,9 @@ try {
   await page.waitForURL(base + "/tools/times/overview");
   await workshareSection.waitFor({ state: "hidden" });
   const timesNavigation = await openTool("Velocity Times");
-  const rankings = timesNavigation.getByRole("link", { name: "Event Rankings", exact: true });
+  const rankings = timesNavigation.getByRole("link", { name: "Rankings", exact: true });
   assert.equal(await rankings.getAttribute("aria-current"), null);
-  await page.getByRole("main").getByRole("link", { name: /^Event Rankings / }).click();
+  await page.getByRole("main").getByRole("link", { name: /^Rankings / }).click();
   await page.waitForURL((url) => url.pathname === "/tools/times");
   await rankings.waitFor();
   assert.equal(await rankings.getAttribute("aria-current"), "page");

@@ -66,7 +66,7 @@ try {
     viewport: { width: 1440, height: 1000 },
   });
   page.setDefaultTimeout(30000);
-  const standards = page.getByRole("region", { name: "Time Standards" });
+  const standards = page.getByRole("region", { name: "Standards" });
   const standardOption = /^Browser standards fixture · /;
   async function chooseStandardFilter(label, option) {
     if (label === "Age group" || label === "Tier") {
@@ -90,7 +90,7 @@ try {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(base + "/tools/times");
-  await page.getByRole("link", { name: "Time Standards", exact: true }).click();
+  await page.getByRole("link", { name: "Standards", exact: true }).click();
   await page
     .getByText("Loading approved standards…", { exact: true })
     .waitFor({ state: "hidden" });
@@ -132,7 +132,7 @@ try {
     1,
   );
   await page.goto(base + "/tools/times");
-  await page.getByRole("link", { name: "Time Standards", exact: true }).click();
+  await page.getByRole("link", { name: "Standards", exact: true }).click();
   await chooseStandardFilter("Standard", standardOption);
   await chooseStandardFilter("Age group", "10&U");
   await chooseStandardFilter("Tier", "B");
@@ -181,6 +181,36 @@ try {
   assert.ok(
     await page.getByLabel("50 Freestyle: 23.99", { exact: true }).isVisible(),
   );
+  const filterToggle = standards.getByRole("button", {
+    name: "Standard filters",
+    exact: true,
+  });
+  const selectionUrl = page.url();
+  assert.equal(await filterToggle.getAttribute("aria-expanded"), "true");
+  await filterToggle.focus();
+  await filterToggle.press("Enter");
+  assert.equal(await filterToggle.getAttribute("aria-expanded"), "false");
+  assert.equal(await longCourse.isVisible(), false);
+  assert.ok(await summary.isVisible());
+  assert.ok(
+    await page.getByLabel("50 Freestyle: 23.99", { exact: true }).isVisible(),
+  );
+  assert.equal(page.url(), selectionUrl);
+  await filterToggle.press("Space");
+  assert.equal(await filterToggle.getAttribute("aria-expanded"), "true");
+  assert.equal(
+    await standards
+      .getByRole("slider", { name: "Age group", exact: true })
+      .getAttribute("aria-valuetext"),
+    "17-18",
+  );
+  assert.equal(
+    await standards
+      .getByRole("slider", { name: "Tier", exact: true })
+      .getAttribute("aria-valuetext"),
+    "AAAA",
+  );
+  assert.equal(page.url(), selectionUrl);
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(await longCourse.getAttribute("aria-pressed"), "true");
   assert.equal(await male.getAttribute("aria-pressed"), "true");
@@ -192,9 +222,9 @@ try {
   );
   await page.screenshot({ path: "/tmp/standards-mobile.png", fullPage: true });
   for (const name of [
-    "Event Rankings",
-    "Team Records",
-    "Meet Results",
+    "Rankings",
+    "Records",
+    "Meets",
     "Athletes",
   ]) {
     await page.getByRole("button", { name: "Open navigation sidebar" }).click();
@@ -205,7 +235,7 @@ try {
   }
   assert.deepEqual(errors, []);
   console.log(
-    "Browser: private staging → review preview → approval → exact cuts, filters, and mobile sidebar passed.",
+    "Browser: private staging → review preview → approval → exact cuts, collapsible filters with retained selection, and mobile sidebar passed.",
   );
 } finally {
   await browser.close();

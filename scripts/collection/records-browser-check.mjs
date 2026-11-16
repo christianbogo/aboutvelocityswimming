@@ -46,7 +46,7 @@ try {
     return route.fulfill({ json: { ...data, expiresAt: Date.now() + 60_000 } });
   });
   await page.goto(base + "/tools/times?view=records");
-  const records = page.getByRole("region", { name: "Team records", exact: true });
+  const records = page.getByRole("region", { name: "Records", exact: true });
   await records.getByText("Stored record holder", { exact: true }).waitFor();
   assert.equal(await records.getByText("Unused faster race", { exact: true }).count(), 0);
   assert.deepEqual([...new Set(calls)].sort(), ["records"]);

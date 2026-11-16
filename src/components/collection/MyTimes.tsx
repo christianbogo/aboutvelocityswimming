@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, Star, UserRound } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { ArrowUpRight, ChevronDown, Star, UserRound } from "lucide-react";
+import { useEffect, useId, useState, type CSSProperties } from "react";
 import { useAuth } from "@/features/workshare/contexts/auth";
 import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
 import {
@@ -22,6 +22,7 @@ import { MotivationalRankIcon, RankLegend } from "./MotivationalRankIcon";
 import { motivationalRankForRace } from "./motivational-ranks";
 import grid from "./TimeStandards.module.css";
 import times from "./TimesDatabase.module.css";
+import filterStyles from "./RankingFilters.module.css";
 import s from "./MyTimes.module.css";
 
 export type MyTimesRankingSelection = {
@@ -29,8 +30,6 @@ export type MyTimesRankingSelection = {
   course: string;
   gender: string;
   ageGroup: string;
-  startDate: string;
-  endDate: string;
 };
 
 const defaultFilters = {
@@ -45,12 +44,19 @@ function swimDate(value: string) {
   return new Date(`${value.slice(0, 10)}T12:00:00Z`).toLocaleDateString(
     "en-US",
     {
-      month: "short",
+      month: "numeric",
       day: "numeric",
-      year: "numeric",
+      year: "2-digit",
       timeZone: "UTC",
     },
   );
+}
+
+function swimAgeGroup(age: number | null | undefined) {
+  const group = ageGroups.find(
+    ([, , min, max]) => age != null && age >= min && age <= max,
+  );
+  return group ? group[0].replace("-", "–") : "age unavailable";
 }
 
 function cohortLabel(ageGroup: string | null, gender?: string | null) {
@@ -72,6 +78,7 @@ function MyTimesResults({
   onRankings: (selection: MyTimesRankingSelection) => void;
 }) {
   const cardId = useId();
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const [athleteId, setAthleteId] = useTimesSelection("myAthlete", "");
   const [filters, setFilters] = useTimesSelection("myFilters", defaultFilters);
   const athletes = [
@@ -88,10 +95,13 @@ function MyTimesResults({
     ? filters.mode
     : "all";
   const baseUrl = athlete
-    ? timesUrl("my_times", { athleteId: athlete.id, course })
+    ? timesUrl("my_times", { athleteId: athlete.id, course, rankPeriod: "all" })
     : null;
   const overview = useTimes(baseUrl);
-  const details = overview.data?.myTimes;
+  const details =
+    overview.data?.myTimes?.period === "all"
+      ? overview.data.myTimes
+      : undefined;
   const ages = details?.ages ?? [];
   const years = [...(details?.years ?? [])].sort();
   const age = ages.some((value) => String(value) === filters.age)
@@ -112,6 +122,7 @@ function MyTimesResults({
       : timesUrl("my_times", {
           athleteId: athlete.id,
           course,
+          rankPeriod: "all",
           ...(mode === "age"
             ? { ageAtSwim: Number(age) }
             : { startYear, endYear }),
@@ -121,7 +132,8 @@ function MyTimesResults({
     filteredUrl && debouncedUrl === filteredUrl ? filteredUrl : null,
   );
   const result = mode === "all" ? overview : filtered;
-  const data = result.data?.myTimes;
+  const data =
+    result.data?.myTimes?.period === "all" ? result.data.myTimes : undefined;
   const loading =
     overview.loading ||
     (Boolean(filteredUrl) &&
@@ -138,7 +150,7 @@ function MyTimesResults({
 
   function openRankings(event: MyTimesEvent) {
     if (!details) return;
-    const race = event.seasonRace ?? event.race;
+    const race = event.rankRace ?? event.race;
     const fallbackAge = race?.ageAtSwim;
     onRankings({
       event: event.event,
@@ -146,14 +158,12 @@ function MyTimesResults({
       gender: event.rankGender || race?.gender || "",
       ageGroup:
         event.rankAgeGroup ||
-        details.seasonAgeGroup ||
+        details.latestAgeGroup ||
         ageGroups.find(
           ([, , min, max]) =>
             fallbackAge != null && fallbackAge >= min && fallbackAge <= max,
         )?.[0] ||
         "",
-      startDate: details.seasonStart,
-      endDate: details.seasonEnd,
     });
   }
 
@@ -191,96 +201,119 @@ function MyTimesResults({
           Manage athletes <ArrowUpRight size={15} aria-hidden="true" />
         </Link>
       </div>
-      <section
-        className={`${times.filters} ${s.filters}`}
-        aria-label="My Times filters"
-      >
-        <PopupPicker
-          label="Athlete"
-          value={athlete.id}
-          options={athletes.map((item) => [
-            item.id,
-            `${item.name} · ${item.id === preferences.primaryAthlete?.id ? "Primary" : "Favorite"}`,
-          ])}
-          searchPlaceholder="Find a followed athlete"
-          onChange={(id) => {
-            setAthleteId(id);
-            setFilters({ ...defaultFilters, course });
-          }}
-        />
-        <FilterChips
-          label="Course"
-          value={course}
-          options={[
-            ["SCY", "SCY"],
-            ["LCM", "LCM"],
-            ["SCM", "SCM"],
-          ]}
-          onChange={(value) => setFilters({ ...filters, course: value })}
-        />
-        <div className={s.periodFilter}>
-          <FilterChips
-            label="Best times from"
-            value={mode}
-            options={[
-              ["all", "All time"],
-              ["age", "Age"],
-              ["years", "Year range"],
-            ]}
-            onChange={(value) =>
-              setFilters({ ...filters, mode: value, age, startYear, endYear })
-            }
-          />
+      <section className={s.filterPanel} aria-label="Times filters">
+        <div className={filterStyles.heading}>
+          <button
+            type="button"
+            className={filterStyles.toggle}
+            aria-expanded={filtersOpen}
+            aria-controls={`${cardId}-filters`}
+            onClick={() => setFiltersOpen((open) => !open)}
+          >
+            <ChevronDown size={17} aria-hidden="true" />
+            Time filters
+          </button>
         </div>
-        {mode === "age" && (
-          <DiscreteSlider
-            label="Age at swim"
-            value={age}
-            options={ages.map((value) => [String(value), String(value)])}
-            onChange={(value) => setFilters({ ...filters, age: value })}
-          />
-        )}
-        {mode === "years" && (
-          <div className={s.yearRange}>
-            <div className={times.field}>
-              <label htmlFor={`${cardId}-start-year`}>Start year</label>
-              <select
-                id={`${cardId}-start-year`}
-                value={startYear}
-                disabled={!years.length}
-                onChange={(event) =>
-                  setFilters({ ...filters, startYear: event.target.value })
+        <div id={`${cardId}-filters`} hidden={!filtersOpen}>
+          <div className={`${times.filters} ${s.filters}`}>
+            <PopupPicker
+              label="Athlete"
+              value={athlete.id}
+              options={athletes.map((item) => [
+                item.id,
+                `${item.name} · ${item.id === preferences.primaryAthlete?.id ? "Primary" : "Favorite"}`,
+              ])}
+              searchPlaceholder="Find a followed athlete"
+              onChange={(id) => {
+                setAthleteId(id);
+                setFilters({ ...defaultFilters, course });
+              }}
+            />
+            <FilterChips
+              label="Course"
+              value={course}
+              options={[
+                ["SCY", "SCY"],
+                ["LCM", "LCM"],
+                ["SCM", "SCM"],
+              ]}
+              onChange={(value) => setFilters({ ...filters, course: value })}
+            />
+            <div className={s.periodFilter}>
+              <FilterChips
+                label="Best times from"
+                value={mode}
+                options={[
+                  ["all", "All time"],
+                  ["age", "Age"],
+                  ["years", "Year range"],
+                ]}
+                onChange={(value) =>
+                  setFilters({
+                    ...filters,
+                    mode: value,
+                    age,
+                    startYear,
+                    endYear,
+                  })
                 }
-              >
-                {!years.length && <option value="">No recorded years</option>}
-                {years.map((year) => (
-                  <option key={year}>{year}</option>
-                ))}
-              </select>
+              />
             </div>
-            <div className={times.field}>
-              <label htmlFor={`${cardId}-end-year`}>End year</label>
-              <select
-                id={`${cardId}-end-year`}
-                value={endYear}
-                disabled={!years.length}
-                onChange={(event) =>
-                  setFilters({ ...filters, endYear: event.target.value })
-                }
-              >
-                {!years.length && <option value="">No recorded years</option>}
-                {years.map((year) => (
-                  <option key={year}>{year}</option>
-                ))}
-              </select>
-            </div>
+            {mode === "age" && (
+              <DiscreteSlider
+                label="Age at swim"
+                value={age}
+                options={ages.map((value) => [String(value), String(value)])}
+                onChange={(value) => setFilters({ ...filters, age: value })}
+              />
+            )}
+            {mode === "years" && (
+              <div className={s.yearRange}>
+                <div className={times.field}>
+                  <label htmlFor={`${cardId}-start-year`}>Start year</label>
+                  <select
+                    id={`${cardId}-start-year`}
+                    value={startYear}
+                    disabled={!years.length}
+                    onChange={(event) =>
+                      setFilters({ ...filters, startYear: event.target.value })
+                    }
+                  >
+                    {!years.length && (
+                      <option value="">No recorded years</option>
+                    )}
+                    {years.map((year) => (
+                      <option key={year}>{year}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className={times.field}>
+                  <label htmlFor={`${cardId}-end-year`}>End year</label>
+                  <select
+                    id={`${cardId}-end-year`}
+                    value={endYear}
+                    disabled={!years.length}
+                    onChange={(event) =>
+                      setFilters({ ...filters, endYear: event.target.value })
+                    }
+                  >
+                    {!years.length && (
+                      <option value="">No recorded years</option>
+                    )}
+                    {years.map((year) => (
+                      <option key={year}>{year}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+            {invalidYears && (
+              <p className={s.filterNotice} role="alert">
+                Start year must be earlier than or equal to end year.
+              </p>
+            )}
           </div>
-        )}
-        {invalidYears && (
-          <p className={s.filterNotice} role="alert">
-            Start year must be earlier than or equal to end year.
-          </p>
-        )}
+        </div>
       </section>
       {details && (
         <div className={s.summary}>
@@ -288,9 +321,9 @@ function MyTimesResults({
             {bestDescription} · {course}
           </span>
           <span>
-            Team ranks: {details.seasonLabel} season
-            {details.seasonAgeGroup
-              ? ` · ${cohortLabel(details.seasonAgeGroup)}`
+            All-time team ranks
+            {details.latestAgeGroup
+              ? ` · ${cohortLabel(details.latestAgeGroup)}`
               : ""}
           </span>
         </div>
@@ -331,8 +364,8 @@ function MyTimesResults({
             <>
               {bestCount === 0 && (
                 <p role="status" className={s.notice}>
-                  No times match these filters. Current-season team ranks are
-                  still shown where available.
+                  No times match these filters. All-time team ranks are still
+                  shown where available.
                 </p>
               )}
               <div className={grid.grid}>
@@ -359,8 +392,16 @@ function MyTimesResults({
                             type="button"
                             key={event.event}
                             className={`${grid.chip} ${s.card}`}
-                            aria-label={`View ${eventLabel(event.event)} season rankings`}
-                            aria-describedby={`${cardId}-${event.event}-time ${cardId}-${event.event}-rank${rank ? ` ${cardId}-${event.event}-motivational` : ""}`}
+                            data-rank={rank?.rank.tier}
+                            style={
+                              rank
+                                ? ({
+                                    "--rank-color": rank.rank.color,
+                                  } as CSSProperties)
+                                : undefined
+                            }
+                            aria-label={`View ${eventLabel(event.event)} rankings`}
+                            aria-describedby={`${cardId}-${event.event}-time ${cardId}-${event.event}-date ${cardId}-${event.event}-rank${rank ? ` ${cardId}-${event.event}-motivational` : ""}`}
                             onClick={() => openRankings(event)}
                           >
                             <span className={s.cardHeading}>
@@ -390,20 +431,32 @@ function MyTimesResults({
                                 ? formatSwimTime(event.race.time)
                                 : "—"}
                             </strong>
-                            <span className={s.raceDate}>
-                              {event.race
-                                ? swimDate(event.race.date)
-                                : "No time in this selection"}
+                            <span
+                              className={s.raceDate}
+                              id={`${cardId}-${event.event}-date`}
+                            >
+                              {event.race ? (
+                                <>
+                                  <time dateTime={event.race.date.slice(0, 10)}>
+                                    {swimDate(event.race.date)}
+                                  </time>{" "}
+                                  <span className={s.swimAge}>
+                                    ({swimAgeGroup(event.race.ageAtSwim)})
+                                  </span>
+                                </>
+                              ) : (
+                                "No time in this selection"
+                              )}
                             </span>
                             <span
-                              className={s.seasonRank}
+                              className={s.teamRank}
                               id={`${cardId}-${event.event}-rank`}
                             >
-                              {event.seasonRank !== null ? (
+                              {event.allTimeRank !== null ? (
                                 <>
-                                  Team #{event.seasonRank}
+                                  Team #{event.allTimeRank}
                                   <span>
-                                    of {event.seasonCount} ·{" "}
+                                    of {event.allTimeCount} ·{" "}
                                     {cohortLabel(
                                       event.rankAgeGroup,
                                       event.rankGender,
@@ -412,10 +465,9 @@ function MyTimesResults({
                                 </>
                               ) : (
                                 <>
-                                  {data.seasonAgeGroup
-                                    ? "No season rank"
+                                  {data.latestAgeGroup
+                                    ? "No all-time rank"
                                     : "Age unavailable"}
-                                  <span>{data.seasonLabel}</span>
                                 </>
                               )}
                             </span>
@@ -442,10 +494,10 @@ function MyTimesResults({
         </p>
       )}
       <p className={s.explainer}>
-        Team ranks use the current September–August season and the selected
-        athlete’s latest recorded age group. Select a card to compare swimmers
-        of the same gender, event, and course. Icons use the USA Swimming
-        standard in effect on the displayed swim’s date.
+        Team ranks compare all recorded times within the selected athlete’s
+        latest recorded age group. Select a card for all-time rankings of
+        swimmers in the same age group, gender, event, and course. Icons use the
+        USA Swimming standard in effect on the displayed swim’s date.
       </p>
     </>
   );
@@ -514,9 +566,9 @@ export default function MyTimes(
 ) {
   const { user, loading } = useAuth();
   return (
-    <section className={`${grid.page} ${s.page}`} aria-label="My Times">
+    <section className={`${grid.page} ${s.page}`} aria-label="Times">
       <RankLegend />
-      <h1 className="text-2xl font-bold">My Times</h1>
+      <h1 className="text-2xl font-bold">Times</h1>
       {loading ? (
         <p role="status">Loading your account…</p>
       ) : !user ? (

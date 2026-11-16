@@ -9,6 +9,7 @@
 }
 .chips.inline {
   display: inline-flex;
+  vertical-align: middle;
   flex-wrap: nowrap;
   max-width: none;
   margin-block: 0;

@@ -290,7 +290,7 @@ try {
     .waitFor();
   await fullScreenshot("mixed-relay-lineup-splits.png");
 
-  await page.getByRole("button", { name: "Meet results", exact: true }).click();
+  await page.getByRole("button", { name: "Meets", exact: true }).click();
   await page
     .getByLabel("Search meets", { exact: true })
     .fill(selectedMixed.meet);
@@ -343,18 +343,18 @@ try {
     .getByText(/eligible relay performances in this comparison group/)
     .waitFor();
   await fullScreenshot("meet-mixed-relay-details.png");
-  await page.getByRole("link", { name: "Team Records", exact: true }).click();
-  await page.getByRole("region", { name: "Team records" }).waitFor();
+  await page.getByRole("link", { name: "Records", exact: true }).click();
+  await page.getByRole("region", { name: "Records" }).waitFor();
   for (const member of relayRecord.members) {
     await page
-      .getByRole("region", { name: "Team records" })
+      .getByRole("region", { name: "Records" })
       .locator("small")
       .filter({ hasText: member.name })
       .first()
       .waitFor();
   }
   await page
-    .getByRole("region", { name: "Team records" })
+    .getByRole("region", { name: "Records" })
     .locator("small")
     .filter({ hasText: relayRecord.members[0].name })
     .first()
@@ -365,7 +365,7 @@ try {
   });
 
   await page
-    .getByRole("button", { name: "Event rankings", exact: true })
+    .getByRole("button", { name: "Rankings", exact: true })
     .click();
   await page
     .getByRole("button", { name: individual.course, exact: true })
@@ -403,7 +403,7 @@ try {
   await fullScreenshot("individual-validated-splits.png");
 
   await page
-    .getByRole("button", { name: "Event rankings", exact: true })
+    .getByRole("button", { name: "Rankings", exact: true })
     .click();
   await chooseEvent("Event", eligible.event);
   if (eligible.gender === "M") {

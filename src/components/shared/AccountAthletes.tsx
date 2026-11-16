@@ -441,8 +441,7 @@ export default function AccountAthletes({ userId }: { userId: string }) {
         </h2>
       </div>
       <p className="mt-2 mb-6 text-sm leading-relaxed text-text-secondary">
-        Choose the athletes you want to see in My Times, your personal view of
-        Velocity Times.
+        Choose the athletes you want to see on the Times tab in Velocity Times.
       </p>
       {preferences ? (
         <AthleteEditor userId={userId} initial={preferences} />

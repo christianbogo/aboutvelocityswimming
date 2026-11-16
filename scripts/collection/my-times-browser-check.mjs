@@ -40,11 +40,13 @@ const year = Number(today.slice(0, 4));
 const seasonYear = Number(today.slice(5, 7)) >= 9 ? year : year - 1;
 const previousYear = `${seasonYear - 1}`;
 const recentYear = `${seasonYear}`;
-const athletes = ["Avery", "Blake", "Casey", "Dana"].map((first, index) => ({
-  id: `${prefix}${index}`,
-  name: `${first} Mytimescheck`,
-  first,
-}));
+const athletes = ["Avery", "Blake", "Casey", "Dana", "Elliot"].map(
+  (first, index) => ({
+    id: `${prefix}${index}`,
+    name: `${first} Mytimescheck`,
+    first,
+  }),
+);
 const meet = `${prefix}meet`;
 const writes = [
   { path: `meets/${meet}`, after: { name: "My Times browser fixture" } },
@@ -86,6 +88,7 @@ function swim(id, athlete, timeMs, date, ageAtSwim, extra = {}) {
 }
 swim("primary-old", 0, 35200, `${previousYear}-06-15`, 11);
 swim("primary-recent", 0, 39400, `${recentYear}-06-15`, 12);
+swim("primary-preseason", 0, 45000, `${recentYear}-08-31`, 13);
 swim("primary-season", 0, 45600, today, 13);
 swim("primary-back", 0, 200000, today, 13, { eventCode: "100_BK_SCY" });
 swim("primary-lcm", 0, 32500, today, 13, {
@@ -94,6 +97,7 @@ swim("primary-lcm", 0, 32500, today, 13, {
 });
 swim("favorite", 1, 47800, today, 13);
 swim("faster-teammate", 3, 44100, today, 13);
+swim("historic-teammate", 4, 44400, `${recentYear}-08-30`, 13);
 const cut = {
   cutsByTier: ["B", "BB", "A", "AA", "AAA", "AAAA"].map((tierName, index) => ({
     tierName,
@@ -158,10 +162,10 @@ try {
   await page.waitForURL(base + "/tools");
 
   const myTimesUrl = base + "/tools/times?view=my-times";
-  const myTimes = page.getByRole("region", { name: "My Times", exact: true });
+  const myTimes = page.getByRole("region", { name: "Times", exact: true });
   const card = (event) =>
     myTimes.getByRole("button", {
-      name: `View ${event} season rankings`,
+      name: `View ${event} rankings`,
       exact: true,
     });
   const freestyle = () => card("100 Freestyle");
@@ -170,7 +174,7 @@ try {
   };
   const checkLayout = async () => {
     const overflowingCards = await myTimes
-      .getByRole("button", { name: /season rankings$/ })
+      .getByRole("button", { name: / rankings$/ })
       .evaluateAll((cards) =>
         cards.flatMap((card) => {
           const bounds = card.getBoundingClientRect();
@@ -257,7 +261,7 @@ try {
   await myTimes.locator('a[href="/tools"]').waitFor();
   assert.match(await myTimes.innerText(), /primary|favorite/i);
   assert.equal(
-    await myTimes.getByRole("button", { name: /season rankings/ }).count(),
+    await myTimes.getByRole("button", { name: / rankings$/ }).count(),
     0,
   );
 
@@ -318,6 +322,25 @@ try {
     assert.ok(await legend.getByText(tier, { exact: true }).isVisible());
   }
   await freestyle().locator('img[src^="/assets/ranks/"]').waitFor();
+  assert.match(
+    await freestyle().innerText(),
+    new RegExp(`6/15/${previousYear.slice(-2)}\\s*\\(11–12\\)`),
+  );
+  assert.equal(await freestyle().getAttribute("data-rank"), "AAA");
+  assert.equal(
+    await freestyle().evaluate((card) =>
+      getComputedStyle(card).getPropertyValue("--rank-color").trim(),
+    ),
+    "#4B74D2",
+  );
+  assert.notEqual(
+    await freestyle().evaluate(
+      (card) => getComputedStyle(card).backgroundColor,
+    ),
+    await card("100 Backstroke").evaluate(
+      (card) => getComputedStyle(card).backgroundColor,
+    ),
+  );
   assert.equal(
     await card("100 Backstroke").locator('img[src^="/assets/ranks/"]').count(),
     0,
@@ -327,19 +350,44 @@ try {
     base +
       "/api/times?view=my_times&athleteId=" +
       athletes[0].id +
-      "&course=SCY",
+      "&course=SCY&rankPeriod=all",
   );
   assert.equal(response.status(), 200);
   const summary = (await response.json()).myTimes;
   const event = summary.events.find((item) => item.event === "100_FR");
-  assert.ok(event?.seasonRank >= 2);
+  assert.equal(summary.period, "all");
+  assert.ok(event?.allTimeRank >= 3);
   assert.equal(event.race.id, prefix + "primary-old");
-  assert.equal(event.seasonRace.id, prefix + "primary-season");
+  assert.equal(event.rankRace.id, prefix + "primary-preseason");
   assert.equal(event.rankAgeGroup, "13-14");
   assert.equal(event.rankGender, "F");
   assert.match(
     await freestyle().innerText(),
-    new RegExp(`#${event.seasonRank}\\b`),
+    new RegExp(`#${event.allTimeRank}\\b`),
+  );
+  const toggle = myTimes.getByRole("button", {
+    name: "Time filters",
+    exact: true,
+  });
+  const beforeCollapse = page.url();
+  await toggle.focus();
+  await toggle.press("Enter");
+  assert.equal(await toggle.getAttribute("aria-expanded"), "false");
+  assert.equal(
+    await myTimes
+      .getByRole("button", { name: "Athlete", exact: true })
+      .isVisible(),
+    false,
+  );
+  assert.equal(await freestyle().isVisible(), true);
+  assert.equal(page.url(), beforeCollapse);
+  await toggle.press("Space");
+  assert.equal(await toggle.getAttribute("aria-expanded"), "true");
+  assert.equal(
+    await myTimes
+      .getByRole("button", { name: "Athlete", exact: true })
+      .isVisible(),
+    true,
   );
 
   await page.reload();
@@ -368,11 +416,11 @@ try {
   await showTime("39.40");
   assert.match(
     await freestyle().innerText(),
-    new RegExp(`#${event.seasonRank}\\b`),
-    "Age filtering preserves the current-season rank",
+    new RegExp(`#${event.allTimeRank}\\b`),
+    "Age filtering preserves the all-time rank",
   );
   await chooseAge(13);
-  await showTime("45.60");
+  await showTime("45.00");
   await filters
     .getByRole("button", { name: "Year range", exact: true })
     .click();
@@ -392,8 +440,8 @@ try {
   await showTime("39.40");
   assert.match(
     await freestyle().innerText(),
-    new RegExp(`#${event.seasonRank}\\b`),
-    "Year filtering preserves the current-season rank",
+    new RegExp(`#${event.allTimeRank}\\b`),
+    "Year filtering preserves the all-time rank",
   );
   await filters.getByRole("button", { name: "All time", exact: true }).click();
   await showTime("35.20");
@@ -415,11 +463,15 @@ try {
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await checkLayout();
+  await toggle.click();
+  assert.equal(await toggle.getAttribute("aria-expanded"), "false");
+  await toggle.click();
+  assert.equal(await toggle.getAttribute("aria-expanded"), "true");
   assert.ok(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth + 1,
     ),
-    "My Times fits the mobile viewport",
+    "Times fits the mobile viewport",
   );
   await page.screenshot({
     path: "/tmp/velocity-my-times-mobile.png",
@@ -449,12 +501,19 @@ try {
   assert.equal(rankingFilters.course, "SCY");
   assert.deepEqual(rankingFilters.genders, ["F"]);
   assert.deepEqual(rankingFilters.ageGroups, ["13-14"]);
-  assert.equal(rankingFilters.startDate, summary.seasonStart);
-  assert.equal(rankingFilters.endDate, summary.seasonEnd);
+  assert.equal(rankingFilters.year, "");
+  assert.equal(rankingFilters.startDate, "");
+  assert.equal(rankingFilters.endDate, "");
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Clear date range", exact: true })
+      .count(),
+    0,
+  );
   const row = page.getByRole("row").filter({ hasText: athletes[0].name });
   await row
     .getByRole("button", {
-      name: `Analyze 45.60 by ${athletes[0].name}`,
+      name: `Analyze 45.00 by ${athletes[0].name}`,
       exact: true,
     })
     .waitFor();
@@ -462,7 +521,34 @@ try {
     name: /rank: .* motivational standard$/,
   });
   await rankIcon.waitFor();
+  const searchBackground = await page
+    .getByRole("searchbox", { name: "Search athletes", exact: true })
+    .evaluate(
+      (input) =>
+        getComputedStyle(input.parentElement.parentElement).backgroundColor,
+    );
+  const filtersBackground = await page
+    .getByRole("group", { name: "Gender", exact: true })
+    .evaluate(
+      (group) =>
+        getComputedStyle(group.closest('[class*="filters"]')).backgroundColor,
+    );
+  assert.equal(
+    searchBackground,
+    filtersBackground,
+    "Rankings athlete search matches the filter background",
+  );
   assert.equal(await rankIcon.locator('img[src^="/assets/ranks/"]').count(), 1);
+  const timeBox = await row
+    .getByRole("button", { name: /^Analyze / })
+    .boundingBox();
+  const iconBox = await rankIcon.locator("img").boundingBox();
+  assert.ok(timeBox && iconBox);
+  assert.ok(
+    Math.abs(timeBox.y + timeBox.height / 2 - iconBox.y - iconBox.height / 2) <
+      1,
+    "The motivational rank icon is vertically centered with the time",
+  );
   assert.equal(
     await rankIcon.innerText(),
     "",
@@ -470,7 +556,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "Verified My Times account choices, primary default, favorites and reload, empty states, age/year/course filters, separate current-season ranks, six-rank legend, exact season/gender/age ranking links, motivational icons, and desktop/mobile/dark layouts.",
+    "Verified Times account choices, primary default, favorites and reload, empty states, age/year/course filters, all-time ranks with historical results, compact dates and ages, rank tints, collapsible filters, all-time ranking links, icon alignment, matching search background, and desktop/mobile/dark layouts.",
   );
 } catch (error) {
   if (page && !page.isClosed()) {

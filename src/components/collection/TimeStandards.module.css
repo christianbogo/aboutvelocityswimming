@@ -3,10 +3,13 @@
   gap: 1.5rem;
   padding: clamp(1rem, 3vw, 2rem);
 }
-.filters {
-  align-items: start;
+.filterPanel {
   border: 1px solid var(--border);
   border-radius: 14px;
+}
+.filters {
+  align-items: start;
+  border-radius: 0 0 14px 14px;
 }
 .filters > :first-child {
   grid-column: 1 / -1;

@@ -55,11 +55,11 @@ export function getAvailableTools(isAdmin: boolean) {
 }
 
 export const timesViews = [
-  ["my-times", "My Times", CircleUserRound],
-  ["rankings", "Event Rankings", BarChart3],
-  ["records", "Team Records", Trophy],
-  ["standards", "Time Standards", Timer],
-  ["meets", "Meet Results", CalendarDays],
+  ["my-times", "Times", CircleUserRound],
+  ["rankings", "Rankings", BarChart3],
+  ["records", "Records", Trophy],
+  ["standards", "Standards", Timer],
+  ["meets", "Meets", CalendarDays],
   ["athletes", "Athletes", Users],
 ] as const;
 

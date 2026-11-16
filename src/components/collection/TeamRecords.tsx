@@ -181,12 +181,12 @@ export default function TeamRecords({
   return (
     <section
       className={s.records}
-      aria-label="Team records"
+      aria-label="Records"
       aria-busy={loading}
       data-mobile-gender={mobileGender}
     >
       <div id={`${prefix}-top`} className={s.controls}>
-        <h2 className={s.title}>{VELOCITY_TEAM.name} records</h2>
+        <h2 className={s.title}>Records</h2>
         <nav className={s.jumpLinks} aria-label="Record sections">
           {visibleCourses.map(([course, label]) => (
             <div
