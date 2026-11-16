@@ -47,6 +47,7 @@ import { useTimes, useDebouncedSearch } from "./use-times";
 import MeetEventNavigation, { meetEventLabel } from "./MeetEventNavigation";
 import TeamRecords, { type RecordSelection } from "./TeamRecords";
 import MyTimes, { type MyTimesRankingSelection } from "./MyTimes";
+import EventRankLegend from "./EventRankLegend";
 
 import { useTimesSelection } from "./use-times-selection";
 import { timesViewHref } from "./times-url-state";
@@ -1098,6 +1099,11 @@ function TimesDatabaseContent() {
         </header>
       )}
       <div className={s.content}>
+        {view === "rankings" && (
+          <div className={s.ranksBar}>
+            <EventRankLegend filters={filters} sets={standards.sets} />
+          </div>
+        )}
         {!hasBackendConfiguration && (
           <div className={s.notice} role="status">
             The times database is not connected yet. Approved results will

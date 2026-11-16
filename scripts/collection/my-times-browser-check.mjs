@@ -172,6 +172,27 @@ try {
   const showTime = async (time) => {
     await freestyle().locator("strong").filter({ hasText: time }).waitFor();
   };
+  const athleteChips = myTimes.getByRole("group", {
+    name: "Athlete",
+    exact: true,
+  });
+  const legend = myTimes.getByRole("complementary", {
+    name: "USA Swimming motivational ranks",
+  });
+  const checkCollectedRanks = async (tier) => {
+    for (const item of await legend.locator("li").all()) {
+      const rankTier = await item.locator("strong").innerText();
+      const metric = item.locator(":scope > span").first();
+      assert.equal(await metric.innerText(), rankTier === tier ? "1" : "0");
+      const metricBox = await metric.boundingBox();
+      const iconBox = await item.locator("img").boundingBox();
+      assert.ok(metricBox && iconBox);
+      assert.ok(
+        metricBox.x + metricBox.width <= iconBox.x,
+        `${rankTier} count appears to the left of its icon`,
+      );
+    }
+  };
   const checkLayout = async () => {
     const overflowingCards = await myTimes
       .getByRole("button", { name: / rankings$/ })
@@ -227,11 +248,11 @@ try {
     );
   };
   const chooseAthlete = async (athlete) => {
-    await myTimes.getByRole("button", { name: "Athlete", exact: true }).click();
-    await myTimes
-      .getByRole("dialog", { name: "Athlete", exact: true })
-      .getByRole("button", { name: new RegExp(athlete.name) })
-      .click();
+    const chip = athleteChips.getByRole("button", {
+      name: new RegExp(athlete.name),
+    });
+    await chip.click();
+    assert.equal(await chip.getAttribute("aria-pressed"), "true");
   };
   const chooseAge = async (age) => {
     const slider = myTimes.getByRole("slider", {
@@ -305,11 +326,32 @@ try {
   await page.goto(myTimesUrl);
   await showTime("35.20");
   assert.match(await myTimes.innerText(), new RegExp(athletes[0].name));
-  const legend = myTimes.getByRole("complementary", {
-    name: "USA Swimming motivational ranks",
-  });
+  assert.equal(
+    await myTimes.getByRole("heading", { name: "Times", exact: true }).count(),
+    0,
+  );
+  assert.equal(
+    await myTimes.getByRole("heading", { name: athletes[0].name }).count(),
+    0,
+  );
+  assert.equal(await athleteChips.getByRole("button").count(), 3);
+  assert.equal(
+    await athleteChips
+      .getByRole("button", { name: new RegExp(athletes[0].name) })
+      .getAttribute("aria-pressed"),
+    "true",
+  );
+  const manageAthletes = myTimes
+    .getByRole("region", { name: "Times filters", exact: true })
+    .getByRole("link", { name: /manage athletes/i });
+  assert.ok(await manageAthletes.isVisible());
+  assert.equal(await manageAthletes.getAttribute("href"), "/tools");
   await legend.waitFor();
   assert.equal(await legend.locator("li").count(), 6);
+  assert.equal(
+    await legend.getByText("Motivational ranks", { exact: true }).count(),
+    0,
+  );
   for (const [tier, rank] of [
     ["B", "Bronze"],
     ["BB", "Silver"],
@@ -327,6 +369,7 @@ try {
     new RegExp(`6/15/${previousYear.slice(-2)}\\s*\\(11–12\\)`),
   );
   assert.equal(await freestyle().getAttribute("data-rank"), "AAA");
+  await checkCollectedRanks("AAA");
   assert.equal(
     await freestyle().evaluate((card) =>
       getComputedStyle(card).getPropertyValue("--rank-color").trim(),
@@ -373,28 +416,31 @@ try {
   await toggle.focus();
   await toggle.press("Enter");
   assert.equal(await toggle.getAttribute("aria-expanded"), "false");
-  assert.equal(
-    await myTimes
-      .getByRole("button", { name: "Athlete", exact: true })
-      .isVisible(),
-    false,
-  );
+  assert.equal(await athleteChips.isVisible(), false);
+  assert.equal(await manageAthletes.isVisible(), false);
+  const closedFilterStyle = await toggle.evaluate((button) => {
+    const panel = getComputedStyle(button.closest("section"));
+    return {
+      headingBorder: getComputedStyle(button.parentElement).borderBottomWidth,
+      bottomLeftRadius: Number.parseFloat(panel.borderBottomLeftRadius),
+      bottomRightRadius: Number.parseFloat(panel.borderBottomRightRadius),
+    };
+  });
+  assert.equal(closedFilterStyle.headingBorder, "0px");
+  assert.ok(closedFilterStyle.bottomLeftRadius > 0);
+  assert.ok(closedFilterStyle.bottomRightRadius > 0);
   assert.equal(await freestyle().isVisible(), true);
   assert.equal(page.url(), beforeCollapse);
   await toggle.press("Space");
   assert.equal(await toggle.getAttribute("aria-expanded"), "true");
-  assert.equal(
-    await myTimes
-      .getByRole("button", { name: "Athlete", exact: true })
-      .isVisible(),
-    true,
-  );
+  assert.equal(await athleteChips.isVisible(), true);
 
   await page.reload();
   await showTime("35.20");
   assert.deepEqual(await selected(), saved);
   await chooseAthlete(athletes[1]);
   await showTime("47.80");
+  await checkCollectedRanks("AA");
   await page.reload();
   await showTime("47.80");
   assert.deepEqual(
@@ -404,6 +450,7 @@ try {
   );
   await chooseAthlete(athletes[2]);
   await myTimes.getByText(/no .*times|no .*results|no .*swims/i).waitFor();
+  await checkCollectedRanks(null);
   await page.goto(myTimesUrl);
   await showTime("35.20");
 
@@ -421,6 +468,7 @@ try {
   );
   await chooseAge(13);
   await showTime("45.00");
+  await checkCollectedRanks("AA");
   await filters
     .getByRole("button", { name: "Year range", exact: true })
     .click();
@@ -465,6 +513,11 @@ try {
   await checkLayout();
   await toggle.click();
   assert.equal(await toggle.getAttribute("aria-expanded"), "false");
+  await page.screenshot({
+    path: "/tmp/velocity-my-times-mobile-collapsed.png",
+    fullPage: true,
+    animations: "disabled",
+  });
   await toggle.click();
   assert.equal(await toggle.getAttribute("aria-expanded"), "true");
   assert.ok(
@@ -521,6 +574,31 @@ try {
     name: /rank: .* motivational standard$/,
   });
   await rankIcon.waitFor();
+  const rankingLegend = page.getByRole("complementary", {
+    name: "USA Swimming motivational ranks",
+  });
+  const cutoffTimes = [
+    "1:20.00",
+    "1:10.00",
+    "1:00.00",
+    "50.00",
+    "40.00",
+    "30.00",
+  ];
+  assert.equal(await rankingLegend.locator("li").count(), cutoffTimes.length);
+  for (const [index, item] of (
+    await rankingLegend.locator("li").all()
+  ).entries()) {
+    const metric = item.locator(":scope > span").first();
+    assert.equal(await metric.innerText(), cutoffTimes[index]);
+    const metricBox = await metric.boundingBox();
+    const iconBox = await item.locator("img").boundingBox();
+    assert.ok(metricBox && iconBox);
+    assert.ok(
+      metricBox.x + metricBox.width <= iconBox.x,
+      "Event rank cutoff appears to the left of its icon",
+    );
+  }
   const searchBackground = await page
     .getByRole("searchbox", { name: "Search athletes", exact: true })
     .evaluate(
@@ -556,7 +634,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "Verified Times account choices, primary default, favorites and reload, empty states, age/year/course filters, all-time ranks with historical results, compact dates and ages, rank tints, collapsible filters, all-time ranking links, icon alignment, matching search background, and desktop/mobile/dark layouts.",
+    "Verified Times athlete chips and management link, primary default, favorites and reload, empty states, age/year/course filters, collected rank counts, all-time ranks with historical results, compact dates and ages, rank tints, collapsible filters, all-time ranking links and cutoffs, icon alignment, matching search background, and desktop/mobile/dark layouts.",
   );
 } catch (error) {
   if (page && !page.isClosed()) {

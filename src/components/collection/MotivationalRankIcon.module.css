@@ -17,9 +17,6 @@
   background: var(--background-alt);
   font-size: 0.7rem;
 }
-.heading {
-  font-weight: 600;
-}
 .ranks {
   display: flex;
   flex: 1;
@@ -42,18 +39,26 @@
   color: var(--text-main);
   font-weight: 650;
 }
+.value {
+  color: var(--text-main);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.description {
+  flex-basis: 100%;
+}
 @container times-workspace (max-width: 550px) {
-  .heading {
-    width: 100%;
-  }
   .ranks {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.5rem;
   }
 }
 @container times-workspace (max-width: 430px) {
-  .ranks {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .ranks li {
+    flex-wrap: wrap;
+  }
+  .label {
+    flex-basis: 100%;
   }
 }

@@ -7,6 +7,9 @@
   margin: auto;
   padding: 24px 28px 80px;
 }
+.ranksBar {
+  margin-bottom: 1rem;
+}
 .toolHeader {
   position: sticky;
   top: var(--tool-toolbar-height, 0px);

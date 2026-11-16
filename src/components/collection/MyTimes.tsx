@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, ChevronDown, Star, UserRound } from "lucide-react";
+import { ArrowUpRight, ChevronDown, UserRound } from "lucide-react";
 import { useEffect, useId, useState, type CSSProperties } from "react";
 import { useAuth } from "@/features/workshare/contexts/auth";
 import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
@@ -16,7 +16,7 @@ import { useTimes, useDebouncedSearch } from "./use-times";
 import type { useStandards } from "./use-standards";
 import { useTimesSelection } from "./use-times-selection";
 import { strokeColumns, eventColumn, compareEvents } from "./event-layout";
-import { FilterChips, PopupPicker } from "./TimesFilters";
+import { FilterChips } from "./TimesFilters";
 import DiscreteSlider from "./DiscreteSlider";
 import { MotivationalRankIcon, RankLegend } from "./MotivationalRankIcon";
 import { motivationalRankForRace } from "./motivational-ranks";
@@ -140,7 +140,19 @@ function MyTimesResults({
       (debouncedUrl !== filteredUrl || filtered.loading));
   const events = data?.events ?? [];
   const bestCount = events.filter((event) => event.race !== null).length;
-  const primary = athlete?.id === preferences.primaryAthlete?.id;
+  const eventRanks = new Map(
+    events.map((event) => [
+      event.event,
+      event.race ? motivationalRankForRace(event.race, standards.sets) : null,
+    ]),
+  );
+  const rankCounts: Record<string, number> = {};
+  for (const result of eventRanks.values()) {
+    if (result) {
+      const tier = result.rank.tier;
+      rankCounts[tier] = (rankCounts[tier] ?? 0) + 1;
+    }
+  }
   const bestDescription =
     mode === "age"
       ? `Best at age ${age}`
@@ -184,25 +196,11 @@ function MyTimesResults({
 
   return (
     <>
-      <div className={s.athleteHeader}>
-        <div>
-          <p className={s.athleteRole}>
-            {primary ? (
-              <UserRound size={14} aria-hidden="true" />
-            ) : (
-              <Star size={14} aria-hidden="true" />
-            )}
-            {primary ? "Primary Athlete" : "Favorite Athlete"}
-          </p>
-          <h2>{athlete.name}</h2>
-          {athlete.teamName && <p className={s.muted}>{athlete.teamName}</p>}
-        </div>
-        <Link href="/tools" className={s.manage}>
-          Manage athletes <ArrowUpRight size={15} aria-hidden="true" />
-        </Link>
-      </div>
+      <RankLegend counts={rankCounts} />
       <section className={s.filterPanel} aria-label="Times filters">
-        <div className={filterStyles.heading}>
+        <div
+          className={`${filterStyles.heading} ${!filtersOpen ? s.collapsedHeading : ""}`}
+        >
           <button
             type="button"
             className={filterStyles.toggle}
@@ -216,19 +214,28 @@ function MyTimesResults({
         </div>
         <div id={`${cardId}-filters`} hidden={!filtersOpen}>
           <div className={`${times.filters} ${s.filters}`}>
-            <PopupPicker
-              label="Athlete"
-              value={athlete.id}
-              options={athletes.map((item) => [
-                item.id,
-                `${item.name} · ${item.id === preferences.primaryAthlete?.id ? "Primary" : "Favorite"}`,
-              ])}
-              searchPlaceholder="Find a followed athlete"
-              onChange={(id) => {
-                setAthleteId(id);
-                setFilters({ ...defaultFilters, course });
-              }}
-            />
+            <fieldset className={`${times.courseField} ${s.athletes}`}>
+              <legend>Athlete</legend>
+              <div className={`${times.chips} ${s.athleteChips}`}>
+                {athletes.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    aria-pressed={athlete.id === item.id}
+                    title={`${item.name} · ${item.id === preferences.primaryAthlete?.id ? "Primary" : "Favorite"} Athlete`}
+                    onClick={() => {
+                      setAthleteId(item.id);
+                      setFilters({ ...defaultFilters, course });
+                    }}
+                  >
+                    {item.name}
+                  </button>
+                ))}
+                <Link href="/tools" className={s.manage}>
+                  Manage athletes <ArrowUpRight size={15} aria-hidden="true" />
+                </Link>
+              </div>
+            </fieldset>
             <FilterChips
               label="Course"
               value={course}
@@ -239,26 +246,24 @@ function MyTimesResults({
               ]}
               onChange={(value) => setFilters({ ...filters, course: value })}
             />
-            <div className={s.periodFilter}>
-              <FilterChips
-                label="Best times from"
-                value={mode}
-                options={[
-                  ["all", "All time"],
-                  ["age", "Age"],
-                  ["years", "Year range"],
-                ]}
-                onChange={(value) =>
-                  setFilters({
-                    ...filters,
-                    mode: value,
-                    age,
-                    startYear,
-                    endYear,
-                  })
-                }
-              />
-            </div>
+            <FilterChips
+              label="Best times from"
+              value={mode}
+              options={[
+                ["all", "All time"],
+                ["age", "Age"],
+                ["years", "Year range"],
+              ]}
+              onChange={(value) =>
+                setFilters({
+                  ...filters,
+                  mode: value,
+                  age,
+                  startYear,
+                  endYear,
+                })
+              }
+            />
             {mode === "age" && (
               <DiscreteSlider
                 label="Age at swim"
@@ -384,9 +389,7 @@ function MyTimesResults({
                         <p className={s.noEvents}>No events</p>
                       )}
                       {cards.map((event) => {
-                        const rank = event.race
-                          ? motivationalRankForRace(event.race, standards.sets)
-                          : null;
+                        const rank = eventRanks.get(event.event);
                         return (
                           <button
                             type="button"
@@ -567,8 +570,6 @@ export default function MyTimes(
   const { user, loading } = useAuth();
   return (
     <section className={`${grid.page} ${s.page}`} aria-label="Times">
-      <RankLegend />
-      <h1 className="text-2xl font-bold">Times</h1>
       {loading ? (
         <p role="status">Loading your account…</p>
       ) : !user ? (

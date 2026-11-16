@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
 import {
   motivationalRankForTier,
   motivationalRanks,
@@ -33,23 +34,52 @@ export function MotivationalRankIcon({
   );
 }
 
-export function RankLegend() {
+export function RankLegend({
+  counts,
+  cutoffs,
+  description,
+}: {
+  counts?: Partial<Record<string, number>>;
+  cutoffs?: Partial<Record<string, number>>;
+  description?: string;
+}) {
   return (
     <aside className={s.legend} aria-label="USA Swimming motivational ranks">
-      <span className={s.heading}>Motivational ranks</span>
       <ul className={s.ranks}>
-        {motivationalRanks.map((rank) => (
-          <li
-            key={rank.tier}
-            title={`USA Swimming ${rank.tier} motivational standard`}
-          >
-            <MotivationalRankIcon tier={rank.tier} size={20} decorative />
-            <span>
-              {rank.name} <strong>{rank.tier}</strong>
-            </span>
-          </li>
-        ))}
+        {motivationalRanks.map((rank) => {
+          const count = counts ? (counts[rank.tier] ?? 0) : undefined;
+          const cutoff = cutoffs?.[rank.tier];
+          const metric =
+            count !== undefined
+              ? count.toLocaleString("en-US")
+              : cutoffs
+                ? cutoff && Number.isFinite(cutoff)
+                  ? formatSwimTime(cutoff)
+                  : "—"
+                : undefined;
+          const metricLabel =
+            count !== undefined
+              ? `${count} ${rank.name} ranks collected`
+              : `${rank.name} cutoff: ${metric === "—" ? "unavailable" : metric}`;
+          return (
+            <li
+              key={rank.tier}
+              title={`USA Swimming ${rank.tier} motivational standard${metric !== undefined ? ` · ${metricLabel}` : ""}`}
+            >
+              {metric !== undefined && (
+                <span className={s.value} aria-label={metricLabel}>
+                  {metric}
+                </span>
+              )}
+              <MotivationalRankIcon tier={rank.tier} size={20} decorative />
+              <span className={s.label}>
+                {rank.name} <strong>{rank.tier}</strong>
+              </span>
+            </li>
+          );
+        })}
       </ul>
+      {description && <p className={s.description}>{description}</p>}
     </aside>
   );
 }
