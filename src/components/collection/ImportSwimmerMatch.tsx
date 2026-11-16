@@ -6,7 +6,6 @@ import {
   type ImportSwimmerResolution,
 } from "./imports-review-api";
 import styles from "./ImportsReview.module.css";
-import { timesViewHref } from "./times-url-state";
 
 const matchEvidence = {
   source_identity: "Matching source identity",
@@ -120,14 +119,6 @@ export default function ImportSwimmerMatch({
                     <code className={styles.muted}>{candidate.id}</code>
                   </span>
                 </label>
-                <a
-                  href={timesViewHref("athletes", new URLSearchParams({ athleteId: candidate.id }).toString())}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`View ${candidate.name}’s profile (opens in a new tab)`}
-                >
-                  View profile
-                </a>
               </div>
             ))}
           </fieldset>

@@ -418,17 +418,6 @@ export function rankedTimes(
   });
 }
 
-export function dailyBestTimes(races: Race[]) {
-  const best = new Map<string, Race>();
-  for (const race of races) {
-    if (!validTime(race)) continue;
-    const key = `${race.athleteId}:${race.event}:${race.course}:${race.date.slice(0, 10)}`;
-    const previous = best.get(key);
-    if (!previous || race.time < previous.time) best.set(key, race);
-  }
-  return [...best.values()].sort((a, b) => a.date.localeCompare(b.date));
-}
-
 export const recordCourses = [
   ["SCY", "Short course yards"],
   ["LCM", "Long course meters"],
@@ -551,12 +540,11 @@ export function timesEvents(course: string, relay = false) {
 export function changeResultCategory(
   filters: Filters,
   relay: boolean,
-  allEvents = false,
 ): Filters {
   return {
     ...filters,
     relay,
-    event: allEvents ? "" : relay ? "200_FR-R" : "100_FR",
+    event: relay ? "200_FR-R" : "100_FR",
     mode: relay ? "performances" : "bests",
     ageGroups: [],
     genders: relay

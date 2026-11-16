@@ -182,7 +182,7 @@ try {
     );
     assert.equal(overflow, false, "Account overflows at " + width);
     for (const [name, path, count] of [
-      ["Velocity Times", "times", 5],
+      ["Velocity Times", "times", 4],
       ["Velocity Workshare", "workshare", 5],
       ["Velocity Imports", "review", 3],
     ]) {

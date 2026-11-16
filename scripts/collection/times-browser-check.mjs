@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { chromium } from "playwright";
 import assert from "node:assert/strict";
 import {
@@ -7,12 +6,9 @@ import {
   initialFilters,
   matches,
   bestTimes,
-  dailyBestTimes,
   percentile,
   teamRecords,
 } from "../../src/components/collection/times-data.ts";
-import { athleteRankings } from "../../src/components/collection/athlete-rankings.ts";
-import { athletePages } from "../../src/lib/times/athlete-pages.ts";
 const base = process.env.VELOCITY_TEST_URL ?? "http://127.0.0.1:3001";
 assert.ok(
   ["localhost", "127.0.0.1"].includes(new URL(base).hostname),
@@ -219,9 +215,6 @@ async function setup({ failure = false, expiry = false } = {}) {
       relay: q.get("relay") === "true",
     };
     let data;
-    const own = races.filter(
-      (r) => r.athleteId === q.get("athleteId") && !r.relay,
-    );
     if (view === "facets")
       data = {
         events: [...events.map(([e]) => e), "100_BK", "100_FL"],
@@ -262,119 +255,9 @@ async function setup({ failure = false, expiry = false } = {}) {
             ),
       };
     }
-    if (view === "profile")
-      data = {
-        name: names.get(q.get("athleteId")),
-        count: own.length,
-        relayCount: races.filter(
-          (race) =>
-            race.relay &&
-            race.members?.some(
-              (member) => member.athleteId === q.get("athleteId"),
-            ),
-        ).length,
-        pbs: bestTimes(own),
-        events: [...new Set(own.map((r) => r.event + "_" + r.course))],
-      };
-    if (view === "athlete_history") {
-      const all = own.filter(
-        (r) => r.event + "_" + r.course === q.get("historyEvent"),
-      );
-      data = {
-        rows: all
-          .slice(input.offset, input.offset + 25)
-          .map((race) => ({ race })),
-        total: all.length,
-        points: dailyBestTimes(all),
-      };
-    }
-    if (view === "athlete_relays") {
-      const all = races.filter(
-        (race) =>
-          race.relay &&
-          race.members?.some(
-            (member) => member.athleteId === q.get("athleteId"),
-          ),
-      );
-      data = {
-        rows: all
-          .slice(input.offset, input.offset + 25)
-          .map((race) => ({ race })),
-        total: all.length,
-      };
-    }
     if (view === "race") {
       const chosen = races.find((race) => race.id === q.get("raceId"));
       data = { rows: chosen ? [{ race: chosen }] : [], total: chosen ? 1 : 0 };
-    }
-    const meet = {
-      id: "meet",
-      name: "Fixture meet",
-      date: today,
-      count: races.length,
-      courses: ["SCY"],
-    };
-    if (view === "meets") {
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      const matching =
-        (!q.get("course") || meet.courses.includes(q.get("course"))) &&
-        (!q.get("year") ||
-          races.some((race) => race.date.startsWith(q.get("year"))));
-      data = { meets: matching ? [meet] : [], total: matching ? 1 : 0 };
-    }
-    const eventKey = (race) =>
-      createHash("md5")
-        .update(
-          JSON.stringify([
-            race.event,
-            race.course,
-            race.gender,
-            race.relay,
-            race.relayAgeGroup || null,
-          ]),
-        )
-        .digest("hex");
-    const catalog = [
-      ...new Map(
-        races.map((race) => {
-          const key = eventKey(race);
-          const eventNumber =
-            !race.relay && race.gender === "F" && race.event === "100_FR"
-              ? 2
-              : !race.relay && race.gender === "F" && race.event === "50_FR"
-                ? 10
-                : null;
-          return [
-            key,
-            {
-              key,
-              event: race.event,
-              course: race.course,
-              gender: race.gender,
-              relay: race.relay,
-              ageGroup: race.relayAgeGroup || null,
-              eventNumber,
-              ordering: eventNumber == null ? "fallback" : "official",
-              count: races.filter((r) => eventKey(r) === key).length,
-            },
-          ];
-        }),
-      ).values(),
-    ].sort((a, b) => (a.eventNumber ?? Infinity) - (b.eventNumber ?? Infinity));
-    if (view === "meet_events") data = { meet, meetEvents: catalog };
-    if (view === "meet_results") {
-      const all = races.filter(
-        (race) =>
-          eventKey(race) === q.get("meetEventKey") &&
-          (!q.get("team") || race.team === q.get("team")),
-      );
-      data = {
-        meet,
-        rows: all
-          .slice(input.offset, input.offset + 25)
-          .map((race) => ({ race })),
-        total: all.length,
-      };
     }
     if (view === "records")
       data = {
@@ -387,20 +270,6 @@ async function setup({ failure = false, expiry = false } = {}) {
               .map((race) => [race.id, race]),
           ).values(),
         ],
-      };
-    if (view === "athletes")
-      data = {
-        groups: athletePages(
-          athleteRankings(races, names, standard, {
-            team: velocityTeam,
-            course: input.course,
-            period: input.period,
-            today,
-          }),
-          input,
-        ),
-        standardName: standard.name,
-        standardAvailable: true,
       };
     assert.ok(data, "Unhandled times view: " + view);
     if (expiry && view === "rankings") expiryDeadline ??= Date.now() + 900;
@@ -429,54 +298,6 @@ async function checkSharedSelections() {
     }),
   );
   await page.goto(base + "/tools/times?source=shared#results");
-  await page.getByRole("link", { name: "Meets", exact: true }).click();
-  await page
-    .getByLabel("Meet search course", { exact: true })
-    .selectOption("SCY");
-  await page
-    .getByLabel("Meet search year", { exact: true })
-    .selectOption(today.slice(0, 4));
-  await page.getByPlaceholder("Search meet name…").fill("Fixture meet");
-  const meetUrl = page.url();
-  assert.equal(new URL(meetUrl).searchParams.get("meetCourse"), "SCY");
-  assert.equal(new URL(meetUrl).searchParams.get("source"), "shared");
-  assert.equal(new URL(meetUrl).hash, "#results");
-  await page.reload();
-  assert.equal(
-    await page
-      .getByRole("link", { name: "Meets", exact: true })
-      .getAttribute("aria-current"),
-    "page",
-  );
-  assert.equal(
-    await page.getByLabel("Meet search course", { exact: true }).inputValue(),
-    "SCY",
-  );
-  assert.equal(
-    await page.getByPlaceholder("Search meet name…").inputValue(),
-    "Fixture meet",
-  );
-
-  await page.getByRole("link", { name: "Athletes", exact: true }).click();
-  await page.getByLabel("Athlete course", { exact: true }).selectOption("LCM");
-  await page.getByLabel("Athlete period", { exact: true }).selectOption("all");
-  await page
-    .getByLabel("Search team athletes", { exact: true })
-    .fill("Swimmer & Test");
-  await page.reload();
-  assert.equal(
-    await page.getByLabel("Athlete course", { exact: true }).inputValue(),
-    "LCM",
-  );
-  assert.equal(
-    await page.getByLabel("Athlete period", { exact: true }).inputValue(),
-    "all",
-  );
-  assert.equal(
-    await page.getByLabel("Search team athletes", { exact: true }).inputValue(),
-    "Swimmer & Test",
-  );
-
   await page
     .getByRole("link", { name: "Standards", exact: true })
     .click();
@@ -485,62 +306,59 @@ async function checkSharedSelections() {
     name: "Standard",
     exact: true,
   });
-  const tierPicker = standards.getByRole("button", {
+  const tierPicker = standards.getByRole("slider", {
     name: "Tier",
     exact: true,
   });
-  const tierDialog = standards.getByRole("dialog", { name: "Tier" });
+  const standardDialog = standards.getByRole("dialog", { name: "Standard" });
   const standardOption = /^Browser verified standards · /;
   await standardPicker.click();
   await standards
     .getByRole("dialog", { name: "Standard" })
     .getByRole("button", { name: standardOption })
     .click();
-  await tierPicker.click();
-  await tierDialog.getByRole("button", { name: "A", exact: true }).click();
   await page.reload();
   assert.match(await standardPicker.innerText(), standardOption);
-  assert.equal(await tierPicker.innerText(), "A");
-  const standardParams = new URL(page.url()).searchParams;
+  assert.equal(await tierPicker.getAttribute("aria-valuetext"), "A");
+  const standardUrl = page.url();
+  const standardParams = new URL(standardUrl).searchParams;
+  assert.equal(standardParams.get("source"), "shared");
+  assert.equal(new URL(standardUrl).hash, "#results");
   assert.equal(standardParams.get("standard"), "sharing-standard");
   assert.equal(JSON.parse(standardParams.get("standardFilters")).tier, "A");
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await tierPicker.press("Enter");
-  await tierDialog.waitFor();
+  await standardPicker.press("Enter");
+  await standardDialog.waitFor();
   assert.equal(
-    await tierDialog
-      .getByRole("button", { name: "A", exact: true })
+    await standardDialog
+      .getByRole("button", { name: standardOption })
       .getAttribute("aria-pressed"),
     "true",
   );
   await page.keyboard.press("Escape");
-  await tierDialog.waitFor({ state: "hidden" });
+  await standardDialog.waitFor({ state: "hidden" });
   assert.equal(
-    await tierPicker.evaluate((button) => document.activeElement === button),
+    await standardPicker.evaluate((button) => document.activeElement === button),
     true,
   );
   await page.setViewportSize({ width: 1440, height: 1000 });
 
   // A fresh document restores URL state without relying on mounted components.
-  await page.goto(meetUrl);
-  const meetYear = page.getByLabel("Meet search year", { exact: true });
-  await meetYear
-    .locator(`option[value="${today.slice(0, 4)}"]`)
-    .waitFor({ state: "attached" });
-  assert.equal(await meetYear.inputValue(), today.slice(0, 4));
+  await page.goto(base + "/tools/times?source=shared#results");
+  await page.goto(standardUrl);
+  assert.match(await standardPicker.innerText(), standardOption);
+  assert.equal(await tierPicker.getAttribute("aria-valuetext"), "A");
   await page.goBack();
   assert.equal(
     await page
-      .getByRole("link", { name: "Standards", exact: true })
+      .getByRole("link", { name: "Rankings", exact: true })
       .getAttribute("aria-current"),
     "page",
   );
   await page.goForward();
-  assert.equal(
-    await page.getByPlaceholder("Search meet name…").inputValue(),
-    "Fixture meet",
-  );
+  assert.match(await standardPicker.innerText(), standardOption);
+  assert.equal(await tierPicker.getAttribute("aria-valuetext"), "A");
   await page.close();
 }
 
@@ -581,6 +399,22 @@ try {
     "Rankings start without an analysis sidebar",
   );
   const timesNav = page.getByRole("navigation", { name: "Tools navigation" });
+  const timesSectionId = await timesNav
+    .getByRole("link", { name: "Velocity Times", exact: true })
+    .getAttribute("aria-controls");
+  assert.ok(timesSectionId);
+  const timesSection = page.locator(`[id="${timesSectionId}"]`);
+  assert.deepEqual(await timesSection.getByRole("link").allTextContents(), [
+    "Times",
+    "Rankings",
+    "Records",
+    "Standards",
+  ]);
+  assert.equal(
+    await page.locator('a[href*="view=meets"], a[href*="view=athletes"]').count(),
+    0,
+    "Removed Times pages have no navigation or result links",
+  );
   const toolsLink = timesNav.getByRole("link", {
     name: "Account",
     exact: true,
@@ -721,79 +555,12 @@ try {
   );
   await page.getByRole("button", { name: /Analyze .*Swimmer 26/ }).click();
   await page.getByText("Performance percentile", { exact: true }).waitFor();
-  await page
-    .getByRole("table")
-    .getByRole("button", { name: "Swimmer 26 Fixture", exact: true })
-    .click();
-  await page
-    .getByRole("heading", { name: "Swimmer 26 Fixture", exact: true })
-    .waitFor();
-  await page.getByRole("table").first().waitFor();
-  await page
-    .getByRole("group", { name: "Event history", exact: true })
-    .getByRole("heading", { name: "Free", exact: true })
-    .waitFor();
-  await page.getByRole("link", { name: "Meets", exact: true }).click();
-  await checkCenteredSummary();
-  const meetBrowser = page.getByRole("region", {
-    name: "Meet browser",
-    exact: true,
-  });
-  const loadingCards = meetBrowser.locator("[data-loading-meets]");
-  await loadingCards.waitFor();
-  assert.equal(await loadingCards.locator(":scope > div").count(), 6);
-  assert.equal(
-    await analysisPanel.count(),
-    0,
-    "Meet browsing starts without analysis",
-  );
-  await page.getByText("Fixture meet", { exact: true }).first().waitFor();
-  await page
-    .getByLabel("Meet search course", { exact: true })
-    .selectOption("LCM");
-  await meetBrowser.getByText(/No matching meets/).waitFor();
-  assert.ok(
-    calls.some((q) => q.get("view") === "meets" && q.get("course") === "LCM"),
-  );
-  await page
-    .getByLabel("Meet search course", { exact: true })
-    .selectOption("SCY");
-  await page
-    .getByLabel("Meet search year", { exact: true })
-    .selectOption("2026");
-  await page.getByText("Fixture meet", { exact: true }).first().waitFor();
-  assert.ok(
-    calls.some((q) => q.get("view") === "meets" && q.get("year") === "2026"),
-  );
-  await page.getByLabel("Meet search year", { exact: true }).selectOption("");
-  await page.getByText("Fixture meet", { exact: true }).first().click();
-  assert.equal(
-    await meetBrowser.count(),
-    0,
-    "Selecting a meet closes the finder",
-  );
-  await page
-    .getByRole("button", { name: "Find another meet", exact: true })
-    .click();
-  await meetBrowser.waitFor();
-  assert.equal(
-    await page.getByLabel("Meet search course", { exact: true }).inputValue(),
-    "SCY",
-  );
-  await page
-    .getByRole("button", { name: "Hide meet finder", exact: true })
-    .click();
-  assert.equal(await meetBrowser.count(), 0);
-
-  await page
-    .getByRole("heading", { name: "Fixture meet", exact: true })
-    .waitFor();
   await page.getByRole("link", { name: "Records", exact: true }).click();
   const recordsPanel = page.getByRole("region", {
     name: "Records",
     exact: true,
   });
-  await recordsPanel.getByRole("heading", { name: "Velocity Swimming records", exact: true }).waitFor();
+  await recordsPanel.getByRole("heading", { name: "Records", exact: true }).waitFor();
   assert.equal(await recordsPanel.getByRole("button", { name: "Record team", exact: true }).count(), 0);
   const recordTable = recordsPanel
     .getByRole("region", { name: "SCY 11–12 record table", exact: true })
@@ -1022,43 +789,8 @@ try {
     await page.getByRole("button", { name: "Mixed", exact: true }).count(),
     1,
   );
-  await page.getByRole("link", { name: "Athletes", exact: true }).click();
-  await checkCenteredSummary();
   await page
-    .getByRole("button", { name: "← Back to team athletes", exact: true })
-    .click();
-  assert.equal(
-    await page.getByLabel("Athlete team", { exact: true }).count(),
-    0,
-  );
-  await page.getByText("3-event score", { exact: true }).first().waitFor();
-  const pager = page.getByRole("navigation", { name: "Ranked athletes pages" });
-  await pager.getByRole("button", { name: "Next", exact: true }).click();
-  await page
-    .locator("#athlete-search")
-    .getByText("Swimmer 26 Fixture", { exact: true })
-    .waitFor();
-  await page.getByLabel("Search team athletes").fill("Swimmer 26");
-  await page.waitForResponse((r) => r.url().includes("search=swimmer+26"));
-  const row = page
-    .locator("#athlete-search")
-    .getByRole("button")
-    .filter({ hasText: "Swimmer 26 Fixture" });
-  assert.equal(await row.locator("> span").first().innerText(), "27");
-  await row.click();
-  await page
-    .getByRole("heading", { name: "Swimmer 26 Fixture", exact: true })
-    .waitFor();
-  await page
-    .getByRole("button", { name: "← Back to team athletes", exact: true })
-    .click();
-  assert.equal(await page.getByLabel("Athlete team").count(), 0);
-  await page
-    .locator("#athlete-search")
-    .getByText("Swimmer 26 Fixture", { exact: true })
-    .waitFor();
-  await page
-    .getByRole("link", { name: "Rankings", exact: true })
+    .getByRole("button", { name: "Reset filters", exact: true })
     .click();
   await Promise.all([
     page.waitForRequest(
@@ -1147,7 +879,7 @@ try {
     .waitFor();
   await detail
     .getByText(
-      "All four members are reported; some athlete profiles are unlinked.",
+      "All four members are reported; some athlete identities are unverified.",
       { exact: true },
     )
     .waitFor();
@@ -1213,91 +945,8 @@ try {
     .getByText("Disqualified fixture relay · 11-12", { exact: true })
     .waitFor();
   await detail.getByText("DQ", { exact: true }).waitFor();
-  await detail
-    .getByRole("button", { name: "Swimmer 00 Fixture", exact: true })
-    .click();
   await page
-    .getByRole("heading", { name: "Swimmer 00 Fixture", exact: true })
-    .waitFor();
-  const participation = page.getByRole("region", {
-    name: "Athlete relay participation",
-  });
-  await participation.getByRole("table").waitFor();
-  await participation
-    .getByRole("navigation", { name: "Relay participation pages" })
-    .getByRole("button", { name: "Next", exact: true })
-    .click();
-  await participation.getByText("26–30 of 30", { exact: true }).waitFor();
-  // Numbered and fallback groups share the same event selection behavior.
-  await page.getByRole("link", { name: "Meets", exact: true }).click();
-  await page.getByLabel("Search meets", { exact: true }).fill("Fixture meet");
-  await page.getByText("Fixture meet", { exact: true }).first().click();
-  const eventNav = page.getByRole("navigation", {
-    name: "Meet events",
-    exact: true,
-  });
-  await eventNav
-    .getByRole("heading", { name: "Official event order", exact: true })
-    .waitFor();
-  await eventNav
-    .getByRole("heading", {
-      name: "Event order unavailable — grouped by event",
-      exact: true,
-    })
-    .waitFor();
-  assert.match(await eventNav.getByRole("button").first().innerText(), /^#2/);
-  const eventResults = page.getByRole("region", {
-    name: "Selected event results",
-    exact: true,
-  });
-  await eventResults.getByRole("button", { name: "Next", exact: true }).click();
-  await eventResults.getByText(/26–/).waitFor();
-  await eventNav
-    .getByRole("button", { name: /Mixed.*200 Freestyle relay/ })
-    .focus();
-  await page.keyboard.press("Enter");
-  await eventResults
-    .getByRole("columnheader", { name: "Relay team", exact: true })
-    .waitFor();
-  assert.equal(
-    await page.getByLabel("Search meets", { exact: true }).inputValue(),
-    "Fixture meet",
-    "Changing a meet's result category must preserve the meet-name search.",
-  );
-  await page
-    .getByRole("button", {
-      name: "Analyze 2:00.00 by Mixed fixture relay",
-      exact: true,
-    })
-    .waitFor();
-  assert.equal(
-    await page
-      .getByRole("table")
-      .getByText("Mixed fixture relay", { exact: true })
-      .count(),
-    0,
-  );
-  await page.setViewportSize({ width: 390, height: 844 });
-  const mobileEvents = page.getByLabel("Meet event", { exact: true });
-  await mobileEvents.waitFor();
-  const selectedEvent = await mobileEvents.inputValue();
-  await mobileEvents.selectOption({ index: 0 });
-  await eventResults
-    .getByRole("columnheader", { name: "Athlete", exact: true })
-    .waitFor();
-  assert.notEqual(await mobileEvents.inputValue(), selectedEvent);
-  assert.equal(await eventNav.isVisible(), false);
-  await page.screenshot({
-    path: "/tmp/meet-events-mobile.png",
-    fullPage: true,
-  });
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.screenshot({
-    path: "/tmp/meet-events-desktop.png",
-    fullPage: true,
-  });
-  await page
-    .getByRole("link", { name: "Rankings", exact: true })
+    .getByRole("button", { name: "Reset filters", exact: true })
     .click();
   await page
     .getByRole("table")
@@ -1465,7 +1114,7 @@ try {
   await expiry.page.close();
   assert.deepEqual(errors, []);
   console.log(
-    "Times browser checks passed: every view, relay/Mixed filters, validated lineup/splits, lead-off parent DQ, athlete relay paging, course/category resets, ties/ranks, search, cancellation, retries, cache expiry, mobile and keyboard event selection; no bulk downloads.",
+    "Times browser checks passed: every view, relay/Mixed filters, validated lineup/splits, lead-off parent DQ, course/category resets, ties/ranks, search, cancellation, retries, cache expiry, mobile and keyboard event selection; no bulk downloads.",
   );
 } finally {
   await browser.close();

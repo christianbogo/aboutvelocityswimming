@@ -101,28 +101,3 @@ it("preserves the season RPC for clients opened before the all-time update", asy
     true,
   );
 });
-it("shares the scored cohort cache across athlete searches and list pages", async () => {
-  const athletes = Array.from({ length: 30 }, (_, i) => ({
-    id: String(i),
-    name: "Athlete " + i,
-    rank: i + 1,
-    status: "ranked",
-  }));
-  mocks.rpc.mockResolvedValue({
-    data: {
-      groups: [{ ageGroup: "11-12", gender: "F", label: "11–12", athletes }],
-    },
-    error: null,
-  });
-  const base = { team: "fixture", course: "SCY", period: "recent" };
-  const first = await readTimes("athletes", base);
-  expect(first.groups?.[0].athletes).toHaveLength(25);
-  const second = await readTimes("athletes", { ...base, offset: 25 });
-  expect(second.groups?.[0].athletes[0].rank).toBe(26);
-  const searched = await readTimes("athletes", {
-    ...base,
-    search: "Athlete 29",
-  });
-  expect(searched.groups?.[0].athletes[0].rank).toBe(30);
-  expect(mocks.rpc).toHaveBeenCalledTimes(1);
-});

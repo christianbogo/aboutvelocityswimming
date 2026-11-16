@@ -1,12 +1,10 @@
 import {
   BarChart3,
   Briefcase,
-  CalendarDays,
   ClipboardList,
   CircleUserRound,
   Timer,
   Trophy,
-  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -59,8 +57,6 @@ export const timesViews = [
   ["rankings", "Rankings", BarChart3],
   ["records", "Records", Trophy],
   ["standards", "Standards", Timer],
-  ["meets", "Meets", CalendarDays],
-  ["athletes", "Athletes", Users],
 ] as const;
 
 export type TimesView = (typeof timesViews)[number][0];

@@ -1,40 +1,14 @@
 import { VELOCITY_TEAM_ID } from "@/features/swim-resources/lib/domain/entities";
-import type { AthleteRankingGroup } from "./athlete-rankings";
 import type { Race } from "./times-data";
 export const timesKinds = [
   "facets",
   "rankings",
   "analysis",
-  "meets",
-  "meet_results",
-  "meet_events",
-  "profile",
-  "athlete_history",
-  "athlete_relays",
   "race",
   "records",
-  "athletes",
   "my_times",
 ] as const;
 export type TimesKind = (typeof timesKinds)[number];
-export interface MeetSummary {
-  id: string;
-  name: string;
-  date: string;
-  count: number;
-  courses: string[];
-}
-export interface MeetEventEntry {
-  key: string;
-  event: string;
-  course: string;
-  gender: string;
-  relay: boolean;
-  ageGroup: string | null;
-  eventNumber: number | null;
-  ordering: "official" | "fallback";
-  count: number;
-}
 export interface MyTimesEvent {
   event: string;
   race: Race | null;
@@ -79,7 +53,6 @@ export interface LegacyMyTimesResponse {
 }
 export interface TimesResponse {
   myTimes?: MyTimesResponse | LegacyMyTimesResponse;
-  meetEvents?: MeetEventEntry[];
   expiresAt: number;
   rows?: { race: Race; rank?: number }[];
   total?: number;
@@ -87,13 +60,7 @@ export interface TimesResponse {
   years?: string[];
   relayAges?: string[];
   relayEvents?: string[];
-  meets?: MeetSummary[];
-  meet?: MeetSummary;
-  name?: string;
   count?: number;
-  relayCount?: number;
-  pbs?: Race[];
-  points?: Race[];
   races?: Race[];
   records?: Record<string, string[]>;
   recordsUpdatedAt?: string | null;
@@ -105,11 +72,6 @@ export interface TimesResponse {
     count: number;
     rank: number;
   } | null;
-  groups?: (AthleteRankingGroup & {
-    totals: Record<"ranked" | "provisional" | "unscored", number>;
-  })[];
-  standardName?: string;
-  standardAvailable?: boolean;
 }
 export type TimesInput = Record<
   string,
@@ -143,16 +105,9 @@ export function parseTimesQuery(params: URLSearchParams): {
     "official",
     "mode",
     "search",
-    "meetId",
-    "meetEventKey",
     "athleteId",
     "raceId",
-    "historyEvent",
-    "period",
     "basis",
-    "groupAge",
-    "groupGender",
-    "status",
     "startDate",
     "endDate",
     "startYear",
@@ -170,11 +125,8 @@ export function parseTimesQuery(params: URLSearchParams): {
     course: ["", "SCY", "LCM", "SCM"],
     official: ["", "official", "unofficial"],
     mode: ["bests", "performances", "recent"],
-    period: ["recent", "all"],
     basis: ["bests", "swims"],
     round: ["", "F", "P", "S", "TT"],
-    groupGender: ["", "F", "M"],
-    status: ["ranked", "provisional", "unscored"],
     rankPeriod: ["all", "season"],
   })) {
     if (input[key] !== undefined && !allowed.includes(String(input[key])))
@@ -247,36 +199,12 @@ export function parseTimesQuery(params: URLSearchParams): {
       input.ageAtSwim = Number(rawAge);
     }
   }
-  if (kind === "meets") {
-    const meetDate = params.get("meetDate")?.trim();
-    if (meetDate) {
-      const parsed = new Date(meetDate);
-      if (
-        !/^(?!0000)\d{4}-\d{2}-\d{2}$/.test(meetDate) ||
-        !Number.isFinite(parsed.getTime()) ||
-        parsed.toISOString().slice(0, 10) !== meetDate
-      )
-        throw new Error("Invalid meet search date.");
-      input.meetDate = meetDate;
-    }
-  }
-  if (input.meetEventKey && !/^[a-f0-9]{32}$/.test(String(input.meetEventKey)))
-    throw new Error("Invalid meet event.");
   if (kind === "rankings") {
     input.genders ??= ["F"];
     input.mode ??= "bests";
   }
-  if (kind === "athletes") {
-    input.period ??= "recent";
-    input.course ??= "SCY";
-  }
   const required: Partial<Record<TimesKind, string[]>> = {
     analysis: ["raceId"],
-    meet_results: ["meetId"],
-    meet_events: ["meetId"],
-    profile: ["athleteId"],
-    athlete_history: ["athleteId", "historyEvent"],
-    athlete_relays: ["athleteId"],
     my_times: ["athleteId"],
     race: ["raceId"],
   };

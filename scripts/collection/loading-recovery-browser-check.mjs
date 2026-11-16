@@ -70,7 +70,7 @@ try {
       const { loadTimes } = await import("/load-times.js");
       try {
         await loadTimes(
-          "/api/times?view=meets&search=private-search",
+          "/api/times?view=rankings&search=private-search",
           new AbortController().signal,
         );
         return "loaded";
@@ -93,7 +93,7 @@ try {
   await page.evaluate(async () => {
     const { loadTimes } = await import("/load-times.js");
     const controller = new AbortController();
-    const pending = loadTimes("/api/times?view=meets", controller.signal).catch(
+    const pending = loadTimes("/api/times?view=rankings", controller.signal).catch(
       () => {},
     );
     setTimeout(() => controller.abort(), 100);

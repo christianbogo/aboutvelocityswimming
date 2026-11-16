@@ -87,7 +87,7 @@ describe("Velocity times requests", () => {
       ).toThrow();
   });
   it("always scopes reads to Velocity and ignores legacy team selections", () => {
-    for (const view of ["rankings", "records", "athletes", "facets", "meets"]) {
+    for (const view of ["rankings", "records", "facets"]) {
       for (const team of ["", "other-club", "velocity-swimming"]) {
         expect(
           parseTimesQuery(new URLSearchParams({ view, team })).input.team,
@@ -112,6 +112,28 @@ describe("Velocity times requests", () => {
     expect(timesUrl("rankings", { genders: ["M", "F"], team: "a&b" })).toBe(
       timesUrl("rankings", { team: "a&b", genders: ["F", "M"] }),
     );
+  });
+  it("rejects the removed Meets and Athletes views", () => {
+    for (const view of [
+      "meets",
+      "meet_results",
+      "meet_events",
+      "athletes",
+      "profile",
+      "athlete_history",
+      "athlete_relays",
+    ]) {
+      expect(() =>
+        parseTimesQuery(
+          new URLSearchParams({
+            view,
+            meetId: "m",
+            athleteId: "a",
+            historyEvent: "100_FR_SCY",
+          }),
+        ),
+      ).toThrow("Choose a valid times view.");
+    }
   });
   it("rejects unsupported views, invalid filters and unbounded pages", () => {
     for (const query of [
@@ -180,12 +202,7 @@ describe("Velocity times requests", () => {
 });
 
 describe("relay result requests", () => {
-  it("supports bounded athlete relay participation and individual race detail lookups", () => {
-    expect(
-      parseTimesQuery(
-        new URLSearchParams("view=athlete_relays&athleteId=a&offset=25"),
-      ).input,
-    ).toMatchObject({ athleteId: "a", offset: 25, limit: 25 });
+  it("supports individual race detail lookups and relay rankings", () => {
     expect(
       parseTimesQuery(new URLSearchParams("view=race&raceId=relay-a")).input,
     ).toMatchObject({ raceId: "relay-a" });
@@ -196,41 +213,5 @@ describe("relay result requests", () => {
         ),
       ).input,
     ).toMatchObject({ relay: true, genders: ["X"], mode: "performances" });
-  });
-});
-
-describe("meet event navigation requests", () => {
-  it("accepts only valid calendar dates for meet discovery", () => {
-    expect(
-      parseTimesQuery(new URLSearchParams("view=meets&meetDate=2024-02-29"))
-        .input.meetDate,
-    ).toBe("2024-02-29");
-    expect(
-      parseTimesQuery(new URLSearchParams("view=meets&meetDate=")).input,
-    ).not.toHaveProperty("meetDate");
-    for (const value of ["2025-02-29", "2024-2-29", "0000-02-29"])
-      expect(() =>
-        parseTimesQuery(new URLSearchParams(`view=meets&meetDate=${value}`)),
-      ).toThrow("Invalid meet search date");
-  });
-
-  it("requires a meet and validates stable event keys", () => {
-    expect(() =>
-      parseTimesQuery(new URLSearchParams("view=meet_events")),
-    ).toThrow();
-    expect(
-      parseTimesQuery(new URLSearchParams("view=meet_events&meetId=m")).input,
-    ).toEqual({ team: "velocity-swimming", meetId: "m", offset: 0, limit: 25 });
-    const key = "a".repeat(32);
-    expect(
-      parseTimesQuery(
-        new URLSearchParams(`view=meet_results&meetId=m&meetEventKey=${key}`),
-      ).input,
-    ).toMatchObject({ meetEventKey: key });
-    expect(() =>
-      parseTimesQuery(
-        new URLSearchParams("view=meet_results&meetId=m&meetEventKey=invalid"),
-      ),
-    ).toThrow("Invalid meet event");
   });
 });

@@ -279,8 +279,4 @@ table.issuesTable tbody th[scope="row"] {
   table.issuesTable td:first-child button {
     max-width: 6rem;
   }
-
-  .matchCandidate > a {
-    margin: 0 0 .5rem .5rem;
-  }
 }

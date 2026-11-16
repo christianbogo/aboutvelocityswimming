@@ -45,19 +45,9 @@ describe("shared times selections", () => {
       "https://example.com/tools/times?team=other&recordTeam=other&meetTeam=other",
     );
     url.searchParams.set("filters", JSON.stringify(oldFilters));
-    url.searchParams.set(
-      "athleteOptions",
-      JSON.stringify({ team: "other-club", course: "LCM", period: "all" }),
-    );
     const href = writeTimesSelection(url, "page", 1, 0);
     expect(href).not.toMatch(/team|Team/);
-    expect(timesViewHref("athletes", url.search)).not.toMatch(/team|Team/);
-    expect(
-      readTimesSelection(url.searchParams.get("athleteOptions"), {
-        course: "SCY",
-        period: "recent",
-      }),
-    ).toEqual({ course: "LCM", period: "all" });
+    expect(timesViewHref("records", url.search)).not.toMatch(/team|Team/);
   });
   it("round trips multi-selects, relay settings, empty selections and special characters", () => {
     const filters = {
@@ -80,14 +70,14 @@ describe("shared times selections", () => {
 
   it("keeps consecutive updates and removes defaults without losing other selections", () => {
     const url = new URL("https://example.com/tools/times");
-    writeTimesSelection(url, "view", "meets", "rankings");
-    writeTimesSelection(url, "meetCourse", "LCM", "");
-    writeTimesSelection(url, "search", "Meet & Invitational", "");
-    writeTimesSelection(url, "meetCourse", "", "");
-    expect(url.searchParams.get("view")).toBe("meets");
-    expect(url.searchParams.has("meetCourse")).toBe(false);
+    writeTimesSelection(url, "view", "standards", "rankings");
+    writeTimesSelection(url, "standardCourse", "LCM", "");
+    writeTimesSelection(url, "search", "Qualifying & Motivational", "");
+    writeTimesSelection(url, "standardCourse", "", "");
+    expect(url.searchParams.get("view")).toBe("standards");
+    expect(url.searchParams.has("standardCourse")).toBe(false);
     expect(readTimesSelection(url.searchParams.get("search"), "")).toBe(
-      "Meet & Invitational",
+      "Qualifying & Motivational",
     );
   });
 

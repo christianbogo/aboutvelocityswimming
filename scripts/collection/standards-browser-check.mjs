@@ -224,8 +224,7 @@ try {
   for (const name of [
     "Rankings",
     "Records",
-    "Meets",
-    "Athletes",
+    "Times",
   ]) {
     await page.getByRole("button", { name: "Open navigation sidebar" }).click();
     await page

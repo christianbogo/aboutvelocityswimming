@@ -52,7 +52,7 @@ function knownSelection<T>(value: T, fallback: T): T {
 
 function removeTeamSelections(params: URLSearchParams) {
   for (const key of ["team", "recordTeam", "meetTeam"]) params.delete(key);
-  for (const key of ["filters", "athleteOptions"]) {
+  for (const key of ["filters"]) {
     const raw = params.get(key);
     if (!raw) continue;
     try {
@@ -107,9 +107,6 @@ export function timesViewHref(view: TimesView, search = "", hash = "") {
   removeTeamSelections(params);
   for (const key of [
     "view",
-    "meetSearchOpen",
-    "athleteSearchOpen",
-    "listPage",
     "search",
     "page",
     "filters",
@@ -124,7 +121,6 @@ export function timesViewHref(view: TimesView, search = "", hash = "") {
       JSON.stringify({ ...initialFilters, course: "", event: "", genders: [] }),
     );
   }
-  if (params.get("athleteId")) params.set("athleteSearchOpen", "false");
   const query = params.toString();
   return `${toolDirectory.times.href}${query ? `?${query}` : ""}${hash}`;
 }

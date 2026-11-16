@@ -24,7 +24,7 @@ it("recovers a temporary results failure without requiring a second user action"
     .mockResolvedValueOnce(response(503, { error: "temporarily unavailable" }))
     .mockResolvedValueOnce(response(200, { rows: [], expiresAt: 180000 }));
   const loaded = loadTimes(
-    "/api/times?view=meets&search=private-search",
+    "/api/times?view=rankings&search=private-search",
     new AbortController().signal,
   );
   await vi.advanceTimersByTimeAsync(500);
@@ -42,7 +42,7 @@ it.each([401, 403, 400])(
   async (status) => {
     fetchMock.mockResolvedValue(response(status, { error: "denied" }));
     await expect(
-      loadTimes("/api/times?view=meets", new AbortController().signal),
+      loadTimes("/api/times?view=rankings", new AbortController().signal),
     ).rejects.toThrow("couldn’t load");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   },
@@ -50,7 +50,7 @@ it.each([401, 403, 400])(
 it("stops after two failed results reads", async () => {
   fetchMock.mockResolvedValue(response(503, {}));
   const failed = expect(
-    loadTimes("/api/times?view=meets", new AbortController().signal),
+    loadTimes("/api/times?view=rankings", new AbortController().signal),
   ).rejects.toThrow("couldn’t load");
   await vi.advanceTimersByTimeAsync(500);
   await failed;
@@ -60,7 +60,7 @@ it("cancels a pending retry when the user leaves or changes filters", async () =
   const controller = new AbortController();
   fetchMock.mockResolvedValue(response(503, {}));
   const failed = expect(
-    loadTimes("/api/times?view=meets", controller.signal),
+    loadTimes("/api/times?view=rankings", controller.signal),
   ).rejects.toThrow();
   await vi.advanceTimersByTimeAsync(100);
   controller.abort();

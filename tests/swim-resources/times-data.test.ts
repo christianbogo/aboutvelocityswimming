@@ -7,7 +7,6 @@ import {
   changeTimesCourse,
   timesEvents,
   bestTimes,
-  dailyBestTimes,
   teamRecords,
   recordKey,
   recordEvents,
@@ -137,26 +136,6 @@ describe("IES performance comparisons", () => {
     expect(result.event).toBe("100_FR");
     expect(result.official).toBeNull();
     expect(result.meetId).toBe("Spring Meet_2026-05-01");
-  });
-});
-
-describe("athlete progress", () => {
-  it("plots the fastest valid swim each day, keeping events and courses separate", () => {
-    const swims = [
-      race("final", 51000, { athleteId: "a" }),
-      race("prelim", 50000, { athleteId: "a", round: "P" }),
-      race("dq", 49000, { athleteId: "a", status: "DQ" }),
-      race("next", 49500, { athleteId: "a", date: "2026-05-02" }),
-      race("meters", 57000, { athleteId: "a", course: "LCM" }),
-      race("other-event", 25000, { athleteId: "a", event: "50_FR" }),
-    ];
-    expect(dailyBestTimes(swims).map((r) => r.id)).toEqual([
-      "prelim",
-      "meters",
-      "other-event",
-      "next",
-    ]);
-    expect(swims).toHaveLength(6);
   });
 });
 
@@ -595,7 +574,6 @@ describe("relay details and lead-off eligibility", () => {
       mode: "bests",
       genders: ["F"],
     });
-    expect(changeResultCategory(relays, false, true).event).toBe("");
     expect(
       changeTimesCourse({ ...initialFilters, event: "100_IM" }, "LCM").event,
     ).not.toBe("100_IM");

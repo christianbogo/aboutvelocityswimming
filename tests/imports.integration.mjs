@@ -131,6 +131,11 @@ test("private import, frozen review and transactional publication", async (t) =>
     if (query_kind === "records") db("select private.refresh_team_records()");
     return rpc(anon, "ies_times_query", { query_kind, input });
   };
+  const publishedMeetCount = async (meetId) => {
+    const result = await anon.from("public_swims").select("id", { count: "exact", head: true }).eq("data->meet->>id", meetId);
+    assert.ifError(result.error);
+    return result.count;
+  };
   const best = () => db(`select data->>'swimId' from public.athlete_bests where athlete_id=${sql(athlete.id)} and event_code='100_FR_SCY';`);
   const source = batch("main", [
     row("meet", meet), row("swim", faster, { locator: "Event 1" }),
@@ -162,7 +167,7 @@ test("private import, frozen review and transactional publication", async (t) =>
   assert.equal(detail.sourceUrl, source.sourceUrl);
   assert.equal(detail.sha256, source.sha256);
   assert.equal(detail.locator, "Event 1");
-  assert.equal((await times("meet_results", { meetId: meet.id })).total, 0);
+  assert.equal(await publishedMeetCount(meet.id), 0);
   assert.equal(best(), earlier.id);
   assert.ok((await times("records", { team: team.id })).races.some((race) => race.id === earlier.id));
 
@@ -183,7 +188,7 @@ test("private import, frozen review and transactional publication", async (t) =>
   const receipts = await Promise.all([approve(preview.selectionId), approve(preview.selectionId)]);
   assert.ok(receipts.every(({ done, approved }) => done && approved === 3));
   assert.equal(receipts.reduce((sum, result) => sum + result.published, 0), 3);
-  assert.equal((await times("meet_results", { meetId: meet.id })).total, 2);
+  assert.equal(await publishedMeetCount(meet.id), 2);
   assert.equal(best(), faster.id);
   assert.ok((await times("records", { team: team.id })).races.some((race) => race.id === faster.id));
   const remaining = await list("swims", { batchId: staged.batchId });
@@ -222,7 +227,7 @@ test("private import, frozen review and transactional publication", async (t) =>
   const [readySwim] = (await list("swims", { batchId: pair.batchId })).rows;
   assert.equal(readySwim.recordId, blockedRace.id);
   assert.equal(readySwim.blocker, null, "the still-pending swim should be ready after publishing its linked meet");
-  assert.equal((await times("meet_results", { meetId: missingMeet.id })).total, 0);
+  assert.equal(await publishedMeetCount(missingMeet.id), 0);
   const renewedPreview = await select({ matches: [{ kind: "swims", batchId: pair.batchId }] });
   assert.equal((await approve(renewedPreview.selectionId)).approved, 1);
 

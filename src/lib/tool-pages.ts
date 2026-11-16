@@ -34,10 +34,6 @@ const timesDescriptions: Record<TimesView, string> = {
   records: "Browse team records and the swimmers behind the fastest times.",
   standards:
     "Look up qualifying times and see how swims compare with time standards.",
-  meets:
-    "Find a meet and explore its events, race results, and participating swimmers.",
-  athletes:
-    "Find a swimmer to explore their results, personal bests, and progress.",
 };
 
 // Keep landing-page summaries and sidebar destinations in sync.

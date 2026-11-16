@@ -1568,27 +1568,6 @@ export type Database = {
         };
         Returns: undefined;
       };
-      ies_meet_event_rows: {
-        Args: { meet_id: string };
-        Returns: {
-          age_group: string;
-          course: string;
-          event: string;
-          event_key: string;
-          event_number: number;
-          gender: string;
-          id: string;
-          relay: boolean;
-          round: string;
-          status: string;
-          team: string;
-          time: number;
-        }[];
-      };
-      ies_meet_navigation_query: {
-        Args: { input: Json; query_kind: string };
-        Returns: Json;
-      };
       ies_team_records: { Args: { team_id: string }; Returns: Json };
       ies_times_age: {
         Args: { age: number; relay: boolean; relay_age: string };

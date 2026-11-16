@@ -192,69 +192,23 @@ try {
     "Velocity relay records need a complete reported lineup.",
   );
   publicRace(relayRecord);
-  let lead, profile;
+  let lead, eligible;
   for (const candidate of leadOffs) {
-    const current = await times("profile", { athleteId: candidate.athleteId });
-    if (current.pbs?.some((race) => race.id === candidate.id)) {
+    const current = await times("race", { raceId: candidate.id });
+    if (current.rows?.[0]?.race) {
       lead = candidate;
-      profile = current;
+      eligible = current.rows[0].race;
       break;
     }
   }
   assert.ok(
-    lead && profile,
-    "At least one verified lead-off must become an actual individual PB.",
+    lead && eligible,
+    "At least one verified lead-off must be published as an individual result.",
   );
-  const eligible = profile.pbs.find((race) => race.id === lead.id);
   publicRace(eligible);
   assert.equal(eligible.relay, false);
   assert.equal(eligible.resultOrigin, "relay_leadoff");
   assert.equal(eligible.parentRelayResultId, lead.parentRelayResultId);
-  const participation = await times("athlete_relays", {
-    athleteId: lead.athleteId,
-    limit: 25,
-  });
-  assert.ok(
-    participation.total > 0 && participation.rows.length,
-    "Lead-off swimmer must have relay participation.",
-  );
-  assert.ok(
-    participation.rows.every(({ race }) =>
-      race.members?.some((member) => member.athleteId === lead.athleteId),
-    ),
-  );
-  if (participation.total > 1) {
-    const firstRelayPage = await times("athlete_relays", {
-      athleteId: lead.athleteId,
-      limit: 1,
-      offset: 0,
-    });
-    const secondRelayPage = await times("athlete_relays", {
-      athleteId: lead.athleteId,
-      limit: 1,
-      offset: 1,
-    });
-    assert.equal(firstRelayPage.total, participation.total);
-    assert.equal(secondRelayPage.total, participation.total);
-    assert.equal(firstRelayPage.rows.length, 1);
-    assert.equal(secondRelayPage.rows.length, 1);
-    assert.notEqual(
-      firstRelayPage.rows[0].race.id,
-      secondRelayPage.rows[0].race.id,
-      "Relay participation pagination must advance to a distinct team result.",
-    );
-  }
-
-  const championshipRelayResults = await times("meet_results", {
-    meetId: lead.meet.id,
-    relay: true,
-    limit: 25,
-  });
-  assert.ok(
-    championshipRelayResults.total > 0 && championshipRelayResults.rows.length,
-    "Championship relay meet results must load without a scan timeout.",
-  );
-  assert.ok(championshipRelayResults.rows.every(({ race }) => race.relay));
   assert.ok(splitUpdate, "A reviewed individual split update is required.");
   const individualResult = await times("race", { raceId: splitUpdate.id });
   const individual = individualResult.rows?.[0]?.race;
@@ -290,59 +244,6 @@ try {
     .waitFor();
   await fullScreenshot("mixed-relay-lineup-splits.png");
 
-  await page.getByRole("button", { name: "Meets", exact: true }).click();
-  await page
-    .getByLabel("Search meets", { exact: true })
-    .fill(selectedMixed.meet);
-  await page.getByText(selectedMixed.meet, { exact: true }).first().click();
-  const meetHeading = page.getByRole("heading", {
-    name: selectedMixed.meet,
-    exact: true,
-  });
-  await meetHeading.waitFor();
-  const meetPanel = page
-    .locator('section[tabindex="-1"]')
-    .filter({ has: meetHeading });
-  await meetPanel
-    .getByRole("table")
-    .getByRole("columnheader", { name: "Athlete", exact: true })
-    .waitFor();
-  assert.equal(
-    await meetPanel
-      .getByRole("button", { name: "Individual", exact: true })
-      .getAttribute("aria-pressed"),
-    "true",
-  );
-  await meetPanel.getByRole("button", { name: "Relays", exact: true }).click();
-  assert.equal(
-    await page.getByLabel("Search meets", { exact: true }).inputValue(),
-    selectedMixed.meet,
-    "Changing Individual/Relays must preserve the meet-name search.",
-  );
-  await chooseEvent("Meet event", "200_MED-R");
-  await meetPanel.getByRole("button", { name: "Mixed", exact: true }).click();
-  await meetPanel
-    .getByRole("table")
-    .getByRole("columnheader", { name: "Relay team", exact: true })
-    .waitFor();
-  await meetPanel
-    .getByRole("button", {
-      name: `Analyze ${formatSwimTime(selectedMixed.time)} by ${resultName(selectedMixed, new Map())}`,
-      exact: true,
-    })
-    .first()
-    .click();
-  await detail
-    .getByRole("heading", { name: "Relay lineup", exact: true })
-    .waitFor();
-  await detail
-    .getByRole("region", { name: "Race splits" })
-    .getByRole("table")
-    .waitFor();
-  await detail
-    .getByText(/eligible relay performances in this comparison group/)
-    .waitFor();
-  await fullScreenshot("meet-mixed-relay-details.png");
   await page.getByRole("link", { name: "Records", exact: true }).click();
   await page.getByRole("region", { name: "Records" }).waitFor();
   for (const member of relayRecord.members) {
@@ -410,9 +311,9 @@ try {
     await page.getByRole("button", { name: "Male", exact: true }).click();
     await page.getByRole("button", { name: "Female", exact: true }).click();
   }
-  await page.getByLabel("Search athletes", { exact: true }).fill(profile.name);
+  await page.getByLabel("Search athletes", { exact: true }).fill(eligible.athleteName);
   const leadButton = page.getByRole("button", {
-    name: `Analyze ${formatSwimTime(eligible.time)} by ${profile.name}`,
+    name: `Analyze ${formatSwimTime(eligible.time)} by ${eligible.athleteName}`,
     exact: true,
   });
   await leadButton.click();
@@ -435,109 +336,14 @@ try {
   await detail
     .getByRole("heading", { name: "Relay lineup", exact: true })
     .waitFor();
-  await detail.getByRole("button", { name: profile.name, exact: true }).click();
-  const heading = page.getByRole("heading", {
-    name: profile.name,
-    exact: true,
-  });
-  await heading.waitFor();
-  const profilePanel = page
-    .locator('section[tabindex="-1"]')
-    .filter({ has: heading });
-  await profilePanel
-    .getByText("Verified lead-off", { exact: true })
-    .first()
-    .waitFor();
-  const leadPB = profilePanel
-    .getByRole("button")
-    .filter({ hasText: "Verified lead-off" })
-    .filter({ hasText: formatSwimTime(eligible.time) });
-  await leadPB.scrollIntoViewIfNeeded();
-  await leadPB.click();
-  await profilePanel
-    .getByRole("navigation", { name: "Result pages", exact: true })
-    .waitFor();
-  await profilePanel
-    .getByRole("table")
-    .first()
-    .getByText("Verified lead-off", { exact: true })
-    .waitFor();
-  const relayHistory = page.getByRole("region", {
-    name: "Athlete relay participation",
-  });
-  await relayHistory.getByRole("table").waitFor();
-  assert.equal(
-    await relayHistory.locator("tbody tr").count(),
-    Math.min(participation.total, 25),
-    "First relay history page must include exactly the published page size.",
-  );
-  const relayPager = relayHistory.getByRole("navigation", {
-    name: "Relay participation pages",
-  });
-  assert.equal(
-    await relayPager
-      .getByRole("button", { name: "Previous", exact: true })
-      .isDisabled(),
-    true,
-  );
-  if (participation.total > 25) {
-    await relayHistory
-      .getByRole("navigation", { name: "Relay participation pages" })
-      .getByRole("button", { name: "Next", exact: true })
-      .click();
-    await relayHistory
-      .getByText(
-        new RegExp(`26–.* of ${participation.total.toLocaleString("en-US")}`),
-      )
-      .waitFor();
-    assert.equal(
-      await relayHistory.locator("tbody tr").count(),
-      Math.min(participation.total - 25, 25),
-      "Second relay history page must include exactly the remaining published page size.",
-    );
-    assert.equal(
-      await relayPager
-        .getByRole("button", { name: "Previous", exact: true })
-        .isDisabled(),
-      false,
-    );
-  } else {
-    assert.equal(
-      await relayPager
-        .getByRole("button", { name: "Next", exact: true })
-        .isDisabled(),
-      true,
-      "Single-page relay history must disable Next.",
-    );
-  }
-  await fullScreenshot("verified-leadoff-athlete-relays.png");
-  await page.setViewportSize({ width: 390, height: 844 });
-  await leadPB.scrollIntoViewIfNeeded();
-  const relayScroll = await relayHistory
-    .getByRole("table")
-    .evaluate((table) => {
-      const container = table.parentElement;
-      container.scrollLeft = container.scrollWidth;
-      return { left: container.scrollLeft, width: container.clientWidth };
-    });
-  assert.ok(
-    relayScroll.left > 0 && relayScroll.width < 390,
-    "Mobile relay table must scroll within the profile to reveal leg/team time.",
-  );
-  assert.ok(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-    "Mobile profile must stay within the viewport.",
-  );
-  await fullScreenshot("mobile-athlete-relays.png");
+  await detail.getByText(eligible.athleteName, { exact: true }).waitFor();
+  await fullScreenshot("verified-leadoff-parent-relay.png");
   assert.deepEqual(errors, [], "Unexpected browser errors.");
   assert.deepEqual(apiFailures, [], "Unexpected API failures.");
   const result = {
     checkedAt: new Date().toISOString(),
     url: base,
     mixedRelayCount: mixed.total,
-    championshipRelayResultCount: championshipRelayResults.total,
     mixedMeetId: selectedMixed.meetId,
     mixedRelayId: selectedMixed.id,
     relayRecordId: relayRecord.id,
@@ -545,8 +351,7 @@ try {
     verifiedLeadOffId: lead.id,
     parentRelayId: parent.id,
     athleteId: lead.athleteId,
-    athleteName: profile.name,
-    athleteRelayCount: participation.total,
+    athleteName: eligible.athleteName,
     apiCalls: apiResponses,
     errors,
     apiFailures,
@@ -559,8 +364,7 @@ try {
     "Live relay browser verification passed: " +
       JSON.stringify({
         mixedRelays: mixed.total,
-        athlete: profile.name,
-        athleteRelays: participation.total,
+        athlete: eligible.athleteName,
         leadOff: lead.id,
         output,
       }),

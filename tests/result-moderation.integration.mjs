@@ -52,7 +52,7 @@ SELECT pg_temp.swim('mod-fixture-leadoff','mod-fixture-athlete',29000,'{"eventCo
 SELECT private.rebuild_bests_for_events(array['100_FR_LCM','50_FR_LCM']);
 SELECT private.refresh_team_records();
 CREATE FUNCTION pg_temp.query(kind text, extra jsonb default '{}') RETURNS jsonb LANGUAGE sql AS $$
- SELECT public.ies_times_query(kind,'{"team":"velocity-swimming","event":"100_FR","course":"LCM","mode":"bests","genders":["M"],"athleteId":"mod-fixture-athlete","historyEvent":"100_FR_LCM","meetId":"mod-fixture-meet","period":"all"}'::jsonb||extra); $$;
+ SELECT public.ies_times_query(kind,'{"team":"velocity-swimming","event":"100_FR","course":"LCM","mode":"bests","genders":["M"],"athleteId":"mod-fixture-athlete"}'::jsonb||extra); $$;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims','{"sub":"1f25093a-a2ed-4ea6-a3ae-e38fe783cb81","role":"authenticated"}',true);
 `;
@@ -68,19 +68,18 @@ function check(sql) {
     throw new Error(error.stderr?.toString() || error.message);
   }
 }
-test("flag excludes incorrect 26.15 from all calculations, retains public history, promotes ties, survives reimport and restores", () =>
+test("flag excludes incorrect 26.15 from all calculations, retains flagged race details, promotes ties, survives reimport and restores", () =>
   check(`
  SELECT pg_temp.check_ok(pg_temp.query('rankings')#>>'{rows,0,race,id}'='mod-fixture-bad','initial winner');
  ${flag("mod-fixture-bad")}
  SELECT pg_temp.check_ok(pg_temp.query('rankings')#>>'{total}'='2','both valid athletes remain');
  SELECT pg_temp.check_ok(pg_temp.query('rankings')#>>'{rows,0,rank}'='1' AND pg_temp.query('rankings')#>>'{rows,1,rank}'='1','ties rerank');
  SELECT pg_temp.check_ok(NOT (pg_temp.query('records')::text LIKE '%mod-fixture-bad%'),'records exclude');
- SELECT pg_temp.check_ok(pg_temp.query('profile')#>>'{pbs,1,id}'='mod-fixture-next','PB fallback');
- SELECT pg_temp.check_ok(NOT ((pg_temp.query('athlete_history')->'points')::text LIKE '%mod-fixture-bad%'),'chart excludes');
- SELECT pg_temp.check_ok((pg_temp.query('athlete_history')->'rows')::text LIKE '%mod-fixture-bad%','history preserves');
- SELECT pg_temp.check_ok((pg_temp.query('meet_results')->'rows')::text LIKE '%mod-fixture-bad%','meet preserves');
+ SELECT pg_temp.check_ok(EXISTS (
+  SELECT 1 FROM jsonb_array_elements(public.ies_my_times_all_time('{"athleteId":"mod-fixture-athlete","course":"LCM"}')#>'{myTimes,events}') e
+  WHERE e->>'event'='100_FR' AND e#>>'{race,id}'='mod-fixture-next'
+ ),'PB fallback');
  SELECT pg_temp.check_ok(pg_temp.query('analysis','{"raceId":"mod-fixture-bad"}')->'stats'='null','no percentile');
- SELECT pg_temp.check_ok(NOT (pg_temp.query('athletes')::text LIKE '%mod-fixture-bad%'),'athlete scores exclude');
  SELECT pg_temp.check_ok((SELECT data->>'swimId'='mod-fixture-next' FROM public.athlete_bests WHERE athlete_id='mod-fixture-athlete' AND event_code='100_FR_LCM'),'stored PB fallback');
  SELECT pg_temp.check_ok(public.ies_times_json_id('mod-fixture-bad')->>'status'='OK','race status preserved');
  SELECT pg_temp.check_ok(public.ies_times_json_id('mod-fixture-bad')->>'moderationStatus'='flagged','public label');
@@ -113,13 +112,13 @@ test("relay exclusion propagates to lead-offs, child flags survive parent restor
  SELECT pg_temp.check_ok(pg_temp.query('records')->'races' @> '[{"id":"mod-fixture-relay"},{"id":"mod-fixture-leadoff"}]','records initially include relay and lead-off');
  ${flag("mod-fixture-relay", 0, "relay")}
  SELECT pg_temp.check_ok(public.ies_times_json_id('mod-fixture-leadoff')->>'moderationInherited'='true','parent propagation');
- SELECT pg_temp.check_ok(NOT ((pg_temp.query('profile')->'pbs')::text LIKE '%mod-fixture-leadoff%'),'lead-off PB excluded');
+ SELECT pg_temp.check_ok(NOT ((public.ies_my_times_all_time('{"athleteId":"mod-fixture-athlete","course":"LCM"}')#>'{myTimes,events}')::text LIKE '%mod-fixture-leadoff%'),'lead-off PB excluded');
  SELECT pg_temp.check_ok(NOT EXISTS (
   SELECT 1 FROM jsonb_array_elements(pg_temp.query('records')->'races') race
   WHERE race->>'id' IN ('mod-fixture-relay','mod-fixture-leadoff')
  ),'records exclude flagged relay and its lead-off');
  SELECT pg_temp.check_ok(pg_temp.query('rankings','{"relay":true,"event":"200_FR-R"}')->>'total'='0','relay ranking excludes');
- SELECT pg_temp.check_ok(pg_temp.query('athlete_relays')#>>'{rows,0,race,moderationStatus}'='flagged','relay participation labelled');
+ SELECT pg_temp.check_ok(pg_temp.query('race','{"raceId":"mod-fixture-relay"}')#>>'{rows,0,race,moderationStatus}'='flagged','relay detail labelled');
  ${flag("mod-fixture-leadoff")}
  ${restore("mod-fixture-relay", 1, "relay")}
  SELECT pg_temp.check_ok(public.result_is_excluded('swim','mod-fixture-leadoff'),'child flag survives');

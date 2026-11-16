@@ -62,11 +62,9 @@ function LeadOffOrigin({
 
 export default function RaceDetails({
   race,
-  onAthlete,
   onRace,
 }: {
   race: Race;
-  onAthlete: (id: string) => void;
   onRace: (race: Race) => void;
 }) {
   const unit = race.course === "SCY" ? "yd" : "m";
@@ -84,10 +82,10 @@ export default function RaceDetails({
           <h3>Relay lineup</h3>
           <p className={s.note}>
             {lineupCoverage === "complete"
-              ? "Complete lineup with linked athlete profiles."
+              ? "Complete reported lineup."
               : lineupCoverage === "partial"
                 ? members.length === 4
-                  ? "All four members are reported; some athlete profiles are unlinked."
+                  ? "All four members are reported; some athlete identities are unverified."
                   : "Partial reported lineup; some members are unavailable."
                 : "Relay lineup is unavailable."}
           </p>
@@ -97,16 +95,7 @@ export default function RaceDetails({
               return (
                 <li key={leg}>
                   <div>
-                    {member?.athleteId ? (
-                      <button
-                        className={s.link}
-                        onClick={() => onAthlete(member.athleteId!)}
-                      >
-                        {member.name || "Unnamed member"}
-                      </button>
-                    ) : (
-                      <span>{member?.name || "Member unreported"}</span>
-                    )}
+                    <span>{member?.name || "Member unreported"}</span>
                     {member?.stroke && (
                       <small>{strokes[member.stroke] || member.stroke}</small>
                     )}

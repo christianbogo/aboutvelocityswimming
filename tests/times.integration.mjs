@@ -11,10 +11,8 @@ import {
   bestTimes,
   teamRecords,
   recordKey,
-  dailyBestTimes,
   initialFilters,
 } from "../src/components/collection/times-data.ts";
-import { athleteRankings } from "../src/components/collection/athlete-rankings.ts";
 const config = JSON.parse(
   execFileSync("supabase", ["status", "--output", "json"], {
     encoding: "utf8",
@@ -215,28 +213,6 @@ swim("verified-leadoff", 0, 28000, {
     sourceUrl: "https://example.test/results",
   },
 });
-const cut = {
-  cutsByTier: [{ tierName: "A", timeMs: 60000, timeDisplay: "1:00.00" }],
-};
-const standard = {
-  id: prefix + "standard",
-  governingBody: "USA_Swimming",
-  category: "motivational",
-  name: "Fixture benchmark",
-  seasonYears: "2026–2028",
-  sourceUrl: "https://example.test/standards",
-  effectiveDate: "2026-01-01",
-  expirationDate: "2028-01-01",
-  cuts: {
-    SCY: {
-      F: {
-        "11-12": { "100_FR_SCY": cut, "50_FR_SCY": cut, "200_IM_SCY": cut },
-      },
-      M: { "11-12": { "100_FR_SCY": cut } },
-    },
-  },
-};
-writes.push({ path: "standards/" + standard.id, after: standard });
 const seedTeam = await admin.from("teams").select("data").eq("id", team).single();
 assert.ifError(seedTeam.error);
 const publishedSeeds = {};
@@ -252,10 +228,9 @@ const query = async (kind, input = {}) => {
     // Run the scheduled worker explicitly; readers never rebuild the board.
     execFileSync("docker", ["exec", "supabase_db_aboutvelocityswimming", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-Atc", "select private.refresh_team_records()"], { stdio: "pipe" });
   }
-  const { data, error } = await anon.rpc("ies_times_query", {
-    query_kind: kind,
-    input,
-  });
+  const { data, error } = kind === "my_times"
+    ? await anon.rpc("ies_my_times_all_time", { input: { ...input, team } })
+    : await anon.rpc("ies_times_query", { query_kind: kind, input });
   assert.ifError(error);
   return data;
 };
@@ -300,6 +275,19 @@ try {
     ]) {
       const rejected = await admin.rpc("collect_records", { reads: [], writes: [{ path: table + "/" + outside, after: data }] });
       assert.equal(rejected.error?.code, "23514", table + " must reject out-of-scope data");
+    }
+  });
+  await test("retired Meets and Athletes queries are unavailable", async () => {
+    for (const query_kind of ["meets", "meet_results", "meet_events", "athletes", "profile", "athlete_history", "athlete_relays"]) {
+      const { error } = await anon.rpc("ies_times_query", {
+        query_kind,
+        input: { meetId: meet, athleteId: prefix + "0", historyEvent: "100_FR_SCY" },
+      });
+      assert.equal(error?.message, "Unknown times view", query_kind);
+    }
+    for (const name of ["ies_meet_navigation_query", "ies_meet_event_rows"]) {
+      const { error } = await anon.rpc(name, name === "ies_meet_event_rows" ? { meet_id: meet } : { query_kind: "meet_events", input: { meetId: meet } });
+      assert.equal(error?.code, "PGRST202", name);
     }
   });
   await test("full-cohort ranking, ties, name search and pagination match domain helpers", async () => {
@@ -419,7 +407,7 @@ try {
     assert.ok(data.rows.every((row) => !("rank" in row)));
   });
 
-  await test("enclosing age categories agree across rankings, analysis, meet results and records", async () => {
+  await test("enclosing age categories agree across rankings, analysis and records", async () => {
     const filters = { ...initialFilters, team, ageGroups: ["13&O"] };
     const rankings = await query("rankings", filters);
     assert.deepEqual(
@@ -432,33 +420,16 @@ try {
       basis: "bests",
     });
     assert.equal(analysis.stats.count, 1);
-    const meetResults = await query("meet_results", {
-      ...filters,
-      meetId: meet,
-    });
-    assert.deepEqual(
-      meetResults.rows.map(({ race }) => race.id),
-      [prefix + "old"],
-    );
     const relayFilters = {
       ...filters,
       relay: true,
       event: "200_MED-R",
       mode: "performances",
     };
-    for (const kind of ["rankings", "meet_results"]) {
-      const result = await query(kind, { ...relayFilters, meetId: meet });
-      assert.deepEqual(
-        result.rows.map(({ race }) => race.id),
-        [prefix + "medley-relay"],
-      );
-      const tooYoung = await query(kind, {
-        ...relayFilters,
-        ageGroups: ["12&U"],
-        meetId: meet,
-      });
-      assert.equal(tooYoung.total, 0);
-    }
+    const relayResult = await query("rankings", relayFilters);
+    assert.deepEqual(relayResult.rows.map(({ race }) => race.id), [prefix + "medley-relay"]);
+    const tooYoung = await query("rankings", { ...relayFilters, ageGroups: ["12&U"] });
+    assert.equal(tooYoung.total, 0);
     const recordResults = await query("records", { team });
     assert.equal(
       new Set(recordResults.races.map((race) => race.id)).size,
@@ -482,323 +453,7 @@ try {
       );
     }
   });
-  await test("meet discovery filters the catalog before pagination", async () => {
-    const search = "IES fixture meet";
-    const catalog = await query("meets", { search });
-    const selected = catalog.meets.find((item) => item.id === meet);
-    assert.ok(selected);
-    const filtered = await query("meets", {
-      search,
-      course: "SCY",
-      year: today.slice(0, 4),
-      limit: 1,
-    });
-    assert.equal(filtered.total, 1);
-    assert.deepEqual(
-      filtered.meets,
-      [selected],
-      "Filtered discovery retains full meet metadata",
-    );
-    assert.equal((await query("meets", { search, course: "SCM" })).total, 0);
-    assert.equal((await query("meets", { search, year: "1900" })).total, 0);
-    const next = await query("meets", {
-      search,
-      course: "SCY",
-      limit: 1,
-      offset: 1,
-    });
-    assert.equal(next.total, 1);
-    assert.deepEqual(next.meets, []);
-  });
-  await test("meet discovery orders matching dates before applying page offsets", async () => {
-    const search = "IES fixture date search";
-    const dated = [
-      ["earlier", "2024-02-27"],
-      ["exact", "2024-02-29"],
-      ["later", "2024-03-02"],
-      ["newest", "2024-03-20"],
-    ].map(([suffix, date]) => ({
-      id: `${prefix}dated-${suffix}`,
-      name: `${search} ${suffix}`,
-      date,
-    }));
-    const changes = [
-      ...dated.map((meet) => ({ path: `meets/${meet.id}`, after: meet })),
-      ...dated.map((meet) => ({
-        path: `swims/${meet.id}`,
-        after: {
-          ...races[0].data,
-          id: meet.id,
-          meet,
-          raceIdentity: { ...races[0].data.raceIdentity, occurrence: meet.id },
-        },
-      })),
-    ];
-    assert.ifError(
-      (await admin.rpc("collect_records", { reads: [], writes: changes })).error,
-    );
-    try {
-      const [earlier, exact, later, newest] = dated.map(({ id }) => id);
-      const unsorted = await query("meets", { search, limit: 1 });
-      assert.equal(unsorted.meets[0].id, newest);
-      const filters = {
-        search,
-        course: "SCY",
-        year: "2024",
-        meetDate: "2024-02-29",
-        limit: 2,
-      };
-      const first = await query("meets", filters);
-      const second = await query("meets", { ...filters, offset: 2 });
-      assert.equal(first.total, 4);
-      assert.equal(second.total, 4);
-      assert.deepEqual(first.meets.map(({ id }) => id), [exact, later]);
-      assert.deepEqual(second.meets.map(({ id }) => id), [earlier, newest]);
-      assert.ok(!("distance" in first.meets[0]));
-    } finally {
-      assert.ifError(
-        (await admin.rpc("collect_records", {
-          reads: [],
-          writes: changes
-            .toReversed()
-            .map(({ path }) => ({ path, after: null })),
-        })).error,
-      );
-    }
-  });
-  await test("profiles, histories and score cohorts preserve complete athlete semantics", async () => {
-    const profile = await query("profile", { athleteId: prefix + "0" });
-    assert.equal(
-      profile.count,
-      normalized.filter((r) => r.athleteId === prefix + "0" && !r.relay).length,
-    );
-    assert.deepEqual(
-      profile.pbs.map((r) => r.id).sort(),
-      bestTimes(normalized.filter((r) => r.athleteId === prefix + "0"))
-        .map((r) => r.id)
-        .sort(),
-    );
-    const history = await query("athlete_history", {
-      athleteId: prefix + "0",
-      historyEvent: "100_FR_SCY",
-      limit: 1,
-    });
-    assert.deepEqual(
-      history.points.map((r) => r.id),
-      dailyBestTimes(
-        normalized.filter(
-          (r) =>
-            r.athleteId === prefix + "0" &&
-            !r.relay &&
-            r.event === "100_FR" &&
-            r.course === "SCY",
-        ),
-      ).map((r) => r.id),
-    );
-    const names = new Map(
-      Array.from({ length: 7 }, (_, i) => [prefix + i, "Synthetic " + i]),
-    );
-    for (const period of ["recent", "all"])
-      for (const course of ["SCY", "LCM", "SCM"]) {
-        const result = await query("athletes", { team, course, period });
-        const options = { team, course, period, today };
-        assert.deepEqual(
-          result.groups,
-          athleteRankings(normalized, names, standard, options),
-        );
-      }
-    const hideStandard = await admin.rpc("collect_records", {
-      reads: [],
-      writes: [
-        {
-          path: "standards/" + standard.id,
-          after: {
-            ...standard,
-            effectiveDate: "2099-01-01",
-            expirationDate: "2100-01-01",
-          },
-        },
-      ],
-    });
-    assert.ifError(hideStandard.error);
-    const unscored = await query("athletes", {
-      team,
-      course: "SCY",
-      period: "recent",
-    });
-    assert.equal(unscored.standardAvailable, false);
-    assert.deepEqual(
-      unscored.groups,
-      athleteRankings(normalized, names, null, {
-        team,
-        course: "SCY",
-        period: "recent",
-        today,
-      }),
-    );
-    const restoreStandard = await admin.rpc("collect_records", {
-      reads: [],
-      writes: [{ path: "standards/" + standard.id, after: standard }],
-    });
-    assert.ifError(restoreStandard.error);
-  });
-  await test("meet navigation partitions public results and verifies stored event evidence", async () => {
-    const baseline = await query("meet_events", { meetId: meet, limit: 1 });
-    assert.ok(
-      baseline.meetEvents.length > 1,
-      "catalog is not result-paginated",
-    );
-    assert.ok(baseline.meetEvents.every((e) => e.ordering === "fallback"));
-    assert.ok(
-      baseline.meetEvents
-        .filter((e) => !e.relay)
-        .every((e) => e.ageGroup === null),
-    );
-    const seen = [];
-    for (const event of baseline.meetEvents) {
-      const results = await query("meet_results", {
-        meetId: meet,
-        meetEventKey: event.key,
-        limit: 100,
-      });
-      assert.equal(results.total, event.count);
-      seen.push(...results.rows.map(({ race }) => race.id));
-      assert.ok(
-        results.rows.every(
-          ({ race }) =>
-            race.relay === event.relay &&
-            race.course === event.course &&
-            race.gender === event.gender,
-        ),
-      );
-    }
-    assert.equal(new Set(seen).size, seen.length);
-    assert.equal(
-      seen.length,
-      normalized.filter(
-        (r) =>
-          r.team === team &&
-          (!r.relay || r.relayLeg == null),
-      ).length,
-    );
-    assert.ok(!JSON.stringify(baseline).includes("sourceObservation"));
-    assert.deepEqual(
-      (await query("meet_events", { meetId: "missing" })).meetEvents,
-      [],
-    );
-
-    const targets = ["a", "b", "fr50", "d", "c", "im"].map((id) =>
-      races.find((r) => r.id === prefix + id),
-    );
-    const provenance = (number) => ({
-      metadata: { source: "hytek_hy3" },
-      sourceObservation: {
-        eventNumber: number,
-        archiveSha256: "a".repeat(64),
-        file: "fixture.hy3",
-        line: 10,
-        url: "https://example.test/results.zip",
-        ageMinimum: 11,
-        ageMaximum: 12,
-      },
-    });
-    try {
-      const changes = targets.map((r, index) => ({
-        path: "swims/" + r.id,
-        after: {
-          ...r.data,
-          ...provenance(["2", "2", "10", "2", "0", "bad"][index]),
-        },
-      }));
-      assert.ifError(
-        (await admin.rpc("collect_records", { reads: [], writes: changes }))
-          .error,
-      );
-      const catalog = await query("meet_events", { meetId: meet });
-      const official = catalog.meetEvents.filter(
-        (e) => e.ordering === "official",
-      );
-      assert.deepEqual(
-        official.map((e) => e.eventNumber),
-        [2, 2, 10],
-      );
-      assert.ok(official.every((e) => e.ageGroup === "11-12"));
-      const female = official.find(
-        (e) => e.eventNumber === 2 && e.gender === "F",
-      );
-      assert.equal(female.count, 2);
-      const first = await query("meet_results", {
-        meetId: meet,
-        meetEventKey: female.key,
-        limit: 1,
-      });
-      const next = await query("meet_results", {
-        meetId: meet,
-        meetEventKey: female.key,
-        limit: 1,
-        offset: 1,
-      });
-      assert.equal(first.total, 2);
-      assert.notEqual(first.rows[0].race.id, next.rows[0].race.id);
-      assert.equal(
-        (
-          await query("meet_results", {
-            meetId: meet,
-            meetEventKey: female.key,
-            team: outside,
-          })
-        ).total,
-        0,
-      );
-      const published = await anon
-        .from("public_swims")
-        .select("data")
-        .eq("id", targets[0].id)
-        .single();
-      assert.ifError(published.error);
-      assert.equal(published.data.data.meetEventNumber, 2);
-      assert.ok(!("sourceObservation" in published.data.data));
-      // A conflicting distance for the same numbered division demotes every
-      // conflicting record, not just the last imported record.
-      assert.ifError(
-        (
-          await admin.rpc("collect_records", {
-            reads: [],
-            writes: [
-              {
-                path: "swims/" + targets[2].id,
-                after: { ...targets[2].data, ...provenance("2") },
-              },
-            ],
-          })
-        ).error,
-      );
-      const conflicted = await query("meet_events", { meetId: meet });
-      assert.ok(
-        !conflicted.meetEvents.some(
-          (e) => e.ordering === "official" && e.gender === "F",
-        ),
-      );
-      assert.ok(
-        conflicted.meetEvents.some(
-          (e) => e.ordering === "official" && e.gender === "M",
-        ),
-      );
-    } finally {
-      assert.ifError(
-        (
-          await admin.rpc("collect_records", {
-            reads: [],
-            writes: targets.map((r) => ({
-              path: "swims/" + r.id,
-              after: r.data,
-            })),
-          })
-        ).error,
-      );
-    }
-  });
-  await test("public teams and meet results exclude outside teams and private fields", async () => {
+  await test("public teams and rankings exclude outside teams and private fields", async () => {
     const facets = await query("facets");
     assert.ok(facets.teams.some(([id]) => id === team));
     assert.ok(!facets.teams.some(([id]) => id === outside));
@@ -811,63 +466,7 @@ try {
     });
     assert.ok(all.rows.every(({ race }) => race.team === team));
     assert.ok(!all.rows.some(({ race }) => race.team === outside));
-    const result = await query("meet_results", { meetId: meet, limit: 100 });
-    assert.equal(
-      result.total,
-      normalized.filter(
-        (r) => r.team === team && !r.relay,
-      ).length,
-    );
-    assert.ok(
-      result.rows.every(({ race }) =>
-        race.team === team,
-      ),
-    );
-    assert.ok(!JSON.stringify(result).includes("dob"));
-    const meetRaces = normalized.filter((r) =>
-      r.team === team,
-    );
-    assert.equal(result.meet.count, meetRaces.length);
-    for (const extra of [
-      { relay: true },
-      { relay: true, genders: ["X"], ageGroups: ["11-12"] },
-      { relay: true, event: "200_FR-R" },
-      { genders: ["F"], year: "2026", official: "official" },
-      { round: "P", official: "unofficial" },
-      { team },
-      { course: "SCM" },
-    ]) {
-      const expected = meetRaces.filter((race) =>
-        matches(race, {
-          ...initialFilters,
-          event: "",
-          course: "",
-          team: "",
-          genders: ["F", "M", "X"],
-          ...extra,
-        }),
-      );
-      const filtered = await query("meet_results", {
-        meetId: meet,
-        offset: 0,
-        limit: 100,
-        ...extra,
-      });
-      assert.equal(filtered.total, expected.length);
-      assert.deepEqual(
-        filtered.rows.map(({ race }) => race.id).sort(),
-        expected.map((race) => race.id).sort(),
-      );
-      assert.equal(filtered.meet.count, meetRaces.length);
-    }
-    const missingMeet = await query("meet_results", {
-      meetId: prefix + "missing-meet",
-      relay: true,
-      offset: 0,
-      limit: 25,
-    });
-    assert.deepEqual(missingMeet, { rows: [], total: 0, meet: null });
-
+    assert.ok(!JSON.stringify(all).includes("dob"));
     const denied = await anon
       .from("public_times_teams")
       .insert({ id: "forged", name: "forged", lsc_code: "IE" });
@@ -875,7 +474,7 @@ try {
     const privateRows = await anon.from("teams").select("id");
     assert.deepEqual(privateRows.data, []);
   });
-  await test("team relay totals, ties, lineups, splits and athlete participation are public once per race", async () => {
+  await test("team relay totals, ties, lineups and splits are public once per race", async () => {
     const result = await query("rankings", {
       ...initialFilters,
       team,
@@ -897,34 +496,6 @@ try {
     assert.equal(result.rows[0].race.splitCoverage, "complete");
     assert.equal(result.rows[0].race.lineupCoverage, "complete");
     assert.ok(!JSON.stringify(result).includes("private-"));
-    const mixedMeet = await query("meet_results", {
-      meetId: meet,
-      relay: true,
-      genders: ["X"],
-      limit: 100,
-    });
-    assert.ok(mixedMeet.rows.every(({ race }) => race.gender === "X"));
-    assert.ok(mixedMeet.rows.some(({ race }) => race.status === "DQ"));
-    const participation = await query("athlete_relays", {
-      athleteId: prefix + "0",
-      limit: 2,
-    });
-    assert.equal(participation.total, 4);
-    assert.equal(participation.rows.length, 2);
-    const next = await query("athlete_relays", {
-      athleteId: prefix + "0",
-      offset: 2,
-      limit: 2,
-    });
-    assert.equal(
-      new Set([...participation.rows, ...next.rows].map(({ race }) => race.id))
-        .size,
-      4,
-    );
-    assert.equal(
-      (await query("profile", { athleteId: prefix + "0" })).relayCount,
-      4,
-    );
     const partial = await query("race", { raceId: prefix + "medley-relay" });
     assert.equal(partial.total, 1);
     assert.equal(partial.rows[0].race.members.length, 1);
@@ -943,8 +514,8 @@ try {
     );
   });
   await test("independently verified lead-offs remain PB eligible after a teammate DQ", async () => {
-    const profile = await query("profile", { athleteId: prefix + "0" });
-    const leadoff = profile.pbs.find((race) => race.event === "50_FR");
+    const personal = await query("my_times", { athleteId: prefix + "0", course: "SCY" });
+    const leadoff = personal.myTimes.events.find(({ event }) => event === "50_FR").race;
     assert.equal(leadoff.id, prefix + "verified-leadoff");
     assert.equal(leadoff.relay, false);
     assert.equal(leadoff.resultOrigin, "relay_leadoff");
@@ -985,8 +556,8 @@ try {
       ],
     });
     assert.equal(duplicate.error?.code, "23505");
-    assert.ok(!JSON.stringify(profile).includes("leadOffVerification"));
-    assert.ok(!profile.pbs.some((race) => race.id === prefix + "native-relay"));
+    assert.ok(!JSON.stringify(personal).includes("leadOffVerification"));
+    assert.ok(!personal.myTimes.events.some(({ race }) => race?.id === prefix + "native-relay"));
     const precomputed = await anon
       .from("athlete_bests")
       .select("data")
@@ -995,9 +566,9 @@ try {
       .single();
     assert.ifError(precomputed.error);
     assert.notEqual(precomputed.data.data.swimId, prefix + "raw-timing-split");
-    const splitProfile = await query("profile", { athleteId: prefix + "4" });
+    const splitPersonal = await query("my_times", { athleteId: prefix + "4", course: "SCY" });
     assert.ok(
-      !splitProfile.pbs.some((race) => race.id === prefix + "raw-timing-split"),
+      !splitPersonal.myTimes.events.some(({ race }) => race?.id === prefix + "raw-timing-split"),
     );
   });
   await test("relay staging compares supplied baseline reads and approval inserts relay parents first", async () => {

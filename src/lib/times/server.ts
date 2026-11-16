@@ -9,7 +9,6 @@ import type {
   TimesResponse,
 } from "@/components/collection/times-api";
 import { timesBucket, timesExpiry } from "@/components/collection/times-cache";
-import { athletePages } from "./athlete-pages";
 import { diagnosticCode } from "@/lib/request-diagnostics";
 const tag = "ies-times";
 export function invalidateTimes() {
@@ -75,30 +74,5 @@ export async function readTimes(
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL,
     key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) throw new Error("Times database is not configured.");
-  if (kind === "athletes") {
-    // Cache the database's complete scoring result; serve each requested list page.
-    const result = await readCached(
-      url,
-      key,
-      kind,
-      JSON.stringify({
-        team: input.team,
-        course: input.course,
-        period: input.period,
-      }),
-      timesBucket(),
-    );
-    return { ...result, groups: athletePages(result.groups ?? [], input) };
-  }
-  const result = await readCached(
-    url,
-    key,
-    kind,
-    JSON.stringify(input),
-    timesBucket(),
-  );
-  return {
-    ...result,
-    groups: result.groups ? athletePages(result.groups, input) : undefined,
-  };
+  return readCached(url, key, kind, JSON.stringify(input), timesBucket());
 }
