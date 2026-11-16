@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   standardFilters,
   defaultStandard,
+  orderedStandards,
   standardStatus,
   standardEventKeys,
   standardDiff,
@@ -88,6 +89,48 @@ describe("standards reference", () => {
     expect(defaultStandard([old, set], "2026-10-13")?.id).toBe("test");
     expect(standardStatus(old, "2026-10-13")).toBe("Expired");
     expect(standardStatus(set, "2020-01-01")).toBe("Upcoming");
+  });
+  it("lists current and upcoming standards above expired editions without mutating the source", () => {
+    const expired = {
+      ...set,
+      id: "expired",
+      effectiveDate: "2020-09-01",
+      expirationDate: "2024-08-31",
+    };
+    const upcoming = {
+      ...set,
+      id: "upcoming",
+      effectiveDate: "2028-09-01",
+      expirationDate: "2032-08-31",
+    };
+    const currentMeet = {
+      ...set,
+      id: "meet",
+      category: "championship" as const,
+      effectiveDate: "2026-01-01",
+    };
+    const input = [expired, upcoming, set, currentMeet];
+    expect(
+      orderedStandards(input, "2026-11-16").map((item) => item.id),
+    ).toEqual(["meet", "test", "upcoming", "expired"]);
+    expect(input.map((item) => item.id)).toEqual([
+      "expired",
+      "upcoming",
+      "test",
+      "meet",
+    ]);
+    expect(defaultStandard(input, "2026-11-16")?.id).toBe("test");
+  });
+  it("keeps a standard current through its expiration date and prefers upcoming editions to expired ones", () => {
+    expect(standardStatus(set, set.effectiveDate)).toBe("Current");
+    expect(standardStatus(set, set.expirationDate)).toBe("Current");
+    const upcoming = {
+      ...set,
+      id: "upcoming",
+      effectiveDate: "2032-09-01",
+      expirationDate: "2036-08-31",
+    };
+    expect(defaultStandard([set, upcoming], "2030-11-16")?.id).toBe("upcoming");
   });
   it("keeps specialized motivational editions out of the default athlete benchmark", () => {
     const para: StandardSet = {

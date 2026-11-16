@@ -33,7 +33,9 @@ fixtures[34].data.participants = [participant({ id: prefix + "ie", name: "Synthe
 fixtures[34].data.resultAcquisitionState = "downloaded";
 
 const queue = async (input = {}) => { const { data, error } = await staff.rpc("meet_collection_queue", { input: { year, ...input } }); assert.ifError(error); return data; };
-const update = async (meetId, changes = {}) => staff.rpc("update_meet_collection_work", { input: { meetId, selected: true, priority: 50, notes: "Synthetic review note", blockers: [], updatedAt: null, ...changes } });
+const setWork = (meetId, changes = {}) => admin.from("meet_collection_work").upsert({
+  meet_id: meetId, selected: true, priority: 50, notes: "Synthetic review note", blockers: [], ...changes,
+}, { onConflict: "meet_id" });
 async function cleanup() {
   for (const [table, column] of [["collection_coverage", "id"], ["knowledge_entries", "id"], ["swims", "id"], ["meets", "id"]]) {
     const { error } = await admin.from(table).delete().like(column, prefix + "%"); assert.ifError(error);
@@ -57,7 +59,6 @@ try {
           start_at:=position('WITH ' IN statement);
           statement:=substring(statement FROM start_at FOR position(' INTO result;' IN statement)-start_at);
           statement:=regexp_replace(statement,'\minput\M','''{}''::jsonb','g');
-          statement:=regexp_replace(statement,'\mexporting\M','false','g');
           statement:=regexp_replace(statement,'\mpage_offset\M','0','g');
           statement:=regexp_replace(statement,'\msearch_pattern\M','''%%''','g');
           EXECUTE 'EXPLAIN (FORMAT JSON) '||statement INTO plan;
@@ -98,7 +99,6 @@ try {
     assert.equal((await family.from("meet_collection_work").select("*")).data.length, 0);
     assert.equal((await family.from("collection_coverage").select("*")).data.length, 0);
     assert.ok((await family.from("meet_collection_work").insert({ meet_id: id(0), selected: true })).error);
-    assert.equal((await family.rpc("update_meet_collection_work", { input: { meetId: id(0) } })).error?.code, "42501");
     assert.ok((await anon.from("collection_coverage").select("*")).error);
   });
 
@@ -113,7 +113,6 @@ try {
     assert.equal(first.facets.teams.filter(team => team.id === prefix + "shared-catalog-club").length, 1);
     assert.equal((await queue({ category: "observed" })).total, 0);
     assert.ok(first.facets.years.includes(year));
-    assert.ok(first.coverage.some(row => row.id === prefix + "coverage"));
     assert.equal((await queue({ search: "%_\\" })).rows[0].acquisitionState, "downloaded");
   });
 
@@ -124,24 +123,14 @@ try {
     assert.equal((await queue({ search: "Synthetic queue meet 00" })).rows[0].importState, "not_started");
   });
 
-  await test("CAS guards first creation, repeated and concurrent edits", async () => {
-    const first = await update(id(0)); assert.ifError(first.error); assert.ok(first.data.updatedAt);
-    assert.equal((await update(id(0))).error?.code, "40001");
-    const saved = await update(id(0), { updatedAt: first.data.updatedAt, notes: "Saved precise version", priority: 10 }); assert.ifError(saved.error);
-    assert.notEqual(saved.data.updatedAt, first.data.updatedAt);
-    const competing = await Promise.all([update(id(0), { updatedAt: saved.data.updatedAt, notes: "Concurrent one" }), update(id(0), { updatedAt: saved.data.updatedAt, notes: "Concurrent two" })]);
-    assert.equal(competing.filter(result => !result.error).length, 1);
-    assert.equal(competing.filter(result => result.error?.code === "40001").length, 1);
-  });
-
   await test("database completion constraint requires reconciliation and no blockers", async () => {
-    assert.equal((await update(id(1), { importState: "complete" })).error?.code, "23514");
-    assert.equal((await update(id(1), { importState: "complete", reconciliationNote: "Source reconciled", blockers: ["Synthetic missing relay"] })).error?.code, "23514");
-    assert.equal((await update(id(1), { importState: "complete", reconciliationNote: "Catalog teams indexed" })).error?.code, "23514", "A catalog index alone is not a full approved import");
-    const incomplete = await update(id(2), { selected: false }); assert.ifError(incomplete.error);
+    assert.equal((await setWork(id(1), { import_state: "complete" })).error?.code, "23514");
+    assert.equal((await setWork(id(1), { import_state: "complete", reconciliation_note: "Source reconciled", blockers: ["Synthetic missing relay"] })).error?.code, "23514");
+    assert.equal((await setWork(id(1), { import_state: "complete", reconciliation_note: "Catalog teams indexed" })).error?.code, "23514", "A catalog index alone is not a full approved import");
+    const incomplete = await setWork(id(2), { selected: false }); assert.ifError(incomplete.error);
     assert.equal((await admin.from("meet_collection_work").update({ import_state: "complete", reconciliation_note: "Attempted catalog-only completion" }).eq("meet_id", id(2))).error?.code, "23514");
     const approvedMeet = await admin.from("meets").insert({ id: id(1), data: { name: "Synthetic reconciled empty meet" } }); assert.ifError(approvedMeet.error);
-    const complete = await update(id(1), { importState: "complete", reconciliationNote: "Approved meet has no eligible individual swims; all source rows reconciled as explicit exceptions" }); assert.ifError(complete.error);
+    const complete = await setWork(id(1), { import_state: "complete", reconciliation_note: "Approved meet has no eligible individual swims; all source rows reconciled as explicit exceptions" }); assert.ifError(complete.error);
     const row = (await queue({ progress: "complete" })).rows[0]; assert.equal(row.id, id(1)); assert.equal(row.importedSwims, 0); assert.equal(row.importState, "complete");
     assert.equal((await admin.from("meet_collection_work").update({ blockers: ["Unresolved"] }).eq("meet_id", id(1))).error?.code, "23514");
   });
@@ -156,8 +145,7 @@ try {
 
   await test("selected priorities lead, then unfinished downloaded IES meets sort by date", async () => {
     for (const [index, priority] of [[0, 75], [1, 5]]) {
-      const work = await staff.from("meet_collection_work").select("updated_at").eq("meet_id", id(index)).single(); assert.ifError(work.error);
-      const result = await update(id(index), { updatedAt: work.data.updated_at, selected: true, priority }); assert.ifError(result.error);
+      const result = await setWork(id(index), { selected: true, priority }); assert.ifError(result.error);
     }
     for (const [index, date, acquisitionState, priority, importState] of [
       [29, "1988-12-31", "available", 0, "not_started"],
@@ -171,8 +159,8 @@ try {
       if (importState === "complete") {
         const approvedMeet = await admin.from("meets").insert({ id: id(index), data: { name: "Synthetic approved completed meet" } }); assert.ifError(approvedMeet.error);
       }
-      const result = await update(id(index), { selected: false, priority, acquisitionState, importState,
-        reconciliationNote: importState === "complete" ? "Synthetic full-source reconciliation" : "" }); assert.ifError(result.error);
+      const result = await setWork(id(index), { selected: false, priority, acquisition_state: acquisitionState, import_state: importState,
+        reconciliation_note: importState === "complete" ? "Synthetic full-source reconciliation" : "" }); assert.ifError(result.error);
     }
     const rows = (await queue()).rows;
     assert.deepEqual(rows.slice(0, 5).map(row => row.id), [id(1), id(0), id(31), id(34), id(30)]);
@@ -180,13 +168,4 @@ try {
     assert.ok(rows.findIndex(row => row.id === id(32)) > rows.findIndex(row => row.id === id(30)), "Reconciled completed meets do not get the unfinished boost");
   });
 
-  await test("selected export returns every selected match without page truncation", async () => {
-    for (const fixture of fixtures) {
-      const work = await staff.from("meet_collection_work").select("updated_at").eq("meet_id", fixture.id).maybeSingle(); assert.ifError(work.error);
-      const result = await update(fixture.id, { updatedAt: work.data?.updated_at ?? null }); assert.ifError(result.error);
-    }
-    const exported = await queue({ export: true, selected: false, offset: 30 });
-    assert.equal(exported.total, 35); assert.equal(exported.rows.length, 35); assert.equal(exported.hasNext, false); assert.ok(exported.rows.every(row => row.selected));
-    const page = await queue({ selected: true }); assert.equal(page.rows.length, 30); assert.equal(page.total, 35);
-  });
 } finally { await cleanup(); }

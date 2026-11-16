@@ -9,6 +9,7 @@ import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
 import { strokeColumns, eventColumn } from "./event-layout";
 import {
   defaultStandard,
+  orderedStandards,
   standardFilters,
   standardStatus,
   standardEventKeys,
@@ -16,6 +17,8 @@ import {
 } from "./standards-data";
 import { eventLabel } from "./times-data";
 import { FilterChips, FilterSummary, PopupPicker } from "./TimesFilters";
+import DiscreteSlider from "./DiscreteSlider";
+import { MotivationalRankIcon } from "./MotivationalRankIcon";
 import s from "./TimeStandards.module.css";
 import timesStyles from "./TimesDatabase.module.css";
 
@@ -111,7 +114,7 @@ export default function TimeStandards({
                 setSelected(value);
                 setSelection(filters.selection);
               }}
-              options={sets.map((item) => [
+              options={orderedStandards(sets, day).map((item) => [
                 item.id,
                 `${item.name} · ${standardStatus(item, day)}`,
               ])}
@@ -131,17 +134,26 @@ export default function TimeStandards({
                 genderLabels[gender] ?? gender,
               ])}
             />
-            <PopupPicker
+            <DiscreteSlider
               label="Age group"
               value={filters.selection.age}
               onChange={(value) => updateFilter("age", value)}
               options={filters.ages.map((age) => [age, age])}
             />
-            <PopupPicker
+            <DiscreteSlider
               label="Tier"
               value={filters.selection.tier}
               onChange={(value) => updateFilter("tier", value)}
               options={filters.tiers.map((tier) => [tier, tier])}
+              valueAdornment={
+                set.governingBody === "USA_Swimming" &&
+                set.category === "motivational" ? (
+                  <MotivationalRankIcon
+                    tier={filters.selection.tier}
+                    size={24}
+                  />
+                ) : undefined
+              }
             />
           </div>
           <div className={s.grid}>
@@ -152,13 +164,15 @@ export default function TimeStandards({
                   .filter((key) => eventColumn(key) === stroke)
                   .map((key) => {
                     const [distance, code] = key.split("_");
-                    const relayLabel =
+                    const cardStroke =
                       code === "MED-R"
                         ? "IM Relay"
                         : code === "FR-R"
                           ? "Free Relay"
-                          : null;
-                    const eventName = relayLabel
+                          : stroke === "DST"
+                            ? "Free"
+                            : heading;
+                    const eventName = key.includes("-R")
                       ? eventLabel(key)
                       : `${distance} ${title}`;
                     const cut = filters.events[key]?.cutsByTier.find(
@@ -172,13 +186,7 @@ export default function TimeStandards({
                         aria-label={`${eventName}: ${time ?? "No published cut"}`}
                       >
                         <span className={s.distance}>
-                          {distance}
-                          {relayLabel && (
-                            <>
-                              {" "}
-                              <span className={s.relayLabel}>{relayLabel}</span>
-                            </>
-                          )}
+                          {distance} {cardStroke}
                         </span>
                         <strong>{time ?? "—"}</strong>
                       </div>

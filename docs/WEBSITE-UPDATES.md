@@ -29,7 +29,7 @@ Protected operations include:
 - Entire shared data transactions, including reads before the write.
 - Workshare invitation/callable actions.
 - Sign-in initialization, password/Google sign-in, sending/verifying email codes, and sign-out.
-- Collection review, moderation, and meet-queue mutations.
+- Collection review and moderation mutations.
 - Native store checkout submission, including duplicate-submit prevention.
 - Attendance edits and saves, including failed saves that leave an unsaved draft.
 

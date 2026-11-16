@@ -99,7 +99,6 @@ describe("temporary tools lock", () => {
   it.each([
     "/api/times",
     "/api/times/moderation",
-    "/api/collection/meets",
     "/api/collection/review",
     "/api/collection/race-baseline",
     "/api/data",

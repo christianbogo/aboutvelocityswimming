@@ -80,9 +80,9 @@ try {
   assert.ifError(unpublished.error);
   assert.deepEqual(unpublished.data, []);
   await navigation.getByRole("link", { name: "Velocity Imports", exact: true }).click();
-  await navigation.getByRole("link", { name: "Status", exact: true }).click();
-  await page.waitForURL(base + "/tools/review/meets");
-  await page.getByRole("link", { name: "Batch review and history", exact: true }).click();
+  await page.waitForURL(base + "/tools/review");
+  await page.getByRole("main", { name: "Velocity Imports", exact: true })
+    .getByRole("link", { name: "Batch review and history", exact: true }).click();
   await page.waitForURL(base + "/tools/review/batches");
   const article = page.locator("article").filter({ hasText: title });
   await article.getByRole("button", { name: "Hold", exact: true }).click();

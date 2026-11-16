@@ -14,7 +14,11 @@ function matchesShape(value: unknown, fallback: unknown): boolean {
       value !== null &&
       !Array.isArray(value) &&
       Object.entries(fallback).every(([key, sample]) =>
-        matchesShape((value as Record<string, unknown>)[key], sample),
+        matchesShape(
+          (value as Record<string, unknown>)[key] ??
+            (isOptionalDate(key, sample) && !(key in value) ? "" : undefined),
+          sample,
+        ),
       )
     );
   if (typeof fallback === "number")
@@ -24,12 +28,22 @@ function matchesShape(value: unknown, fallback: unknown): boolean {
   return typeof value === typeof fallback;
 }
 
+// Older bookmarks predate season ranges. Only these new fields may be absent;
+// malformed or missing existing filter fields still reject the shared state.
+function isOptionalDate(key: string, sample: unknown) {
+  return (key === "startDate" || key === "endDate") && sample === "";
+}
+
 function knownSelection<T>(value: T, fallback: T): T {
   if (fallback && typeof fallback === "object" && !Array.isArray(fallback)) {
     return Object.fromEntries(
       Object.entries(fallback).map(([key, sample]) => [
         key,
-        knownSelection((value as Record<string, unknown>)[key], sample),
+        knownSelection(
+          (value as Record<string, unknown>)[key] ??
+            (isOptionalDate(key, sample) ? "" : undefined),
+          sample,
+        ),
       ]),
     ) as T;
   }
@@ -99,6 +113,7 @@ export function timesViewHref(view: TimesView, search = "", hash = "") {
     "search",
     "page",
     "filters",
+    "fromMyTimes",
   ]) {
     params.delete(key);
   }

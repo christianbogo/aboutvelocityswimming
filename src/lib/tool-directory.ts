@@ -3,6 +3,7 @@ import {
   Briefcase,
   CalendarDays,
   ClipboardList,
+  CircleUserRound,
   Timer,
   Trophy,
   Users,
@@ -54,6 +55,7 @@ export function getAvailableTools(isAdmin: boolean) {
 }
 
 export const timesViews = [
+  ["my-times", "My Times", CircleUserRound],
   ["rankings", "Event Rankings", BarChart3],
   ["records", "Team Records", Trophy],
   ["standards", "Time Standards", Timer],
@@ -64,5 +66,5 @@ export const timesViews = [
 export type TimesView = (typeof timesViews)[number][0];
 
 export function getTimesView(value: string | null): TimesView {
-  return timesViews.find(([id]) => id === value)?.[0] ?? timesViews[0][0];
+  return timesViews.find(([id]) => id === value)?.[0] ?? "rankings";
 }

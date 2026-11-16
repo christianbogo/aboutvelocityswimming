@@ -69,6 +69,20 @@ try {
   const standards = page.getByRole("region", { name: "Time Standards" });
   const standardOption = /^Browser standards fixture · /;
   async function chooseStandardFilter(label, option) {
+    if (label === "Age group" || label === "Tier") {
+      const slider = standards.getByRole("slider", {
+        name: label,
+        exact: true,
+      });
+      await slider.focus();
+      await slider.press("Home");
+      const max = Number(await slider.getAttribute("max"));
+      for (let step = 0; step <= max; step++) {
+        if ((await slider.getAttribute("aria-valuetext")) === option) return;
+        await slider.press("ArrowRight");
+      }
+      assert.fail(`No slider option ${option} for ${label}`);
+    }
     await standards.getByRole("button", { name: label, exact: true }).click();
     const picker = standards.getByRole("dialog", { name: label, exact: true });
     await picker.getByRole("button", { name: option, exact: true }).click();
@@ -76,9 +90,7 @@ try {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(base + "/tools/times");
-  await page
-    .getByRole("link", { name: "Time Standards", exact: true })
-    .click();
+  await page.getByRole("link", { name: "Time Standards", exact: true }).click();
   await page
     .getByText("Loading approved standards…", { exact: true })
     .waitFor({ state: "hidden" });
@@ -120,9 +132,7 @@ try {
     1,
   );
   await page.goto(base + "/tools/times");
-  await page
-    .getByRole("link", { name: "Time Standards", exact: true })
-    .click();
+  await page.getByRole("link", { name: "Time Standards", exact: true }).click();
   await chooseStandardFilter("Standard", standardOption);
   await chooseStandardFilter("Age group", "10&U");
   await chooseStandardFilter("Tier", "B");

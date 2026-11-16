@@ -5,6 +5,8 @@ import type { StandardSet } from "@/features/swim-resources/types/schema";
 import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
 import type { Race } from "./times-data";
 import { resultCuts, type ResultCut } from "./result-cuts";
+import { MotivationalRankIcon } from "./MotivationalRankIcon";
+import { motivationalRankForTier } from "./motivational-ranks";
 import s from "./CutChips.module.css";
 
 function description(cut: ResultCut, race: Race) {
@@ -14,10 +16,12 @@ export default function CutChips({
   race,
   sets,
   inline = false,
+  motivationalIcons = false,
 }: {
   race: Race;
   sets: StandardSet[];
   inline?: boolean;
+  motivationalIcons?: boolean;
 }) {
   const id = useId();
   const [active, setActive] = useState<{
@@ -50,32 +54,51 @@ export default function CutChips({
       className={inline ? `${s.chips} ${s.inline}` : s.chips}
       aria-label="Time standards achieved"
     >
-      {cuts.map((cut, index) => (
-        <span key={cut.id} className={s.item}>
-          <button
-            type="button"
-            className={`${s.chip} ${cut.motivational ? s.motivational : s.national}`}
-            aria-describedby={`${id}-${index}`}
-            onMouseEnter={(event) => show(index, event.currentTarget)}
-            onMouseLeave={() => setActive(null)}
-            onFocus={(event) => show(index, event.currentTarget)}
-            onBlur={() => setActive(null)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") setActive(null);
-            }}
-            onClick={(event) => {
-              event.stopPropagation();
-              show(index, event.currentTarget);
-            }}
-          >
-            {cut.label}
-            {!cut.motivational && /bonus/i.test(cut.tier) ? " · Bonus" : ""}
-          </button>
-          <span id={`${id}-${index}`} className="sr-only">
-            {description(cut, race)}
+      {cuts.map((cut, index) => {
+        const rank =
+          motivationalIcons && cut.motivational
+            ? motivationalRankForTier(cut.tier)
+            : undefined;
+        return (
+          <span key={cut.id} className={s.item}>
+            <button
+              type="button"
+              className={
+                rank
+                  ? s.rank
+                  : `${s.chip} ${cut.motivational ? s.motivational : s.national}`
+              }
+              aria-label={
+                rank
+                  ? `${rank.name} rank: ${rank.tier} motivational standard`
+                  : undefined
+              }
+              aria-describedby={`${id}-${index}`}
+              onMouseEnter={(event) => show(index, event.currentTarget)}
+              onMouseLeave={() => setActive(null)}
+              onFocus={(event) => show(index, event.currentTarget)}
+              onBlur={() => setActive(null)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setActive(null);
+              }}
+              onClick={(event) => {
+                event.stopPropagation();
+                show(index, event.currentTarget);
+              }}
+            >
+              {rank ? (
+                <MotivationalRankIcon tier={rank.tier} decorative />
+              ) : (
+                cut.label
+              )}
+              {!cut.motivational && /bonus/i.test(cut.tier) ? " · Bonus" : ""}
+            </button>
+            <span id={`${id}-${index}`} className="sr-only">
+              {description(cut, race)}
+            </span>
           </span>
-        </span>
-      ))}
+        );
+      })}
       {active &&
         cuts[active.index] &&
         createPortal(

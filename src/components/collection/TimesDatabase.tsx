@@ -46,6 +46,7 @@ import { timesUrl } from "./times-api";
 import { useTimes, useDebouncedSearch } from "./use-times";
 import MeetEventNavigation, { meetEventLabel } from "./MeetEventNavigation";
 import TeamRecords, { type RecordSelection } from "./TeamRecords";
+import MyTimes, { type MyTimesRankingSelection } from "./MyTimes";
 
 import { useTimesSelection } from "./use-times-selection";
 import { timesViewHref } from "./times-url-state";
@@ -485,7 +486,9 @@ function Performance({
       </div>
       <div className={s.detail}>
         <div className={s.badge}>Built for the next personal best</div>
-        <p className={s.note}>Velocity Swimming athletes. Wherever they compete.</p>
+        <p className={s.note}>
+          Velocity Swimming athletes. Wherever they compete.
+        </p>
       </div>
     </aside>
   );
@@ -512,6 +515,7 @@ function TimesDatabaseContent() {
     initialFilters,
   );
   const [fromRecords, setFromRecords] = useState(false);
+  const [fromMyTimes, setFromMyTimes] = useTimesSelection("fromMyTimes", false);
   const [search, setSearch] = useTimesSelection("search", "");
   const searchTerm = useDebouncedSearch(search);
   const [page, setPage] = useTimesSelection("page", 0);
@@ -544,7 +548,9 @@ function TimesDatabaseContent() {
   const profileRef = useRef<HTMLElement>(null);
   const enabled = hasBackendConfiguration;
   const facets = useTimes(
-    enabled && view !== "records" ? timesUrl("facets") : null,
+    enabled && view !== "records" && view !== "my-times"
+      ? timesUrl("facets")
+      : null,
   );
   const years = facets.data?.years ?? [];
   const queryFilters = {
@@ -694,6 +700,10 @@ function TimesDatabaseContent() {
         key === "course"
           ? changeTimesCourse(f, String(value))
           : { ...f, [key]: value };
+      if (key === "year") {
+        next.startDate = "";
+        next.endDate = "";
+      }
       if (
         (view === "rankings" || view === "meets") &&
         hide25sForAgeGroups(next.course, next.ageGroups) &&
@@ -749,6 +759,26 @@ function TimesDatabaseContent() {
       relay: selection.relay ?? false,
     });
     setFromRecords(true);
+    requestAnimationFrame(() =>
+      document
+        .getElementById("times-rankings")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  }
+  function openMyTimesRankings(selection: MyTimesRankingSelection) {
+    changeView("rankings");
+    setFilters({
+      ...initialFilters,
+      course: selection.course,
+      event: selection.event,
+      genders: selection.gender ? [selection.gender] : [],
+      ageGroups: selection.ageGroup ? [selection.ageGroup] : [],
+      startDate: selection.startDate,
+      endDate: selection.endDate,
+    });
+    setFromMyTimes(true);
+    setSearch("");
+    setPage(0);
     requestAnimationFrame(() =>
       document
         .getElementById("times-rankings")
@@ -969,6 +999,7 @@ function TimesDatabaseContent() {
                     race={race}
                     sets={standards.sets}
                     inline={view === "rankings"}
+                    motivationalIcons={view === "rankings"}
                   />
                   <ModerationNotice race={race} />
                 </td>
@@ -1047,7 +1078,7 @@ function TimesDatabaseContent() {
   );
   return (
     <main className={s.page} data-times-page="">
-      {view !== "records" && (
+      {view !== "records" && view !== "my-times" && (
         <header className={s.toolHeader}>
           {view === "standards" ? (
             <TimeStandardsSummary state={standardSelection} />
@@ -1080,10 +1111,12 @@ function TimesDatabaseContent() {
           <QueryNotice query={meetEventsQuery} />
         )}
         <div
-          className={`${s.workspace} ${view === "standards" || view === "records" || (view === "athletes" && athleteSearchOpen) || ((view === "rankings" || view === "meets") && !selected) ? s.recordsWorkspace : ""}`}
+          className={`${s.workspace} ${view === "my-times" || view === "standards" || view === "records" || (view === "athletes" && athleteSearchOpen) || ((view === "rankings" || view === "meets") && !selected) ? s.recordsWorkspace : ""}`}
         >
           <div className={s.main}>
-            {view === "standards" ? (
+            {view === "my-times" ? (
+              <MyTimes standards={standards} onRankings={openMyTimesRankings} />
+            ) : view === "standards" ? (
               <TimeStandards query={standards} state={standardSelection} />
             ) : view === "records" ? (
               <>
@@ -1159,6 +1192,47 @@ function TimesDatabaseContent() {
                         </span>
                       </div>
                     )}
+                    {view === "rankings" &&
+                      (fromMyTimes || filters.startDate || filters.endDate) && (
+                        <div className={s.recordBreadcrumb}>
+                          {fromMyTimes && (
+                            <button
+                              className={s.link}
+                              onClick={() => changeView("my-times")}
+                            >
+                              ← My Times
+                            </button>
+                          )}
+                          {(filters.startDate || filters.endDate) && (
+                            <>
+                              <span>
+                                Season rankings ·{" "}
+                                {filters.startDate
+                                  ? date(filters.startDate)
+                                  : "All dates"}{" "}
+                                –{" "}
+                                {filters.endDate
+                                  ? date(filters.endDate)
+                                  : "Present"}
+                              </span>
+                              <button
+                                className={s.link}
+                                onClick={() => {
+                                  setFilters((current) => ({
+                                    ...current,
+                                    startDate: "",
+                                    endDate: "",
+                                  }));
+                                  setPage(0);
+                                  setSelected(null);
+                                }}
+                              >
+                                Clear date range
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
                     {view === "rankings" && (
                       <RankingFilters
                         filters={filters}
@@ -1672,6 +1746,7 @@ function TimesDatabaseContent() {
             ref={detailRef}
             tabIndex={-1}
             hidden={
+              view === "my-times" ||
               view === "standards" ||
               view === "records" ||
               (view === "athletes" && athleteSearchOpen) ||

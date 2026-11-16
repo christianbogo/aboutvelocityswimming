@@ -1,0 +1,172 @@
+.athleteHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.athleteHeader h2 {
+  font-size: 1.4rem;
+  line-height: 1.3;
+  margin-top: 0.35rem;
+}
+.athleteRole {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+.muted {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+.manage,
+.accountLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+.manage:hover,
+.accountLink:hover {
+  text-decoration: underline;
+}
+.filters {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.periodFilter {
+  grid-column: 1 / -1;
+}
+.yearRange {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  grid-column: 1 / -1;
+}
+.filterNotice {
+  grid-column: 1 / -1;
+  font-size: 0.8rem;
+  color: var(--text-main);
+}
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.page button.card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.65rem 0.4rem;
+  gap: 0.4rem;
+  font-weight: 400;
+  font-family: inherit;
+  color: var(--text-main);
+  transition:
+    border-color 150ms,
+    box-shadow 150ms;
+}
+.page button.card:hover,
+.page button.card:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.cardHeading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.25rem;
+}
+.cardHeading > span {
+  flex-basis: 100%;
+}
+.raceDate {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  min-height: 2.3em;
+}
+.seasonRank {
+  display: block;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+.seasonRank > span {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.notice {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  color: var(--text-muted);
+  background: var(--background-alt);
+  font-size: 0.85rem;
+}
+.notice a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.explainer {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: 0.8rem;
+  padding: 3rem 1.5rem;
+  border: 1px dashed var(--border);
+  border-radius: 1rem;
+  text-align: center;
+}
+.empty > svg {
+  color: var(--accent);
+}
+.empty h2 {
+  font-size: 1.15rem;
+}
+.empty p {
+  max-width: 28rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+.noEvents {
+  padding: 0.75rem 0.1rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  text-align: center;
+}
+@container times-workspace (max-width: 550px) {
+  .filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .athleteHeader h2 {
+    font-size: 1.2rem;
+  }
+}

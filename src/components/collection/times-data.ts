@@ -55,6 +55,8 @@ export interface Filters {
   course: string;
   event: string;
   year: string;
+  startDate?: string;
+  endDate?: string;
   round: string;
   official: string;
   genders: string[];
@@ -66,6 +68,8 @@ export const initialFilters: Filters = {
   course: "SCY",
   event: "100_FR",
   year: "",
+  startDate: "",
+  endDate: "",
   round: "",
   official: "",
   genders: ["F"],
@@ -350,6 +354,8 @@ export function matches(race: Race, filters: Filters & { team?: string }) {
     (!filters.event || race.event === filters.event) &&
     (!filters.team || race.team === filters.team) &&
     (!filters.year || race.date.startsWith(filters.year)) &&
+    (!filters.startDate || race.date.slice(0, 10) >= filters.startDate) &&
+    (!filters.endDate || race.date.slice(0, 10) <= filters.endDate) &&
     (!filters.genders.length || filters.genders.includes(race.gender || "")) &&
     (!filters.ageGroups.length ||
       filters.ageGroups.some((group) => matchesAgeGroup(race, group))) &&

@@ -93,7 +93,7 @@ try {
   await queueItem.waitFor();
   assert.equal(await queueItem.getAttribute("aria-current"), "page");
   assert.equal(await importPage.getByRole("heading", { name: "Import", exact: true }).count(), 0);
-  assert.equal(await importPage.getByRole("link", { name: "Batch review and history", exact: true }).count(), 0);
+  assert.equal(await importPage.getByRole("link", { name: "Batch review and history", exact: true }).count(), 1);
   await account.click();
   await page.waitForURL(base + "/tools");
   await home.click();
@@ -115,13 +115,7 @@ try {
   await queueItem.waitFor();
   assert.equal(await page.getByText(/Collected changes stay private until approved/).count(), 0);
   assert.equal(await page.getByRole("button", { name: "Download private race baseline", exact: true }).count(), 0);
-  assert.deepEqual(await reviewNavigation.getByRole("link").allTextContents(), ["Import", "Status", "Viewer"]);
-  const status = reviewNavigation.getByRole("link", { name: "Status", exact: true });
-  await status.click();
-  await page.waitForURL(base + "/tools/review/meets");
-  await page.getByRole("heading", { name: "Status", exact: true }).waitFor();
-  await page.getByRole("link", { name: "Batch review and history", exact: true }).waitFor();
-  assert.equal(await status.getAttribute("aria-current"), "page");
+  assert.deepEqual(await reviewNavigation.getByRole("link").allTextContents(), ["Import", "Viewer"]);
   console.log("Tool landing pages, exclusive navigation, browser back, and retired staff URLs verified");
   const viewer = reviewNavigation.getByRole("link", { name: "Viewer", exact: true });
   await viewer.click();
@@ -147,7 +141,6 @@ try {
   assert.equal(await viewer.getAttribute("aria-current"), "page");
   await page.getByRole("table", { name: "Meet inventory", exact: true })
     .getByRole("columnheader", { name: "Import status", exact: true }).waitFor();
-  await page.getByRole("link", { name: "Manage meet collection", exact: true }).waitFor();
   console.log("Velocity Imports inventory tabs and missing-source filter verified");
 
   const workshareNavigation = await openTool("Velocity Workshare");

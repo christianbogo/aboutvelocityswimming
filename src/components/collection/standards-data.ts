@@ -58,21 +58,27 @@ export function standardStatus(set: StandardSet, day: string) {
       ? "Expired"
       : "Current";
 }
-export function defaultStandard(sets: StandardSet[], day: string) {
-  return [...sets].sort((a, b) => {
-    const rank = (s: StandardSet) =>
-      standardStatus(s, day) === "Current"
-        ? s.category === "motivational" &&
-          (!s.standardType || s.standardType === "age-group")
-          ? 0
-          : 1
-        : 2;
-    return (
-      rank(a) - rank(b) ||
+export function orderedStandards(sets: StandardSet[], day: string) {
+  const statusOrder = { Current: 0, Upcoming: 1, Expired: 2 };
+  return [...sets].sort(
+    (a, b) =>
+      statusOrder[standardStatus(a, day)] -
+        statusOrder[standardStatus(b, day)] ||
       b.effectiveDate.localeCompare(a.effectiveDate) ||
-      a.id.localeCompare(b.id)
-    );
-  })[0];
+      a.name.localeCompare(b.name) ||
+      a.id.localeCompare(b.id),
+  );
+}
+export function defaultStandard(sets: StandardSet[], day: string) {
+  const ordered = orderedStandards(sets, day);
+  return (
+    ordered.find(
+      (set) =>
+        standardStatus(set, day) === "Current" &&
+        set.category === "motivational" &&
+        (!set.standardType || set.standardType === "age-group"),
+    ) ?? ordered[0]
+  );
 }
 export function standardEventKeys(set: StandardSet, course: string) {
   return [

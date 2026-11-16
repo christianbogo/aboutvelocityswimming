@@ -7,6 +7,35 @@ import {
 } from "@/components/collection/times-url-state";
 
 describe("shared times selections", () => {
+  it("upgrades older bookmarks and preserves season ranges through sharing", () => {
+    const legacy = { ...initialFilters, year: "2025", ageGroups: ["11-12"] };
+    delete legacy.startDate;
+    delete legacy.endDate;
+    expect(readTimesSelection(JSON.stringify(legacy), initialFilters)).toEqual({
+      ...legacy,
+      startDate: "",
+      endDate: "",
+    });
+    const season = {
+      ...initialFilters,
+      startDate: "2026-09-01",
+      endDate: "2027-08-31",
+    };
+    const url = new URL("https://example.com/tools/times");
+    const href = writeTimesSelection(url, "filters", season, initialFilters);
+    expect(
+      readTimesSelection(
+        new URL(href, url).searchParams.get("filters"),
+        initialFilters,
+      ),
+    ).toEqual(season);
+    expect(
+      readTimesSelection(
+        JSON.stringify({ ...season, startDate: null }),
+        initialFilters,
+      ),
+    ).toEqual(initialFilters);
+  });
   it("drops old team filters from shared links and saved bookmarks", () => {
     const oldFilters = { ...initialFilters, team: "other-club", year: "2026" };
     expect(

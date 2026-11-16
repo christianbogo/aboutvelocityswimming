@@ -1650,6 +1650,7 @@ export type Database = {
       };
       ies_times_json_id: { Args: { race_id: string }; Returns: Json };
       ies_times_recent: { Args: { input?: Json }; Returns: Json };
+      ies_my_times: { Args: { input?: Json }; Returns: Json };
       ies_times_query: {
         Args: { input?: Json; query_kind: string };
         Returns: Json;
@@ -1732,7 +1733,6 @@ export type Database = {
         };
         Returns: Json;
       };
-      update_meet_collection_work: { Args: { input: Json }; Returns: Json };
       approve_velocity_import: { Args: { selection_id: string }; Returns: Json };
       reduce_velocity_import_approval_batch: { Args: { selection_id: string }; Returns: number | null };
       resolve_velocity_import_swimmer: { Args: { input: Json }; Returns: Json };

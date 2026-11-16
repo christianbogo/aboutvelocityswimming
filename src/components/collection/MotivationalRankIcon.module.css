@@ -1,0 +1,59 @@
+.icon {
+  display: inline-block;
+  flex: 0 0 auto;
+  object-fit: contain;
+  border-radius: 0.2rem;
+  vertical-align: middle;
+}
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  color: var(--text-muted);
+  background: var(--background-alt);
+  font-size: 0.7rem;
+}
+.heading {
+  font-weight: 600;
+}
+.ranks {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ranks li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+.ranks strong {
+  margin-inline-start: 0.15rem;
+  color: var(--text-main);
+  font-weight: 650;
+}
+@container times-workspace (max-width: 550px) {
+  .heading {
+    width: 100%;
+  }
+  .ranks {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+}
+@container times-workspace (max-width: 430px) {
+  .ranks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

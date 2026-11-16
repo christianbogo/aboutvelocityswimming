@@ -1,25 +1,15 @@
 # Historical meet catalog and assisted collection
 
-Staff use `/tools/review/meets` to search the entire meet catalog before
-pagination, inspect attendance evidence, select meets, and save priorities,
-notes and blockers. Lower priority numbers sort first. Selection requests an
-assisted collection run; it does not approve proposals or import race results.
+Staff use **Velocity Imports → Viewer → Meets**
+(`/tools/review/meet-inventory`) to search the reviewed meet catalog, inspect
+participation coverage, and check imported result counts and progress. The
+Status page and its request-editing API have been removed.
 
 The reviewed catalog stores source-backed meet metadata and participating-team
-observations. Staff work records and the historical coverage ledger are separate
-protected records. Apply the historical meet queue migration before using this
-route on a hosted environment; implementation and local tests do not deploy it.
-Production database setup was applied on October 13, 2026, using
-`supabase/migrations/20261013201225_historical_meet_queue.sql` and
-`supabase/migrations/20261013201951_indexed_meet_collection_queue.sql`.
-The latter keeps canonical meet keys outside protected swim predicates so
-progress and paged counts use the meet index. The actual staff query returned
-940 meets in 1.36 seconds, compared with 76.37 seconds before that correction.
-Staff selection saves, version conflicts, and export were verified in a
-rolled-back production transaction. The signed-in localhost staff page loads
-against production. Application deployment remains a separate delivery step.
-Completion requires an approved canonical meet, a staff reconciliation note,
-and no remaining blockers. Indexing teams alone cannot satisfy that check.
+observations. Existing staff work records and the historical coverage ledger
+remain protected records used by the inventory query and collection tooling.
+The catalog collectors and file-based assisted collection workflow below remain
+available; prepared proposals still require staff review.
 
 ## First pass: October 13, 2026
 
@@ -159,7 +149,11 @@ approval separate. Batches are bounded to 100 writes and under 2 MB.
 
 ## Assisted selected work
 
-Export selected meets from `/tools/review/meets`, then run:
+Use a retained selection file or prepare one from the reviewed catalog. The
+file accepts an array (or an object with a `meets` or `rows` array). Each row
+must contain its stable catalog `id`, `selected: true`, and approved catalog
+`data` including `sourceUrl`; an optional `priority` defaults to 50. The retired
+Status page no longer provides an export button. Then run:
 
 ```bash
 python3 scripts/collection/collect-meets.py assisted \
@@ -188,7 +182,7 @@ preparer never stages or approves proposals and does not enable background runs.
 `coverage-ledger.json` records annual source/window checks, returned and filtered
 counts, unavailable records and unresolved gaps. `outreach-list.json` is a list
 of uncontacted recovery requests. `database-coverage.json` supplies protected
-coverage rows for the staff queue. Validate or load it with:
+coverage rows for collection tooling. Validate or load it with:
 
 ```bash
 node scripts/collection/load-meet-coverage.mjs <database-coverage.json> --dry-run
@@ -226,8 +220,8 @@ Run parser and review-boundary checks with:
 python3 -m unittest discover -s tests/collection -p 'test_*.py'
 ```
 
-Use `npm run test:meets:database` and `npm run test:meets:browser` for local
-queue checks. To validate an entire prepared run through the local queue:
+Use `npm run test:meets:database` for local catalog query checks. To validate an
+entire prepared run through the local queue:
 
 ```bash
 node scripts/collection/validate-meet-catalog-local.mjs <prepared/summary.json>

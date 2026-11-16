@@ -1,6 +1,5 @@
 import {
   Briefcase,
-  CalendarDays,
   ClipboardList,
   Home,
   Settings,
@@ -28,6 +27,8 @@ export type ToolPage = {
 };
 
 const timesDescriptions: Record<TimesView, string> = {
+  "my-times":
+    "Follow your primary and favorite athletes’ best times, motivational ranks, and current-season team rankings.",
   rankings:
     "Compare swimmers by event, age, and course, and explore performance rankings.",
   records: "Browse team records and the swimmers behind the fastest times.",
@@ -126,14 +127,6 @@ export function getToolPages(
           activePaths: [`${href}/batches`],
           description:
             "Resolve import issues and review meets and results before publishing them.",
-        },
-        {
-          id: "status",
-          label: "Status",
-          icon: CalendarDays,
-          href: `${href}/meets`,
-          description:
-            "Manage meet collection requests and follow their progress.",
         },
         {
           id: "viewer",

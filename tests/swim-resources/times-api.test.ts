@@ -14,6 +14,55 @@ import {
   type Race,
 } from "@/components/collection/times-data";
 describe("Velocity times requests", () => {
+  it("validates exact-age and inclusive calendar-year personal best filters", () => {
+    expect(
+      parseTimesQuery(
+        new URLSearchParams("view=my_times&athleteId=a&ageAtSwim=12"),
+      ).input,
+    ).toMatchObject({ athleteId: "a", course: "SCY", ageAtSwim: 12 });
+    expect(
+      parseTimesQuery(
+        new URLSearchParams(
+          "view=my_times&athleteId=a&startYear=2024&endYear=2026",
+        ),
+      ).input,
+    ).toMatchObject({ startYear: "2024", endYear: "2026" });
+    for (const suffix of [
+      "",
+      "&ageAtSwim=-1",
+      "&ageAtSwim=121",
+      "&ageAtSwim=12.5",
+      "&ageAtSwim=12&startYear=2024",
+      "&startYear=2027&endYear=2026",
+      "&startYear=20",
+      "&endYear=0000",
+    ]) {
+      const query = suffix
+        ? `view=my_times&athleteId=a${suffix}`
+        : "view=my_times";
+      expect(() => parseTimesQuery(new URLSearchParams(query))).toThrow();
+    }
+  });
+  it("keeps season date bounds and rejects impossible or reversed dates", () => {
+    const input = parseTimesQuery(
+      new URLSearchParams(
+        "view=rankings&startDate=2026-09-01&endDate=2027-08-31",
+      ),
+    ).input;
+    expect(input).toMatchObject({
+      startDate: "2026-09-01",
+      endDate: "2027-08-31",
+    });
+    for (const suffix of [
+      "startDate=2026-02-29",
+      "endDate=2026-2-01",
+      "startDate=2027-01-01&endDate=2026-01-01",
+      "startDate=0000-01-01",
+    ])
+      expect(() =>
+        parseTimesQuery(new URLSearchParams(`view=rankings&${suffix}`)),
+      ).toThrow();
+  });
   it("always scopes reads to Velocity and ignores legacy team selections", () => {
     for (const view of ["rankings", "records", "athletes", "facets", "meets"]) {
       for (const team of ["", "other-club", "velocity-swimming"]) {

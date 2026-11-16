@@ -14,6 +14,7 @@ export const timesKinds = [
   "race",
   "records",
   "athletes",
+  "my_times",
 ] as const;
 export type TimesKind = (typeof timesKinds)[number];
 export interface MeetSummary {
@@ -34,7 +35,29 @@ export interface MeetEventEntry {
   ordering: "official" | "fallback";
   count: number;
 }
+export interface MyTimesEvent {
+  event: string;
+  race: Race | null;
+  seasonRace: Race | null;
+  seasonRank: number | null;
+  seasonCount: number;
+  rankAgeGroup: string | null;
+  rankGender: string | null;
+}
+export interface MyTimesResponse {
+  athleteId: string;
+  ages: number[];
+  years: string[];
+  seasonStart: string;
+  seasonEnd: string;
+  seasonLabel: string;
+  /** Age at the latest unflagged individual swim; no date of birth is inferred. */
+  seasonAge: number | null;
+  seasonAgeGroup: string | null;
+  events: MyTimesEvent[];
+}
 export interface TimesResponse {
+  myTimes?: MyTimesResponse;
   meetEvents?: MeetEventEntry[];
   expiresAt: number;
   rows?: { race: Race; rank?: number }[];
@@ -109,6 +132,10 @@ export function parseTimesQuery(params: URLSearchParams): {
     "groupAge",
     "groupGender",
     "status",
+    "startDate",
+    "endDate",
+    "startYear",
+    "endYear",
   ]) {
     const value = params.get(key);
     if (value !== null) {
@@ -166,6 +193,37 @@ export function parseTimesQuery(params: URLSearchParams): {
   }
   if (input.year && !/^\d{4}$/.test(String(input.year)))
     throw new Error("Invalid year.");
+  for (const key of ["startDate", "endDate"]) {
+    const value = input[key];
+    if (!value) continue;
+    const date = String(value);
+    const parsed = new Date(date);
+    if (
+      !/^(?!0000)\d{4}-\d{2}-\d{2}$/.test(date) ||
+      !Number.isFinite(parsed.getTime()) ||
+      parsed.toISOString().slice(0, 10) !== date
+    )
+      throw new Error("Invalid date range.");
+  }
+  if (input.startDate && input.endDate && input.startDate > input.endDate)
+    throw new Error("The start date must come before the end date.");
+  for (const key of ["startYear", "endYear"]) {
+    if (input[key] && !/^(?!0000)\d{4}$/.test(String(input[key])))
+      throw new Error("Invalid year range.");
+  }
+  if (input.startYear && input.endYear && input.startYear > input.endYear)
+    throw new Error("The start year must come before the end year.");
+  if (kind === "my_times") {
+    input.course ||= "SCY";
+    const rawAge = params.get("ageAtSwim");
+    if (rawAge !== null && rawAge !== "") {
+      if (!/^\d{1,3}$/.test(rawAge) || Number(rawAge) > 120)
+        throw new Error("Invalid age at swim.");
+      if (input.startYear || input.endYear)
+        throw new Error("Choose an age or a year range.");
+      input.ageAtSwim = Number(rawAge);
+    }
+  }
   if (kind === "meets") {
     const meetDate = params.get("meetDate")?.trim();
     if (meetDate) {
@@ -196,6 +254,7 @@ export function parseTimesQuery(params: URLSearchParams): {
     profile: ["athleteId"],
     athlete_history: ["athleteId", "historyEvent"],
     athlete_relays: ["athleteId"],
+    my_times: ["athleteId"],
     race: ["raceId"],
   };
   if (required[kind]?.some((key) => !input[key]))
