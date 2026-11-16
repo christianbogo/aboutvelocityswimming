@@ -1,0 +1,57 @@
+{
+  "series": "USA Swimming National Motivational Times, traditional age groups",
+  "verifiedScans": [
+    {
+      "edition": "1996",
+      "titleInTable": "1996 National Motivational Times",
+      "appendix": "2-D",
+      "sourceUrl": "https://www.usaswimming.org/docs/default-source/governance/governance-lsc-website/rules_policies/rulebooks/1996-rulebook.pdf#page=92",
+      "sourceSha256": "76f5d2a1ab6785e21801147788d5cdd75e9280329ea3e3d3570ff4387e0ae086",
+      "pdfPages": [92, 100],
+      "printedPages": [90, 98]
+    },
+    {
+      "edition": "1997",
+      "titleInTable": "1997 National Motivational Times",
+      "appendix": "2-D",
+      "sourceUrl": "https://www.usaswimming.org/docs/default-source/governance/governance-lsc-website/rules_policies/rulebooks/1997-rulebook.pdf#page=86",
+      "sourceSha256": "4aaa5ebd98f071c579d846d1dd3ff753be137df4d3f7d2e654c654304447e03b",
+      "pdfPages": [86, 94],
+      "printedPages": [84, 92]
+    },
+    {
+      "edition": "1998",
+      "titleInTable": "1998 National Motivational Times",
+      "appendix": "2-E",
+      "sourceUrl": "https://www.usaswimming.org/docs/default-source/governance/governance-lsc-website/rules_policies/rulebooks/1998-rulebook.pdf#page=88",
+      "sourceSha256": "7603081556fcfc9b9f8439e356dc873c30f3bd2347d7296e6e8803ac1d87e369",
+      "pdfPages": [88, 96],
+      "printedPages": [86, 94]
+    },
+    {
+      "edition": "1999",
+      "titleInTable": "1999 National Motivational Times",
+      "appendix": "2-E",
+      "sourceUrl": "https://www.usaswimming.org/docs/default-source/governance/governance-lsc-website/rules_policies/rulebooks/1999-rulebook.pdf#page=90",
+      "sourceSha256": "7b0a5da7812236e1103a42bbee507435827fd714605a2f405b2ecfc73f7382ba",
+      "pdfPages": [90, 98],
+      "printedPages": [88, 96]
+    }
+  ],
+  "scope": {
+    "courses": ["SCY", "SCM", "LCM"],
+    "genders": ["Girls", "Boys"],
+    "ageGroups": ["10&U", "11-12", "13-14", "15-16", "17-18"],
+    "tiers": ["B", "BB", "A", "AA", "AAA", "AAAA"]
+  },
+  "validity": "These source files label their editions by year. Exact effective and expiration dates were not verified.",
+  "methodologyNote": "The 1996 printed page 98 explains that the cuts derive from the 16th best time, with age- and tier-specific percentages.",
+  "transcriptionStatus": "Source scans verified visually, with full digital transcription unverified. Two local OCR engines disagreed on numeric cells and several complete-looking OCR readings were visibly wrong.",
+  "year2000": {
+    "sourceUrl": "https://www.usaswimming.org/docs/default-source/governance/governance-lsc-website/rules_policies/rulebooks/2000-rulebook.pdf#page=88",
+    "sourceSha256": "d8bc5c8886c008186daa0733590c11b2a1f35b81168668992d11d99327b17232",
+    "pdfPages": [88, 89],
+    "printedPages": [86, 87],
+    "finding": "Part Two closes with Appendix 2-D, 1998–2000 National Age Group Top 16 Reportable Times. A 2000 B–AAAA series edition was not independently verified."
+  }
+}

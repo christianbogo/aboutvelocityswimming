@@ -908,10 +908,15 @@ export default function MeetCollectionQueue() {
     <main className={styles.page}>
       <div className={styles.pageHead}>
         <div>
-          <Link className={styles.backLink} href="/tools/review">
-            <ArrowLeft size={15} aria-hidden="true" />
-            Back to Import
-          </Link>
+          <div className={styles.headLinks}>
+            <Link className={styles.backLink} href="/tools/review">
+              <ArrowLeft size={15} aria-hidden="true" />
+              Back to Import
+            </Link>
+            <Link className={styles.sourceLink} href="/tools/review/batches">
+              Batch review and history
+            </Link>
+          </div>
           <h1>Status</h1>
           <p>
             Index participating teams, choose meets, and track full result

@@ -2,7 +2,6 @@
   display: grid;
   min-width: 0;
   gap: .75rem;
-  margin-top: .75rem;
   font-size: .8125rem;
 }
 
@@ -14,6 +13,13 @@
 .dialog h2 {
   font-size: 1.125rem;
   font-weight: 650;
+}
+
+.filters > summary {
+  width: fit-content;
+  padding-block: .25rem;
+  cursor: pointer;
+  font-weight: 600;
 }
 
 table.issuesTable {

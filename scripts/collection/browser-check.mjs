@@ -88,8 +88,8 @@ try {
   );
   await page.goto(base + "/tools");
   await navigation.getByRole("link", { name: "Velocity Imports", exact: true }).click();
-  await navigation.getByRole("link", { name: "Import", exact: true }).click();
-  await page.waitForURL(base + "/tools/review");
+  await navigation.getByRole("link", { name: "Status", exact: true }).click();
+  await page.waitForURL(base + "/tools/review/meets");
   await page.getByRole("link", { name: "Batch review and history", exact: true }).click();
   await page.waitForURL(base + "/tools/review/batches");
   const article = page.locator("article").filter({ hasText: title });

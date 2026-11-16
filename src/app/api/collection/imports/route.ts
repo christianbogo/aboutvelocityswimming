@@ -128,6 +128,27 @@ async function run(
     );
     if (error) {
       diagnostic.failure(operation.name, error);
+      if (operation.name === "approve_velocity_import" && error.code === "57014") {
+        const reduction = "reduce_velocity_import_approval_batch";
+        const { data: batchSize, error: reductionError } = await diagnostic.step(reduction, () =>
+          client.rpc(reduction, { selection_id: operation.selectionId }),
+        );
+        if (reductionError) {
+          diagnostic.failure(reduction, reductionError);
+          return respond({
+            error: "Approval timed out and the batch size could not be reduced. The selection is saved.",
+            retryable: reductionError.code !== "PGRST202" && reductionError.code !== "42501",
+          }, 503);
+        }
+        if (batchSize !== null) return respond({
+          error: "Approval timed out. The saved selection can continue in smaller batches.",
+          retryable: true,
+        }, 503);
+        return respond({
+          error: "Approval timed out and could not continue automatically. Retry the saved approval to check progress.",
+          retryable: false,
+        }, 503);
+      }
       switch (error.code) {
         case "42501": return respond({ error: "Staff access is required." }, 403);
         case "22023": case "22P02": return respond({ error: "Invalid import review request." }, 400);

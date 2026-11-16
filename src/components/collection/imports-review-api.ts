@@ -109,29 +109,76 @@ export type ImportApprovalReceipt = {
 
 export const importPageSize = 30;
 
+const transientImportStatuses = new Set([408, 429, 500, 502, 503, 504]);
+const queueRetryDelays = [500];
+const approvalRetryDelays = [500, 1000, 2000, 4000, 4000, 4000];
+
 export class ImportRequestError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(message: string, readonly status: number, readonly retryable = false) {
     super(message);
     this.name = "ImportRequestError";
   }
 }
 
 async function importRequest<T>(query: string, fallback: string, init: RequestInit): Promise<T> {
+  init.signal?.throwIfAborted();
   const response = await fetch(`/api/collection/imports${query}`, { cache: "no-store", ...init });
   const body = await response.json().catch(() => null);
   if (!response.ok || !body) {
-    throw new ImportRequestError(typeof body?.error === "string" ? body.error : fallback, response.status);
+    throw new ImportRequestError(
+      typeof body?.error === "string" ? body.error : fallback,
+      response.status,
+      body?.retryable !== false && transientImportStatuses.has(response.status),
+    );
   }
   return body as T;
 }
 
+function waitBeforeRetry(delay: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    signal.throwIfAborted();
+    const abort = () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", abort);
+      resolve();
+    }, delay);
+    signal.addEventListener("abort", abort, { once: true });
+  });
+}
+
+async function retryImportRequest<T>(
+  query: string,
+  fallback: string,
+  init: RequestInit & { signal: AbortSignal },
+  retryDelays: readonly number[],
+): Promise<T> {
+  for (const delay of retryDelays) {
+    try {
+      return await importRequest<T>(query, fallback, init);
+    } catch (failure) {
+      init.signal.throwIfAborted();
+      const retryable = failure instanceof ImportRequestError ? failure.retryable : failure instanceof TypeError;
+      if (!retryable) throw failure;
+      await waitBeforeRetry(delay, init.signal);
+    }
+  }
+  return importRequest<T>(query, fallback, init);
+}
+
 export function importQueuePage(query: URLSearchParams, signal: AbortSignal) {
-  return importRequest<ImportQueuePage>(`?${query}`, "The queue could not be loaded.", { signal });
+  return retryImportRequest<ImportQueuePage>(
+    `?${query}`, "The queue could not be loaded.", { signal }, queueRetryDelays,
+  );
 }
 
 export function importIssuesPage(offset: number, signal: AbortSignal) {
   const query = new URLSearchParams({ kind: "issues", offset: String(offset) });
-  return importRequest<ImportIssuesPage>(`?${query}`, "Import issues could not be loaded.", { signal });
+  return retryImportRequest<ImportIssuesPage>(
+    `?${query}`, "Import issues could not be loaded.", { signal }, queueRetryDelays,
+  );
 }
 
 export function importQueueDetail(id: string, signal: AbortSignal) {
@@ -168,10 +215,12 @@ export function createImportSelection(selection: ImportSelectionInput, signal?: 
 }
 
 export function approveImportSelection(selectionId: string, signal: AbortSignal) {
-  return importRequest<ImportApprovalReceipt>("", "Approval was interrupted. Retry to continue the saved selection.", {
+  // A committed chunk can lose its response. Replaying approval for the same
+  // frozen selection reads its cumulative receipt and only processes remaining rows.
+  return retryImportRequest<ImportApprovalReceipt>("", "Approval was interrupted. Retry to continue the saved selection.", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "approve", selectionId }),
     signal,
-  });
+  }, approvalRetryDelays);
 }

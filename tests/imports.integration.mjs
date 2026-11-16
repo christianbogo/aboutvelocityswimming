@@ -228,6 +228,94 @@ test("private import, frozen review and transactional publication", async (t) =>
   const renewedPreview = await select({ matches: [{ kind: "swims", batchId: pair.batchId }] });
   assert.equal((await approve(renewedPreview.selectionId)).approved, 1);
 
+  await t.test("issue list rechecks an ordinary swim when another result overlaps it", async () => {
+    const ordinary = {
+      ...faster, id: `${prefix}-ordinary`, eventCode: "100_BK_SCY", stroke: "BK",
+      externalResult: { namespace: "synthetic", id: `${prefix}-ordinary-source` },
+    };
+    const competing = {
+      ...ordinary, id: `${prefix}-competing`, timeMs: ordinary.timeMs + 1000,
+      externalResult: { namespace: "synthetic", id: `${prefix}-competing-source` },
+    };
+    assert.equal((await stage(batch("ordinary", [row("swim", ordinary)]))).blocked, 0);
+    assert.ok(!(await issues()).some(({ recordId }) => recordId === ordinary.id));
+
+    // Neither record ID nor source result ID is shared. The race occurrence
+    // alone is enough to make both pending rows require review.
+    assert.equal((await stage(batch("competing", [row("swim", competing)]))).blocked, 1);
+    const pendingIssues = new Map((await issues()).map(({ recordId, blocker }) => [recordId, blocker]));
+    assert.match(pendingIssues.get(ordinary.id), /pending captures disagree/i);
+    assert.match(pendingIssues.get(competing.id), /pending captures disagree/i);
+
+    db(write(`swims/${ordinary.id}`, { ...ordinary, timeMs: ordinary.timeMs + 2000 }));
+    const publishedIssues = new Map((await issues()).map(({ recordId, blocker }) => [recordId, blocker]));
+    assert.match(publishedIssues.get(ordinary.id), /different published facts/i);
+    assert.match(publishedIssues.get(competing.id), /published result overlaps/i);
+  });
+
+  await t.test("a slower import in another historical gender bucket updates active rank", async () => {
+    const eventCode = "100_BR_SCY";
+    const fastest = {
+      ...earlier, id: `${prefix}-historical-best`, eventCode, stroke: "BR", gender: "M", timeMs: 55000,
+    };
+    const target = {
+      ...fastest, id: `${prefix}-historical-rank-target`, athleteId: newcomer.id, gender: "F", timeMs: 65000,
+    };
+    const historical = {
+      ...fastest, id: `${prefix}-alternate-historical-bucket`, gender: "F", timeMs: 60000, meet: faster.meet,
+    };
+    db(`${write(`swims/${fastest.id}`, fastest)}\n${write(`swims/${target.id}`, target)}`);
+    const savedBest = (athleteId) => JSON.parse(db(`select data from public.athlete_bests
+      where athlete_id = ${sql(athleteId)} and event_code = ${sql(eventCode)};`));
+    const initialRank = savedBest(newcomer.id);
+
+    const capture = await stage(batch("alternate-historical-bucket", [row("swim", historical)]));
+    const snapshot = await select({ matches: [{ kind: "swims", batchId: capture.batchId }] });
+    assert.equal((await approve(snapshot.selectionId)).approved, 1);
+
+    const updatedRank = savedBest(newcomer.id);
+    assert.equal(savedBest(athlete.id).swimId, fastest.id);
+    assert.equal(updatedRank.swimId, target.id);
+    assert.equal(updatedRank.clubRankAllTime, initialRank.clubRankAllTime);
+    assert.equal(updatedRank.clubRankActiveRoster, initialRank.clubRankActiveRoster + 1);
+  });
+
+  await t.test("incremental bests preserve competition ties, tie breaks, and approval replay", async () => {
+    const eventCode = "200_FL_SCM";
+    const third = { ...athlete, id: `${prefix}-tie-third`, name: { first: "Third", last: prefix } };
+    const inactive = { ...athlete, id: `${prefix}-tie-inactive`, name: { first: "Inactive", last: prefix }, status: "inactive" };
+    const initial = {
+      ...faster, id: `${prefix}-a-tie-later`, eventCode, course: "SCM", distance: 200, stroke: "FL", timeMs: 130000,
+    };
+    const competitors = [
+      { ...initial, id: `${prefix}-tie-second-old`, athleteId: newcomer.id, timeMs: 132000, meet: earlier.meet },
+      { ...initial, id: `${prefix}-tie-third-old`, athleteId: third.id, timeMs: 135000 },
+      { ...initial, id: `${prefix}-tie-inactive-old`, athleteId: inactive.id, timeMs: 128000 },
+    ];
+    db(`${write(`athletes/${third.id}`, third)}\n${write(`athletes/${inactive.id}`, inactive)}\n${
+      [initial, ...competitors].map((swim) => write(`swims/${swim.id}`, swim)).join("\n")
+    }`);
+
+    const winner = { ...initial, id: `${prefix}-z-tie-earlier`, meet: earlier.meet };
+    const sameDay = { ...winner, id: `${prefix}-zz-tie-earlier`, round: "P" };
+    const second = { ...initial, id: `${prefix}-tie-second-new`, athleteId: newcomer.id };
+    const capture = await stage(batch("history-ties", [sameDay, second, winner].map((swim) => row("swim", swim))));
+    const snapshot = await select({ matches: [{ kind: "swims", batchId: capture.batchId }] });
+    assert.equal((await approve(snapshot.selectionId)).published, 3);
+
+    const saved = () => JSON.parse(db(`select jsonb_object_agg(athlete_id, data) from public.athlete_bests
+      where event_code = ${sql(eventCode)} and athlete_id in (${[athlete.id, newcomer.id, third.id, inactive.id].map(sql).join(",")});`));
+    const bests = saved();
+    assert.equal(bests[athlete.id].swimId, winner.id);
+    assert.equal(bests[newcomer.id].swimId, second.id);
+    assert.deepEqual([athlete, newcomer, third, inactive].map(({ id }) => bests[id].clubRankAllTime), [2, 2, 4, 1]);
+    assert.deepEqual([athlete, newcomer, third, inactive].map(({ id }) => bests[id].clubRankActiveRoster), [1, 1, 3, null]);
+    const replay = await approve(snapshot.selectionId);
+    assert.equal(replay.approved, 3);
+    assert.equal(replay.published, 0);
+    assert.deepEqual(saved(), bests);
+  });
+
   const relay = {
     id: `${prefix}-relay`, teamId: team.id, meet: faster.meet, eventCode: "200_FR-R_SCY", course: "SCY",
     distance: 200, stroke: "FR", round: "F", gender: "F", ageGroup: "15-16", timeMs: 120000,
@@ -242,6 +330,23 @@ test("private import, frozen review and transactional publication", async (t) =>
   const publishedRelay = await publicRelay();
   assert.ifError(publishedRelay.error);
   assert.equal(publishedRelay.data.data.members[0].athleteId, athlete.id);
+
+  await t.test("a relay correction cannot detach a verified lead-off", async () => {
+    const leadOff = {
+      ...faster, id: `${prefix}-relay-lead-off`, eventCode: "50_FR_SCY", distance: 50, timeMs: 28000,
+      resultOrigin: "relay_leadoff", parentRelayResultId: relay.id,
+      leadOffVerification: {
+        verified: true, flatStart: true, timingVerified: true, leadOffStatus: "OK",
+        sourceUrl: "https://example.test/imports/verified-relay-lead-off",
+      },
+    };
+    db(write(`swims/${leadOff.id}`, leadOff));
+    assert.throws(() => db(write(`relay_results/${relay.id}`, { ...relay, members: [] })),
+      /Correct or remove the verified lead-off before changing its relay member/);
+    const unchanged = await publicRelay();
+    assert.ifError(unchanged.error);
+    assert.equal(unchanged.data.data.members[0].athleteId, athlete.id);
+  });
 
   await t.test("review one HY3 swimmer across pending batches and publish with a fresh approval", async () => {
     const memberIdHash = digest(`${prefix}-member`).slice(0, 24);
@@ -419,6 +524,9 @@ test("private import, frozen review and transactional publication", async (t) =>
   assert.equal(catalogSnapshot.selected, catalogRows.length);
   assert.equal(catalogSnapshot.previewRemaining, 1);
   assert.equal((await staff.rpc("approve_velocity_import", { selection_id: catalogSnapshot.selectionId })).error?.code, "PT404");
+  const catalogSelection = { selection_id: catalogSnapshot.selectionId };
+  const reduceBatch = (reviewer = staff) => rpc(reviewer, "reduce_velocity_import_approval_batch", catalogSelection);
+  assert.equal(await reduceBatch(), null);
   const catalogPreview = await select({ prepareSelectionId: catalogSnapshot.selectionId });
   assert.equal(catalogPreview.previewRemaining, 0);
   assert.equal(catalogPreview.selectionId, catalogSnapshot.selectionId);
@@ -427,15 +535,32 @@ test("private import, frozen review and transactional publication", async (t) =>
   assert.deepEqual(before.data, []);
   const chunk = await approve(catalogSnapshot.selectionId);
   assert.equal(chunk.done, false);
-  assert.equal(chunk.approved + chunk.remaining, catalogRows.length);
-  let receipt = chunk;
-  for (let offset = 100; offset < catalogRows.length; offset += 100) {
-    const next = await approve(catalogSnapshot.selectionId);
-    assert.ok(next.remaining < receipt.remaining);
-    receipt = next;
-  }
-  assert.equal(receipt.done, true);
-  assert.equal(receipt.approved, catalogRows.length);
+  assert.equal(chunk.approved, 100);
+  assert.equal(chunk.remaining, catalogRows.length - 100);
+
+  await t.test("a smaller chunk resumes the same frozen selection after partial publication", async () => {
+    const otherStaff = await account(userIds, "other-staff", true);
+    assert.ok((await anon.rpc("reduce_velocity_import_approval_batch", catalogSelection)).error);
+    assert.equal((await nonStaff.rpc("reduce_velocity_import_approval_batch", catalogSelection)).error?.code, "42501");
+    assert.equal(await reduceBatch(otherStaff), null);
+    assert.equal(await reduceBatch(), 50);
+
+    let receipt = await approve(catalogSnapshot.selectionId);
+    assert.equal(receipt.selected, catalogRows.length);
+    assert.equal(receipt.approved, 150);
+    assert.equal(receipt.published, 50);
+    while (!receipt.done) {
+      const next = await approve(catalogSnapshot.selectionId);
+      assert.equal(next.published, Math.min(receipt.remaining, 50));
+      assert.equal(next.approved, receipt.approved + next.published);
+      receipt = next;
+    }
+    assert.equal(receipt.approved, catalogRows.length);
+    assert.equal(await reduceBatch(), null);
+    const replay = await approve(catalogSnapshot.selectionId);
+    assert.equal(replay.approved, catalogRows.length);
+    assert.equal(replay.published, 0);
+  });
   const after = await anon.from("knowledge_entries").select("id").eq("id", catalogRows[0].id).single();
   assert.ifError(after.error);
   assert.equal(after.data.id, catalogRows[0].id);

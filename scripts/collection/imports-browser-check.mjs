@@ -119,7 +119,9 @@ try {
   await page.waitForURL(base + "/tools");
   await page.getByRole("navigation", { name: "Tools navigation" }).getByRole("link", { name: "Velocity Imports", exact: true }).click();
   await page.waitForURL(base + "/tools/review");
-  await page.getByRole("heading", { name: "Import", exact: true }).waitFor();
+  const importPage = page.getByRole("main", { name: "Velocity Imports", exact: true });
+  await importPage.waitFor();
+  assert.equal(await importPage.getByText("Review newly collected meets and swims before publishing them.", { exact: true }).count(), 0);
 
   const issues = page.getByRole("table", { name: "Issues to resolve", exact: true });
   assert.equal(await issues.getByRole("columnheader").first().textContent(), "Action");
@@ -134,11 +136,22 @@ try {
 
   const meets = page.getByRole("region", { name: "Meets", exact: true });
   const swims = page.getByRole("region", { name: "Swims", exact: true });
+  for (const [kind, section] of [["meets", meets], ["swims", swims]]) {
+    await section.waitFor();
+    assert.equal(await section.getByRole("searchbox", { name: `Search ${kind}` }).isVisible(), false);
+    await section.getByText("Filters", { exact: true }).click();
+    await section.getByRole("searchbox", { name: `Search ${kind}` }).waitFor();
+  }
   async function search(kind, query) {
     const form = page.getByRole("form", { name: `Filter pending ${kind}` });
     await form.getByRole("searchbox", { name: `Search ${kind}` }).fill(query);
     await form.getByRole("button", { name: "Apply filters" }).click();
   }
+  await search("meets", `${scope} missing fixture`);
+  await meets.getByText("No pending meets match these filters.", { exact: true }).waitFor();
+  const meetFilters = meets.getByRole("form", { name: "Filter pending meets" });
+  await meetFilters.getByRole("button", { name: "Clear filters" }).click();
+  await meets.getByRole("button", { name: /Select all .* matching meets/ }).waitFor();
   await search("meets", scope);
   await search("swims", scope);
   const allMeets = meets.getByRole("button", { name: "Select all 301 matching meets" });
@@ -180,20 +193,36 @@ try {
   await preview.getByLabel("Selected table").selectOption("swims");
   await preview.getByText(swimLabel, { exact: true }).waitFor();
 
-  // Lose the first response after the database commits, then reload and resume.
-  let interrupted = false;
-  await page.route("**/api/collection/imports", async (route) => {
-    if (interrupted || route.request().method() !== "POST" || route.request().postDataJSON()?.action !== "approve") return route.continue();
-    interrupted = true;
-    const response = await route.fetch();
-    assert.ok(response.ok(), "Approval must commit before simulating a lost response");
-    await route.abort("failed");
-  });
+  // Lose a committed response. Pause the automatic retry to test reload and resume.
+  let interruptedSelection;
+  let retried = false;
+  let resumed = false;
+  const approvalRoute = async (route) => {
+    const input = route.request().method() === "POST" ? route.request().postDataJSON() : null;
+    if (input?.action !== "approve") return route.continue();
+    if (!interruptedSelection) {
+      assert.equal(typeof input.selectionId, "string");
+      interruptedSelection = input.selectionId;
+      const response = await route.fetch();
+      assert.ok(response.ok(), "Approval must commit before simulating a lost response");
+      return route.abort("failed");
+    }
+    assert.equal(input.selectionId, interruptedSelection, "Retry and resume use the original frozen selection");
+    if (!retried) {
+      retried = true;
+      return route.fulfill({ status: 503, json: { error: "Approval interrupted by test.", retryable: false } });
+    }
+    resumed = true;
+    return route.continue();
+  };
+  await page.route("**/api/collection/imports", approvalRoute);
   await preview.getByRole("button", { name: "Approve 301 rows" }).click();
   await page.getByRole("button", { name: "Retry approval" }).waitFor();
   await page.reload();
   await page.getByRole("button", { name: "Resume approval" }).click();
   await page.getByText("301 approved · 0 duplicates · 0 blocked").waitFor();
+  assert.ok(retried && resumed, "Lost response retried automatically before reload and manual resume");
+  await page.unroute("**/api/collection/imports", approvalRoute);
   assert.ok(await publicRow("public_swims", swim.id));
   assert.equal(await publicRow("knowledge_entries", late.id), null);
   assert.equal(await publicRow("knowledge_entries", excluded.id), null);
@@ -241,9 +270,29 @@ try {
   assert.equal(await corrected.isChecked(), true);
   assert.equal(await publicRow("public_swims", `hytek_race_${resultHash(athlete.id)}`), null);
 
+  // Exercise empty sections even when this local database also contains other pending fixtures.
+  const queueReads = "**/api/collection/imports?kind=*";
+  const emptyKinds = new Set(["issues", "swims"]);
+  const emptyKind = async (route) => {
+    const kind = new URL(route.request().url()).searchParams.get("kind");
+    if (!emptyKinds.has(kind)) return route.continue();
+    return route.fulfill({ json: { rows: [], total: 0, hasNext: false } });
+  };
+  await page.route(queueReads, emptyKind);
+  await page.getByRole("button", { name: "Refresh queue", exact: true }).click();
+  await swims.waitFor({ state: "hidden" });
+  await meets.getByRole("table", { name: "Pending meets", exact: true }).waitFor();
+  assert.equal(await importPage.getByRole("heading", { name: "Issues to resolve", exact: true }).count(), 0);
+  emptyKinds.delete("swims");
+  emptyKinds.add("meets");
+  await page.getByRole("button", { name: "Refresh queue", exact: true }).click();
+  await meets.waitFor({ state: "hidden" });
+  await swims.getByRole("table", { name: "Pending swims", exact: true }).waitFor();
+  await page.unroute(queueReads, emptyKind);
+
   assert.equal(await page.getByRole("main").evaluate((main) => main.scrollWidth > main.clientWidth), false);
   assert.deepEqual(errors, []);
-  console.log("Verified direct linked-meet review, frozen select all, approval resumption, and swimmer match on mobile.");
+  console.log("Verified collapsible filters, conditional queue sections, linked-meet review, approval resumption, and swimmer match on mobile.");
 } finally {
   await browser?.close();
   if (!providedToken) {

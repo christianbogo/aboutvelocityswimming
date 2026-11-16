@@ -20,6 +20,7 @@ export type ImportTableSelection = {
 };
 
 type Query = { search: string; batchId: string; offset: number };
+type QueueLoad = { key: string; hasPending: boolean; page?: ImportQueuePage; error?: string };
 
 const initialQuery = { search: "", batchId: "", offset: 0 };
 const meetColumns = ["Meet", "Date", "Type", "Course", "Review", "Source"];
@@ -119,7 +120,8 @@ export function ImportReviewTable({ kind, selection, revision, busy, onSelection
 }) {
   const [query, setQuery] = useState<Query>(initialQuery);
   const [retry, setRetry] = useState(0);
-  const [loaded, setLoaded] = useState<{ key: string; page?: ImportQueuePage; error?: string }>();
+  const [loaded, setLoaded] = useState<QueueLoad>();
+  const hasFilters = Boolean(query.search || query.batchId);
   const params = new URLSearchParams({
     kind,
     offset: String(query.offset),
@@ -132,16 +134,30 @@ export function ImportReviewTable({ kind, selection, revision, busy, onSelection
 
   useEffect(() => {
     const controller = new AbortController();
-    void importQueuePage(new URLSearchParams(request), controller.signal).then(
-      (page) => {
-        if (!controller.signal.aborted) setLoaded({ key, page });
-      },
-      (error: unknown) => {
-        if (!controller.signal.aborted) setLoaded({ key, error: error instanceof Error ? error.message : "The queue could not be loaded." });
-      },
-    );
+    const { signal } = controller;
+    async function load() {
+      try {
+        const page = await importQueuePage(new URLSearchParams(request), signal);
+        let hasPending = page.total > 0;
+        // Keep filters available when they hide every row in a nonempty queue.
+        if (!hasPending && hasFilters && !signal.aborted) {
+          const unfiltered = await importQueuePage(new URLSearchParams({ kind }), signal);
+          hasPending = unfiltered.total > 0;
+        }
+        if (!signal.aborted) setLoaded({ key, page, hasPending });
+      } catch (error) {
+        if (!signal.aborted) {
+          setLoaded((previous) => ({
+            key,
+            hasPending: previous?.hasPending ?? false,
+            error: error instanceof Error ? error.message : "The queue could not be loaded.",
+          }));
+        }
+      }
+    }
+    void load();
     return () => controller.abort();
-  }, [key, request]);
+  }, [hasFilters, key, kind, request]);
 
   const response = loaded?.key === key ? loaded : undefined;
   const page = response?.page;
@@ -149,6 +165,12 @@ export function ImportReviewTable({ kind, selection, revision, busy, onSelection
   const title = kind === "meets" ? "Meets" : "Swims";
   const checked = rows.filter((row) => isSelected(row, selection)).length;
   const count = importSelectionCount(selection);
+  const hasPending = loaded?.hasPending ?? false;
+  const loadError = response?.error && (
+    <p role="alert" className={styles.notice}>
+      {response.error} <button type="button" onClick={() => setRetry((value) => value + 1)}>Retry</button>
+    </p>
+  );
 
   function updateSelection(records: ImportQueueRow[], select: boolean) {
     const ids = new Set(selection.ids);
@@ -173,74 +195,80 @@ export function ImportReviewTable({ kind, selection, revision, busy, onSelection
   }
 
   return (
-    <section className={review.section} aria-labelledby={`import-${kind}`}>
-      <h2 id={`import-${kind}`}>{title}</h2>
-      <form onSubmit={applyFilters} onReset={() => setQuery(initialQuery)} aria-label={`Filter pending ${kind}`}>
-        <fieldset className={styles.filters} disabled={busy}>
-          <legend className="sr-only">{title} filters</legend>
-          <InventoryField label={`Search ${kind}`}>
-            <input type="search" name="search" maxLength={200} placeholder={kind === "meets" ? "Meet name or ID" : "Swimmer, meet, or event code"} />
-          </InventoryField>
-          <InventoryField label="Batch ID">
-            <input type="text" name="batchId" maxLength={36} />
-          </InventoryField>
-          <div className={styles.filterActions}>
-            <button type="submit">Apply filters</button>
-            <button type="reset">Clear filters</button>
-          </div>
-        </fieldset>
-      </form>
-      <div className={review.selection} aria-live="polite">
-        <button type="button" disabled={busy || !page?.total} onClick={() => onMatch({ kind, search: query.search || undefined, batchId: query.batchId || undefined })}>
-          {page?.total ? `Select all ${page.total.toLocaleString()} matching ${kind}` : "Select all matching"}
-        </button>
-        {count > 0 && (
+    <>
+      {!hasPending && loadError}
+      <section className={review.section} aria-labelledby={`import-${kind}`} hidden={!hasPending}>
+        <h2 id={`import-${kind}`}>{title}</h2>
+        <details className={review.filters}>
+          <summary>Filters{hasFilters && <span className={review.muted}> · Active</span>}</summary>
+          <form onSubmit={applyFilters} onReset={() => setQuery(initialQuery)} aria-label={`Filter pending ${kind}`}>
+            <fieldset className={styles.filters} disabled={busy}>
+              <legend className="sr-only">{title} filters</legend>
+              <InventoryField label={`Search ${kind}`}>
+                <input type="search" name="search" maxLength={200} placeholder={kind === "meets" ? "Meet name or ID" : "Swimmer, meet, or event code"} />
+              </InventoryField>
+              <InventoryField label="Batch ID">
+                <input type="text" name="batchId" maxLength={36} />
+              </InventoryField>
+              <div className={styles.filterActions}>
+                <button type="submit">Apply filters</button>
+                <button type="reset">Clear filters</button>
+              </div>
+            </fieldset>
+          </form>
+        </details>
+        <div className={review.selection} aria-live="polite">
+          <button type="button" disabled={busy || !page?.total} onClick={() => onMatch({ kind, search: query.search || undefined, batchId: query.batchId || undefined })}>
+            {page?.total ? `Select all ${page.total.toLocaleString()} matching ${kind}` : "Select all matching"}
+          </button>
+          {count > 0 && (
+            <>
+              <span>{count.toLocaleString()} selected</span>
+              <button type="button" disabled={busy} onClick={() => onSelection({ ids: new Set(), excluded: new Set(), snapshot: null })}>
+                Clear {kind} selection
+              </button>
+            </>
+          )}
+        </div>
+        {!response && <p role="status" className={styles.notice}>Loading {kind}…</p>}
+        {hasPending && loadError}
+        {hasPending && page && (
           <>
-            <span>{count.toLocaleString()} selected</span>
-            <button type="button" disabled={busy} onClick={() => onSelection({ ids: new Set(), excluded: new Set(), snapshot: null })}>
-              Clear {kind} selection
-            </button>
+            <InventoryTable
+              label={`Pending ${kind}`}
+              columns={kind === "meets" ? meetColumns : swimColumns}
+              firstColumnControl={<PageCheckbox
+                kind={kind}
+                checked={rows.length > 0 && checked === rows.length}
+                partial={checked > 0 && checked < rows.length}
+                disabled={busy || rows.length === 0}
+                onChange={(select) => updateSelection(rows, select)}
+              />}
+              empty={rows.length ? undefined : `No pending ${kind} match these filters.`}
+            >
+              {rows.map((row) => (
+                <ImportRow
+                  key={row.id}
+                  row={row}
+                  selected={isSelected(row, selection)}
+                  disabled={busy}
+                  onSelect={(select) => updateSelection([row], select)}
+                  onDetails={() => onDetails(row)}
+                />
+              ))}
+            </InventoryTable>
+            <div className={styles.pagination}>
+              <p>Showing {rows.length ? `${(query.offset + 1).toLocaleString()}–${(query.offset + rows.length).toLocaleString()}` : "0"} of {page.total.toLocaleString()} rows</p>
+              {(query.offset > 0 || page.hasNext) && (
+                <nav aria-label={`${title} pages`}>
+                  <button type="button" disabled={query.offset === 0 || busy} onClick={() => setQuery({ ...query, offset: query.offset - importPageSize })}>Previous</button>
+                  <button type="button" disabled={!page.hasNext || busy} onClick={() => setQuery({ ...query, offset: query.offset + importPageSize })}>Next</button>
+                </nav>
+              )}
+            </div>
           </>
         )}
-      </div>
-      {!response && <p role="status" className={styles.notice}>Loading {kind}…</p>}
-      {response?.error && <p role="alert" className={styles.notice}>{response.error} <button type="button" onClick={() => setRetry((value) => value + 1)}>Retry</button></p>}
-      {page && (
-        <>
-          <InventoryTable
-            label={`Pending ${kind}`}
-            columns={kind === "meets" ? meetColumns : swimColumns}
-            firstColumnControl={<PageCheckbox
-              kind={kind}
-              checked={rows.length > 0 && checked === rows.length}
-              partial={checked > 0 && checked < rows.length}
-              disabled={busy || rows.length === 0}
-              onChange={(select) => updateSelection(rows, select)}
-            />}
-            empty={rows.length ? undefined : `No pending ${kind} match these filters.`}
-          >
-            {rows.map((row) => (
-              <ImportRow
-                key={row.id}
-                row={row}
-                selected={isSelected(row, selection)}
-                disabled={busy}
-                onSelect={(select) => updateSelection([row], select)}
-                onDetails={() => onDetails(row)}
-              />
-            ))}
-          </InventoryTable>
-          <div className={styles.pagination}>
-            <p>Showing {rows.length ? `${(query.offset + 1).toLocaleString()}–${(query.offset + rows.length).toLocaleString()}` : "0"} of {page.total.toLocaleString()} rows</p>
-            {(query.offset > 0 || page.hasNext) && (
-              <nav aria-label={`${title} pages`}>
-                <button type="button" disabled={query.offset === 0 || busy} onClick={() => setQuery({ ...query, offset: query.offset - importPageSize })}>Previous</button>
-                <button type="button" disabled={!page.hasNext || busy} onClick={() => setQuery({ ...query, offset: query.offset + importPageSize })}>Next</button>
-              </nav>
-            )}
-          </div>
-        </>
-      )}
-    </section>
+      </section>
+    </>
   );
 }
