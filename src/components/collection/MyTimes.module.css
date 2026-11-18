@@ -206,6 +206,8 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   justify-content: stretch;
+  align-content: start;
+  grid-auto-rows: max-content;
   border: 1px solid var(--border);
   border-radius: 0.6rem;
   width: 100%;
@@ -229,6 +231,7 @@
 }
 .cardHeading {
   display: block;
+  line-height: 1.15;
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -367,4 +370,10 @@
   display: grid;
   gap: 1.5rem;
   min-width: 0;
+}
+
+.preferenceStatus {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-align: center;
 }

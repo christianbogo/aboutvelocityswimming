@@ -22,7 +22,7 @@ export default function ToolsAccessGate({ children }: { children: ReactNode }) {
       <main className="p-12 text-center space-y-4">
         <h1 className="text-2xl font-semibold">Access restricted</h1>
         <p>
-          Admin is available to approved staff. Other tools remain restricted.
+          Sign in with any email to access Account, Times, Rankings, Records, and Standards.
         </p>
         <Link href="/login" className="underline">
           Sign in or switch accounts

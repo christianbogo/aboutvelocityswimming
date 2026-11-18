@@ -20,14 +20,18 @@ import RetiredLogs from "@/app/tools/(workshare)/workshare/logs/page";
 import RetiredGuest from "@/app/tools/(workshare)/workshare/guest/page";
 
 describe("independent times tools", () => {
-  it("shows only Admin for approved staff while other tools remain locked", () => {
+  it("keeps signed-out navigation hidden and supports scoped staff", () => {
     expect(
       getAvailableTools({ allTools: false, staff: true }).map(([id]) => id),
     ).toEqual(["admin"]);
     expect(getAvailableTools({ allTools: false, staff: false })).toEqual([]);
   });
   it("lists each tool directly and keeps staff tools restricted", () => {
-    const tools = getAvailableTools({ allTools: true, staff: false });
+    const tools = getAvailableTools({
+      signedIn: true,
+      allTools: false,
+      staff: false,
+    });
     expect(tools.map(([id, tool]) => [id, tool.homeHref])).toEqual([
       ["my-times", "/tools/my-times"],
       ["rankings", "/tools/rankings"],
@@ -50,7 +54,9 @@ describe("independent times tools", () => {
       "team-map",
     ]);
     expect(
-      getAvailableTools({ allTools: true, staff: false }).map(([id]) => id),
+      getAvailableTools({ signedIn: true, allTools: false, staff: false }).map(
+        ([id]) => id,
+      ),
     ).not.toContain("goals");
     expect(
       getAvailableTools({ allTools: true, staff: true }).find(
@@ -61,7 +67,9 @@ describe("independent times tools", () => {
       getAvailableTools({ allTools: true, staff: true }).map(([id]) => id),
     ).toContain("team-map");
     expect(
-      getAvailableTools({ allTools: true, staff: false }).map(([id]) => id),
+      getAvailableTools({ signedIn: true, allTools: false, staff: false }).map(
+        ([id]) => id,
+      ),
     ).not.toContain("team-map");
     expect(getToolPages("team-map")).toEqual([]);
     expect(
@@ -74,7 +82,9 @@ describe("independent times tools", () => {
   it("keeps Admin standalone and redirects retired Workshare bookmarks", () => {
     expect(getToolPages("admin")).toEqual([]);
     expect(
-      getAvailableTools({ allTools: true, staff: false }).map(([id]) => id),
+      getAvailableTools({ signedIn: true, allTools: false, staff: false }).map(
+        ([id]) => id,
+      ),
     ).not.toContain("admin");
     expect(
       getAvailableTools({ allTools: true, staff: true }).map(([id]) => id),
@@ -121,4 +131,30 @@ describe("independent times tools", () => {
       ).rejects.toThrow(`${path}?${expected}`);
     }
   });
+});
+
+it("shows released tools to members and reserves drafts for the owner", () => {
+  expect(
+    getAvailableTools({ signedIn: true, allTools: false, staff: false }).map(
+      ([id]) => id,
+    ),
+  ).toEqual(["my-times", "rankings", "records", "standards"]);
+  expect(
+    getAvailableTools({ signedIn: true, allTools: false, staff: true }).map(
+      ([id]) => id,
+    ),
+  ).toEqual(["my-times", "rankings", "records", "standards", "admin"]);
+  expect(
+    getAvailableTools({ signedIn: true, allTools: true, staff: false }).map(
+      ([id]) => id,
+    ),
+  ).toEqual([
+    "my-times",
+    "rankings",
+    "records",
+    "standards",
+    "imports",
+    "goals",
+    "team-map",
+  ]);
 });

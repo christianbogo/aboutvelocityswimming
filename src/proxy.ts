@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import {
   isStaffToolsPath,
+  isSignedInToolsPath,
   isToolsAdmin,
   isToolsApi,
   isToolsPage,
@@ -71,9 +72,13 @@ export async function proxy(request: NextRequest) {
       } = await client.auth.getUser(token);
       if (error || !user) return deny(401);
       if (user.is_anonymous || !user.email_confirmed_at) return deny(403);
-      if (!isToolsAdmin(user.email, true)) {
+      if (
+        !isToolsAdmin(user.email, true) &&
+        !isSignedInToolsPath(request.nextUrl.pathname)
+      ) {
         if (!staffPath) return deny(403);
-        const { data: staff, error: staffError } = await client.rpc("is_workshare_staff");
+        const { data: staff, error: staffError } =
+          await client.rpc("is_workshare_staff");
         if (staffError) return deny(503);
         if (staff !== true) return deny(403);
       }

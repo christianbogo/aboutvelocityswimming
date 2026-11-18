@@ -1,9 +1,13 @@
-import type { WorkshareSeason } from "@/features/workshare/lib/tickets";
+import type {
+  TicketFields,
+  WorkshareSeason,
+} from "@/features/workshare/lib/tickets";
 
 export interface AccountWorkshareSummary {
   id: string;
   fullName: string;
   isArchived: boolean;
+  tickets: (TicketFields & { id: string })[];
   requirements: {
     generalHoursRequired: number | null;
     starlightHoursRequired: number | null;
@@ -35,7 +39,9 @@ export async function loadAccountWorkshare(
   });
   const body = await response.json();
   if (!response.ok)
-    throw new Error(body.error || "Your Workshare information couldn’t be loaded.");
+    throw new Error(
+      body.error || "Your Workshare information couldn’t be loaded.",
+    );
   return body.data as AccountWorkshareData;
 }
 

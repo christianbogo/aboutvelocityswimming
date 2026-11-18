@@ -33,11 +33,13 @@ describe("already-loaded tool access", () => {
     expect(render()).toContain("Access restricted");
     expect(render()).not.toContain("Protected tool content");
   });
-  it("hides tools for other signed-in accounts", () => {
+  it("shows released tools for other signed-in accounts", () => {
     mocks.auth.user = {
       email: "coach@velocity-swimming.com",
       emailVerified: true,
     };
+    expect(render()).toBe("Protected tool content");
+    mocks.pathname = "/tools/goals";
     expect(render()).not.toContain("Protected tool content");
   });
   it("shows tools for the verified admin", () => {

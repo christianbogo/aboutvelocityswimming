@@ -29,8 +29,8 @@ export default function MyTimesSkeleton({
   events,
   full = true,
   hide25s = true,
-  showTeamRanks = true,
-  showRankIcon = true,
+  showTeamRanks = false,
+  showRankIcon = false,
 }: {
   course?: string;
   events?: MyTimesEvent[];

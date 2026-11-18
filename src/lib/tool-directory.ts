@@ -101,11 +101,11 @@ export type ToolId = keyof typeof toolDirectory;
 
 export function getAvailableTools(access: ToolsCapabilities) {
   const tools = Object.entries(toolDirectory) as [ToolId, Tool][];
-  return tools.filter(([id, tool]) =>
-    access.allTools
-      ? access.staff || !tool.adminOnly
-      : access.staff && id === "admin",
-  );
+  return tools.filter(([id, tool]) => {
+    if (id === "admin") return access.staff;
+    if (tool.adminOnly) return access.allTools;
+    return access.signedIn || access.allTools;
+  });
 }
 
 export const timesViews = [

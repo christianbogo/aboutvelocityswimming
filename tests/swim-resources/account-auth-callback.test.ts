@@ -115,14 +115,34 @@ describe("account linking callback", () => {
 describe("staff OAuth landing", () => {
   it("lands domain staff on Admin while preserving account-link returns", async () => {
     mocks.getUser.mockResolvedValue({
-      data: { user: { email: "coach@velocity-swimming.com", email_confirmed_at: "2026-11-18T00:00:00Z" } },
+      data: {
+        user: {
+          email: "coach@velocity-swimming.com",
+          email_confirmed_at: "2026-11-18T00:00:00Z",
+        },
+      },
       error: null,
     });
-    mocks.rpc.mockImplementation(async (name: string) => ({ data: name === "is_workshare_staff", error: null }));
-    const response = await GET(new Request("https://velocity.example/auth/callback?code=domain-code&next=%2Ftools"));
-    expect(response.headers.get("location")).toBe("https://velocity.example/tools/admin");
-    const linking = await GET(new Request("https://velocity.example/auth/callback?code=domain-code&flow=link&next=%2Ftools"));
-    expect(linking.headers.get("location")).toBe("https://velocity.example/tools");
+    mocks.rpc.mockImplementation(async (name: string) => ({
+      data: name === "is_workshare_staff",
+      error: null,
+    }));
+    const response = await GET(
+      new Request(
+        "https://velocity.example/auth/callback?code=domain-code&next=%2Ftools",
+      ),
+    );
+    expect(response.headers.get("location")).toBe(
+      "https://velocity.example/tools",
+    );
+    const linking = await GET(
+      new Request(
+        "https://velocity.example/auth/callback?code=domain-code&flow=link&next=%2Ftools",
+      ),
+    );
+    expect(linking.headers.get("location")).toBe(
+      "https://velocity.example/tools",
+    );
   });
   beforeEach(() => {
     mocks.getUser.mockResolvedValue({
@@ -145,7 +165,8 @@ describe("staff OAuth landing", () => {
         ),
       );
       expect(response.headers.get("location")).toBe(
-        "https://velocity.example/tools/admin",
+        "https://velocity.example" +
+          (next.startsWith("/tools/rankings") ? next : "/tools"),
       );
       expect(mocks.rpc).toHaveBeenCalledWith("is_workshare_staff");
     },
@@ -178,7 +199,7 @@ describe("staff OAuth landing", () => {
           new Request("https://velocity.example/auth/callback?code=code"),
         )
       ).headers.get("location"),
-    ).toBe("https://velocity.example/login");
+    ).toBe("https://velocity.example/tools");
     mocks.getUser.mockResolvedValue({
       data: {
         user: { email: "approved@example.test", email_confirmed_at: null },

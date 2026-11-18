@@ -23,6 +23,7 @@ import { timesUrl, type MyTimesEvent } from "./times-api";
 import { useTimes, useDebouncedSearch } from "./use-times";
 import type { useStandards } from "./use-standards";
 import { useTimesSelection } from "./use-times-selection";
+import { useTimesDisplay } from "./use-times-display";
 import { strokeColumns, eventColumn, compareEvents } from "./event-layout";
 import { MotivationalRankIcon, RankLegend } from "./MotivationalRankIcon";
 import { motivationalRankForRace } from "./motivational-ranks";
@@ -148,10 +149,12 @@ function SelectionDropdown({
 function DisplayToggle({
   label,
   checked,
+  disabled,
   onChange,
 }: {
   label: string;
   checked: boolean;
+  disabled?: boolean;
   onChange: (checked: boolean) => void;
 }) {
   return (
@@ -160,6 +163,7 @@ function DisplayToggle({
         type="checkbox"
         role="switch"
         checked={checked}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}
       />
       {label}
@@ -179,12 +183,8 @@ function MyTimesResults({
   const cardId = useId();
   const [athleteId, setAthleteId] = useTimesSelection("myAthlete", "");
   const [filters, setFilters] = useTimesSelection("myFilters", defaultFilters);
-  const [twentyFives, setTwentyFives] = useTimesSelection("my25s", "auto");
-  const [showTeamRanks, setShowTeamRanks] = useTimesSelection(
-    "myTeamRanks",
-    true,
-  );
-  const [showRankIcon, setShowRankIcon] = useTimesSelection("myRankIcon", true);
+  const { show25s, showTeamRanks, showRankIcon, change, status, ready } =
+    useTimesDisplay();
   const athletes = [
     ...(preferences.primaryAthlete ? [preferences.primaryAthlete] : []),
     ...preferences.favoriteAthletes.filter(
@@ -250,11 +250,6 @@ function MyTimesResults({
       : filteredDetails?.period === "all"
         ? filteredDetails.events
         : undefined;
-  const show25s =
-    twentyFives === "show" ||
-    (twentyFives !== "hide" &&
-      details != null &&
-      (details.latestAge == null || details.latestAge <= 10));
   const events = selectedEvents?.filter(
     (event) => show25s || !event.event.startsWith("25_"),
   );
@@ -479,19 +474,27 @@ function MyTimesResults({
         <DisplayToggle
           label="Show 25s"
           checked={show25s}
-          onChange={(checked) => setTwentyFives(checked ? "show" : "hide")}
+          onChange={(checked) => change("show25s", checked)}
+          disabled={!ready}
         />
         <DisplayToggle
           label="Show team ranks"
           checked={showTeamRanks}
-          onChange={setShowTeamRanks}
+          onChange={(checked) => change("showTeamRanks", checked)}
+          disabled={!ready}
         />
         <DisplayToggle
           label="Show rank icon"
           checked={showRankIcon}
-          onChange={setShowRankIcon}
+          onChange={(checked) => change("showRankIcon", checked)}
+          disabled={!ready}
         />
       </div>
+      {status && (
+        <p className={s.preferenceStatus} role="status">
+          {status}
+        </p>
+      )}
       {showRankIcon && (
         <RankLegend
           counts={rankCounts}
@@ -726,16 +729,7 @@ function MyTimesResults({
 }
 
 function MyTimesLoading() {
-  const [twentyFives] = useTimesSelection("my25s", "auto");
-  const [showTeamRanks] = useTimesSelection("myTeamRanks", true);
-  const [showRankIcon] = useTimesSelection("myRankIcon", true);
-  return (
-    <MyTimesSkeleton
-      hide25s={twentyFives !== "show"}
-      showTeamRanks={showTeamRanks}
-      showRankIcon={showRankIcon}
-    />
-  );
+  return <MyTimesSkeleton />;
 }
 
 function FollowedAthletes({

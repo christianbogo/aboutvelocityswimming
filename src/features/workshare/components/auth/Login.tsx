@@ -207,11 +207,11 @@ export function Login() {
           <p className="text-xs text-slate-500 text-center mb-6">
             {step === "code"
               ? "Check your email for the 8-digit code"
-              : "Instant passwordless sign-in with your email"}
+              : "Sign in or create an account with your email"}
           </p>
 
           <p className="text-sm text-center mb-5">
-            Admin is available to approved staff. Other tools remain restricted.
+            Sign in with any email to access Account, Times, Rankings, Records, and Standards.
           </p>
           {user && !authLoading && !canOpenTools && (
             <div className="text-sm text-center mb-5 space-y-2" role="status">

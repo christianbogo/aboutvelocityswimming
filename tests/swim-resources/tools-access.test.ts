@@ -106,7 +106,6 @@ describe("temporary tools lock", () => {
   });
 
   it.each([
-    "/api/times",
     "/api/times/moderation",
     "/api/times/team-map",
     "/api/collection/review",
@@ -209,7 +208,6 @@ const staffIdentity = {
   staff: true,
 };
 const staffPaths = [
-  "/tools",
   "/tools/admin",
   "/tools/admin/tickets",
   "/api/workshare/accounts",
@@ -226,15 +224,23 @@ describe("scoped staff Admin access", () => {
       staff: false,
       workshareStaff: true,
     };
-    expect(getToolsCapabilities(domainIdentity)).toEqual({ allTools: false, staff: true });
+    expect(getToolsCapabilities(domainIdentity)).toEqual({
+      signedIn: true,
+      allTools: false,
+      staff: true,
+    });
     expect(canAccessToolsPath("/tools/admin", domainIdentity)).toBe(true);
     expect(canAccessToolsPath("/tools", domainIdentity)).toBe(true);
     expect(canAccessToolsPath("/tools/review", domainIdentity)).toBe(false);
-    expect(canAccessToolsPath("/api/times", domainIdentity)).toBe(false);
-    expect(getToolsSignInDestination(domainIdentity)).toBe("/tools/admin");
-    expect(getToolsCapabilities({ ...domainIdentity, emailVerified: false }).staff).toBe(false);
+    expect(canAccessToolsPath("/api/times", domainIdentity)).toBe(true);
+    expect(getToolsSignInDestination(domainIdentity)).toBe("/tools");
+    expect(
+      getToolsCapabilities({ ...domainIdentity, emailVerified: false }).staff,
+    ).toBe(false);
     // Client navigation waits for database authority, never the email suffix alone.
-    expect(getToolsCapabilities({ ...domainIdentity, workshareStaff: false }).staff).toBe(false);
+    expect(
+      getToolsCapabilities({ ...domainIdentity, workshareStaff: false }).staff,
+    ).toBe(false);
   });
 
   it("requires the scoped database authority even for a verified domain email", async () => {
@@ -242,8 +248,10 @@ describe("scoped staff Admin access", () => {
     mocks.getUser.mockResolvedValue({ data: { user }, error: null });
     expect((await proxy(request("/tools/admin"))).status).toBe(307);
     mocks.rpc.mockResolvedValue({ data: true, error: null });
-    expect((await proxy(request("/tools/admin"))).headers.get("x-middleware-next")).toBe("1");
-    expect((await proxy(request("/api/times"))).status).toBe(403);
+    expect(
+      (await proxy(request("/tools/admin"))).headers.get("x-middleware-next"),
+    ).toBe("1");
+    expect((await proxy(request("/api/times"))).status).toBe(200);
   });
 
   it.each(staffPaths)("allows approved verified staff at %s", async (path) => {
@@ -258,11 +266,9 @@ describe("scoped staff Admin access", () => {
 
   it.each([
     "/tools/review",
-    "/tools/rankings",
     "/tools/admin-other",
     "/tools/goals",
     "/tools/team-map",
-    "/api/times",
     "/api/collection/review",
     "/api/workshare",
     "/api/workshare/accounts-other",
@@ -350,14 +356,15 @@ describe("scoped staff Admin access", () => {
 
   it("uses verified staff only for Admin capabilities and sign-in landing", () => {
     expect(getToolsCapabilities(staffIdentity)).toEqual({
+      signedIn: true,
       allTools: false,
       staff: true,
     });
-    expect(getToolsHome(staffIdentity)).toBe("/tools/admin");
-    expect(getToolsSignInDestination(staffIdentity)).toBe("/tools/admin");
+    expect(getToolsHome(staffIdentity)).toBe("/tools");
+    expect(getToolsSignInDestination(staffIdentity)).toBe("/tools");
     expect(
       getToolsSignInDestination(staffIdentity, "/tools/review?batch=123"),
-    ).toBe("/tools/admin");
+    ).toBe("/tools");
     expect(
       getToolsSignInDestination(
         staffIdentity,
@@ -371,10 +378,57 @@ describe("scoped staff Admin access", () => {
     expect(getToolsHome({ ...staffIdentity, emailVerified: false })).toBe(
       "/login",
     );
-    expect(getToolsHome({ ...staffIdentity, staff: false })).toBe("/login");
+    expect(getToolsHome({ ...staffIdentity, staff: false })).toBe("/tools");
     expect(getToolsHome(null)).toBe("/login");
     expect(getToolsHome({ ...staffIdentity, email: admin.email })).toBe(
       "/tools",
+    );
+  });
+});
+
+describe("released tools for any verified email", () => {
+  const member = {
+    email: "new@example.test",
+    emailVerified: true,
+    staff: false,
+  };
+  it.each([
+    "/tools",
+    "/tools/my-times",
+    "/tools/rankings",
+    "/tools/records",
+    "/tools/standards",
+    "/api/times",
+  ])("allows %s without staff approval", async (path) => {
+    mocks.getUser.mockResolvedValue({
+      data: {
+        user: {
+          email: member.email,
+          email_confirmed_at: admin.email_confirmed_at,
+        },
+      },
+      error: null,
+    });
+    expect((await proxy(request(path))).status).toBe(200);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(canAccessToolsPath(path, member)).toBe(true);
+  });
+  it.each([
+    "/tools/review",
+    "/tools/review/held-observations",
+    "/tools/goals",
+    "/tools/team-map",
+    "/api/times/team-map",
+    "/api/collection/imports",
+  ])("restricts %s to the owner even for staff", async (path) => {
+    mocks.getUser.mockResolvedValue({ data: { user: staffUser }, error: null });
+    mocks.rpc.mockResolvedValue({ data: true, error: null });
+    expect((await proxy(request(path))).status).toBe(
+      path.startsWith("/api/") ? 403 : 307,
+    );
+    expect(canAccessToolsPath(path, staffIdentity)).toBe(false);
+    expect(canAccessToolsPath(path, { ...member, email: admin.email })).toBe(
+      true,
     );
   });
 });

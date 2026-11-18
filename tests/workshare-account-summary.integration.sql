@@ -42,7 +42,8 @@ begin
   select value into item from jsonb_array_elements(result->'accounts') where value->>'id'='summary-linked-a';
   assert item->'requirements'='{"generalHoursRequired":null,"starlightHoursRequired":0,"appleCapitalHoursRequired":16}'::jsonb, 'Legacy blank, zero, and configured requirements are preserved';
   assert item->'completed'='{"general":0,"starlight":0,"appleCapital":0}'::jsonb, 'No-season completed hours start at zero';
-  assert not(item ?| array['emails','athletes','tickets','updatedAt']), 'Summary excludes roster contact and ticket details';
+  assert not(item ?| array['emails','athletes','updatedAt']), 'Summary excludes roster contact details';
+  assert item->'tickets'='[]'::jsonb, 'No season has no tickets';
   assert (select bool_or((value->>'isArchived')::boolean) from jsonb_array_elements(result->'accounts')), 'Archived association is retained';
   assert (select count(*) from public.workshare_accounts)=0, 'Reading a summary does not grant direct roster access';
 end;
@@ -127,11 +128,19 @@ begin
   select value into item from jsonb_array_elements(result->'accounts') where value->>'id'='summary-linked-a';
   assert item->'requirements'='{"generalHoursRequired":12,"starlightHoursRequired":0,"appleCapitalHoursRequired":null}'::jsonb, 'Selected-season requirements replace legacy values';
   assert item->'completed'='{"general":3.75,"starlight":4,"appleCapital":0}'::jsonb, 'Tickets sum by associated account, selected season, and category';
+  assert jsonb_array_length(item->'tickets')=3, 'All selected-season tickets are returned';
+  assert item->'tickets'->0->>'description'='Meet help', 'Tickets use stable date and ID ordering';
+  assert item->'tickets'->2->>'hours'='2.25', 'Fractional ticket hours are retained';
+  assert position('Private unrelated job' in result::text)=0, 'Other accounts tickets stay private';
+  assert position('Historical job' in result::text)=0, 'Other seasons tickets are excluded';
+  assert (select count(*) from public.workshare_tickets)=0, 'Summary grants no direct ticket access';
   select value into item from jsonb_array_elements(result->'accounts') where value->>'id'='summary-linked-b';
+  assert jsonb_array_length(item->'tickets')=1, 'Archived account retains its own tickets';
   assert item->'completed'='{"general":0,"starlight":0,"appleCapital":6.5}'::jsonb, 'Archived account ticket totals stay independent';
   result := public.read_my_workshare_summary('95111111-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
   select value into item from jsonb_array_elements(result->'accounts') where value->>'id'='summary-linked-a';
   assert item->'completed'='{"general":1.25,"starlight":0,"appleCapital":0}'::jsonb, 'Historical corrections can be reviewed without leaking current totals';
+  assert jsonb_array_length(item->'tickets')=1 and item->'tickets'->0->>'description'='Historical job', 'Season switching returns historical tickets';
   begin
     perform public.read_my_workshare_summary('95999999-9999-4999-8999-999999999999');
     raise exception 'Expected unknown season rejection';

@@ -7,6 +7,7 @@ import {
   type AccountWorkshareData,
   type AccountWorkshareSummary,
 } from "@/lib/account-workshare";
+import { categoryLabels } from "@/features/workshare/lib/tickets";
 import { Button } from "./Button";
 
 const categories = [
@@ -19,7 +20,9 @@ function AccountHours({ account }: { account: AccountWorkshareSummary }) {
   return (
     <article className="min-w-0">
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <h3 className="break-words text-sm font-semibold">{account.fullName}</h3>
+        <h3 className="break-words text-sm font-semibold">
+          {account.fullName}
+        </h3>
         {account.isArchived && (
           <span className="rounded-full bg-hover-bg px-2 py-0.5 text-xs text-text-secondary">
             Archived
@@ -46,6 +49,49 @@ function AccountHours({ account }: { account: AccountWorkshareSummary }) {
           </div>
         ))}
       </dl>
+      <div className="mt-5">
+        <h4 className="text-sm font-semibold">Tickets</h4>
+        {account.tickets?.length ? (
+          <ul className="mt-2 divide-y divide-border">
+            {account.tickets.map((ticket) => (
+              <li
+                key={ticket.id}
+                className="flex min-w-0 items-start justify-between gap-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="whitespace-pre-wrap break-words text-sm">
+                    {ticket.description}
+                  </p>
+                  <p className="mt-1 text-xs text-text-secondary">
+                    <time dateTime={ticket.completedOn}>
+                      {new Date(
+                        `${ticket.completedOn}T00:00:00Z`,
+                      ).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                        timeZone: "UTC",
+                      })}
+                    </time>
+                    {" · "}
+                    {categoryLabels[ticket.category]}
+                  </p>
+                </div>
+                <span className="shrink-0 text-sm font-medium tabular-nums">
+                  {ticket.hours.toLocaleString("en-US", {
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  hr
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-sm text-text-secondary">
+            No tickets recorded for this season.
+          </p>
+        )}
+      </div>
     </article>
   );
 }
@@ -54,7 +100,10 @@ type ReadResult = {
   userId: string;
   requestedSeasonId: string | undefined;
   attempt: number;
-} & ({ data: AccountWorkshareData; failed?: false } | { failed: true; data?: never });
+} & (
+  | { data: AccountWorkshareData; failed?: false }
+  | { failed: true; data?: never }
+);
 
 export default function AccountWorkshare({ userId }: { userId: string }) {
   const headingId = useId();
@@ -85,6 +134,8 @@ export default function AccountWorkshare({ userId }: { userId: string }) {
     return () => controller.abort();
   }, [userId, requestedSeasonId, attempt]);
 
+  if (current?.data && current.data.accounts.length === 0) return null;
+
   return (
     <section
       aria-labelledby={headingId}
@@ -96,7 +147,8 @@ export default function AccountWorkshare({ userId }: { userId: string }) {
             Workshare Tracking
           </h2>
           <p className="mt-2 text-sm text-text-secondary">
-            Completed / required hours for your associated accounts.
+            Completed / required hours and all tickets for your associated
+            accounts in the selected season.
           </p>
         </div>
         {seasons && seasons.length > 0 && (
