@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Monitor, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
 import {
   useEffect,
   useId,
@@ -22,6 +22,31 @@ const widthStorageKey = "admin_sidebar_width";
 const collapseStorageKey = "velocity-tools-sidebar";
 const widthChangeEvent = "velocity-sidebar-width";
 let unsavedWidth: number | undefined;
+const themeOptions = [
+  { value: "system", label: "System appearance", icon: Monitor },
+  { value: "light", label: "Light theme", icon: Sun },
+  { value: "dark", label: "Dark theme", icon: Moon },
+] as const;
+
+function subscribeToTheme(onChange: () => void) {
+  const unsubscribe = subscribeToStorage(onChange);
+  window.addEventListener("theme-change", onChange);
+  return () => {
+    unsubscribe();
+    window.removeEventListener("theme-change", onChange);
+  };
+}
+
+function setTheme(preference: "system" | "light" | "dark") {
+  savePreference("velocity-theme", preference);
+  const theme = preference === "system"
+    ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+    : preference;
+  document.documentElement.setAttribute("data-theme", theme);
+  document.documentElement.setAttribute("data-theme-preference", preference);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#102638" : "#FFFFFF");
+  window.dispatchEvent(new Event("theme-change"));
+}
 
 function readPreference(key: string) {
   try {
@@ -64,6 +89,13 @@ function saveWidth(width: number) {
   window.dispatchEvent(new Event(widthChangeEvent));
 }
 
+function focusNavigation(sidebar: HTMLElement | null) {
+  const activeItem = sidebar?.querySelector<HTMLElement>('[aria-current="page"]')
+    ?? sidebar?.querySelector<HTMLElement>('[data-current-tool="true"]')
+    ?? sidebar?.querySelector<HTMLElement>('a[href]');
+  activeItem?.focus();
+}
+
 export default function ToolSidebar({
   title,
   badge,
@@ -74,17 +106,22 @@ export default function ToolSidebar({
   title: string;
   badge?: ReactNode;
   navigation: ReactNode;
-  renderFooter: (collapseControl: ReactNode) => ReactNode;
+  renderFooter: (expandControl: ReactNode) => ReactNode;
   children: ReactNode;
 }) {
   const sidebarId = useId();
   const sidebar = useRef<HTMLElement>(null);
   const mobileToggle = useRef<HTMLButtonElement>(null);
-  const collapseButton = useRef<HTMLButtonElement>(null);
+  const expandButton = useRef<HTMLButtonElement>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsedOverride, setCollapsedOverride] = useState<boolean>();
   const [dragWidth, setDragWidth] = useState<number>();
   const [dragging, setDragging] = useState(false);
+  const themePreference = useSyncExternalStore(
+    subscribeToTheme,
+    () => readPreference("velocity-theme") || "system",
+    () => "system",
+  );
   const savedCollapsed = useSyncExternalStore(
     subscribeToStorage,
     () => readPreference(collapseStorageKey) === "true",
@@ -102,7 +139,7 @@ export default function ToolSidebar({
         setCollapsedOverride(true);
         savePreference(collapseStorageKey, "true");
         stop();
-        requestAnimationFrame(() => collapseButton.current?.focus());
+        requestAnimationFrame(() => expandButton.current?.focus());
         return;
       }
       const limit = Math.min(maxWidth, Math.floor(window.innerWidth / 2));
@@ -151,7 +188,10 @@ export default function ToolSidebar({
       setCollapsedOverride(!collapsed);
       savePreference(collapseStorageKey, String(!collapsed));
       if (sidebar.current?.contains(document.activeElement)) {
-        requestAnimationFrame(() => collapseButton.current?.focus());
+        requestAnimationFrame(() => {
+          if (collapsed) focusNavigation(sidebar.current);
+          else expandButton.current?.focus();
+        });
       }
     }
     breakpoint.addEventListener("change", resetDrawer);
@@ -165,7 +205,10 @@ export default function ToolSidebar({
   function setDesktopCollapsed(next: boolean) {
     setCollapsedOverride(next);
     savePreference(collapseStorageKey, String(next));
-    requestAnimationFrame(() => collapseButton.current?.focus());
+    requestAnimationFrame(() => {
+      if (next) expandButton.current?.focus();
+      else focusNavigation(sidebar.current);
+    });
   }
 
   function closeMobile() {
@@ -179,17 +222,7 @@ export default function ToolSidebar({
       return;
     }
     setMobileOpen(true);
-    requestAnimationFrame(() => {
-      const activeItem = sidebar.current?.querySelector<HTMLElement>(
-        '[aria-current="page"]',
-      ) ?? sidebar.current?.querySelector<HTMLElement>('[data-current-tool="true"]');
-      (activeItem ?? collapseButton.current)?.focus();
-    });
-  }
-
-  function collapseSidebar() {
-    if (window.matchMedia(mobileQuery).matches) closeMobile();
-    else setDesktopCollapsed(!collapsed);
+    requestAnimationFrame(() => focusNavigation(sidebar.current));
   }
 
   function resizeWithKeyboard(event: KeyboardEvent<HTMLDivElement>) {
@@ -256,20 +289,35 @@ export default function ToolSidebar({
           <nav className={styles.navigation} aria-label="Tools navigation">
             {navigation}
           </nav>
+          <div className={styles.themeSwitcher} role="group" aria-label="Theme preference">
+            {themeOptions.map(({ value, label, icon: Icon }) => (
+              <button
+                key={value}
+                type="button"
+                className={styles.themeButton}
+                onClick={() => setTheme(value)}
+                title={label}
+                aria-label={`Use ${value} color theme`}
+                aria-pressed={themePreference === value}
+              >
+                <Icon size={16} aria-hidden="true" />
+              </button>
+            ))}
+          </div>
           <div className={styles.footer}>
             {renderFooter(
-              <button
+              collapsed && !mobileOpen && <button
                 type="button"
-                className={`${styles.item} ${styles.footerAction}`}
-                ref={collapseButton}
+                className={`${styles.item} ${styles.footerAction} ${styles.expandControl}`}
+                ref={expandButton}
                 aria-controls={sidebarId}
-                aria-expanded={!collapsed || mobileOpen}
-                aria-label={collapsed && !mobileOpen ? "Open navigation sidebar" : "Collapse navigation sidebar"}
-                title={collapsed && !mobileOpen ? "Expand navigation sidebar" : "Collapse navigation sidebar"}
-                onClick={collapseSidebar}
+                aria-expanded={false}
+                aria-label="Open navigation sidebar"
+                title="Expand navigation sidebar"
+                onClick={() => setDesktopCollapsed(false)}
               >
-                {collapsed && !mobileOpen ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
-                <span>{collapsed && !mobileOpen ? "Expand" : "Collapse"}</span>
+                <PanelLeftOpen aria-hidden="true" />
+                <span>Expand</span>
               </button>,
             )}
           </div>

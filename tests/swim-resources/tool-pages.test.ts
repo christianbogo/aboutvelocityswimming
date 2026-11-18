@@ -20,15 +20,16 @@ import RetiredLogs from "@/app/tools/(workshare)/workshare/logs/page";
 import RetiredGuest from "@/app/tools/(workshare)/workshare/guest/page";
 
 describe("independent times tools", () => {
-  it("restricts approved staff to Admin while other tools stay locked", () => {
-    expect(getAvailableTools({ allTools: false, staff: true }).map(([id]) => id)).toEqual(["admin"]);
+  it("shows only Admin for approved staff while other tools remain locked", () => {
+    expect(
+      getAvailableTools({ allTools: false, staff: true }).map(([id]) => id),
+    ).toEqual(["admin"]);
     expect(getAvailableTools({ allTools: false, staff: false })).toEqual([]);
   });
   it("lists each tool directly and keeps staff tools restricted", () => {
     const tools = getAvailableTools({ allTools: true, staff: false });
     expect(tools.map(([id, tool]) => [id, tool.homeHref])).toEqual([
       ["my-times", "/tools/my-times"],
-      ["goals", "/tools/goals"],
       ["rankings", "/tools/rankings"],
       ["records", "/tools/records"],
       ["standards", "/tools/standards"],
@@ -36,16 +37,59 @@ describe("independent times tools", () => {
     for (const [id] of tools) {
       expect(getToolPages(id)).toEqual([]);
     }
-    expect(getAvailableTools({ allTools: true, staff: true }).map(([id]) => id)).toContain("imports");
-    expect(getAvailableTools({ allTools: true, staff: true }).map(([id, { title, homeHref }]) => ({ id, title, homeHref })))
-      .toContainEqual({ id: "admin", title: "Admin", homeHref: "/tools/admin" });
+    expect(
+      getAvailableTools({ allTools: true, staff: true }).map(([id]) => id),
+    ).toEqual([
+      "my-times",
+      "rankings",
+      "records",
+      "standards",
+      "admin",
+      "imports",
+      "goals",
+      "team-map",
+    ]);
+    expect(
+      getAvailableTools({ allTools: true, staff: false }).map(([id]) => id),
+    ).not.toContain("goals");
+    expect(
+      getAvailableTools({ allTools: true, staff: true }).find(
+        ([id]) => id === "imports",
+      )?.[1].title,
+    ).toBe("Imports");
+    expect(
+      getAvailableTools({ allTools: true, staff: true }).map(([id]) => id),
+    ).toContain("team-map");
+    expect(
+      getAvailableTools({ allTools: true, staff: false }).map(([id]) => id),
+    ).not.toContain("team-map");
+    expect(getToolPages("team-map")).toEqual([]);
+    expect(
+      getAvailableTools({ allTools: true, staff: true }).map(
+        ([id, { title, homeHref }]) => ({ id, title, homeHref }),
+      ),
+    ).toContainEqual({ id: "admin", title: "Admin", homeHref: "/tools/admin" });
   });
 
   it("keeps Admin standalone and redirects retired Workshare bookmarks", () => {
     expect(getToolPages("admin")).toEqual([]);
-    expect(getAvailableTools({ allTools: true, staff: false }).map(([id]) => id)).not.toContain("admin");
-    expect(getAvailableTools({ allTools: true, staff: true }).map(([id]) => id)).not.toContain("workshare");
-    for (const Page of [WorkshareEntry, WorkshareOverview, RetiredJobs, RetiredSettings, RetiredRoster, RetiredFamilyDetail, RetiredFamilies, RetiredLogs, RetiredGuest]) {
+    expect(
+      getAvailableTools({ allTools: true, staff: false }).map(([id]) => id),
+    ).not.toContain("admin");
+    expect(
+      getAvailableTools({ allTools: true, staff: true }).map(([id]) => id),
+    ).not.toContain("workshare");
+    for (const Page of [
+      WorkshareEntry,
+      WorkshareOverview,
+      RetiredJobs,
+      RetiredSettings,
+      RetiredRoster,
+      RetiredFamilyDetail,
+      RetiredFamilies,
+      RetiredLogs,
+      RetiredGuest,
+    ]) {
       expect(() => Page()).toThrow("/tools/admin");
     }
   });

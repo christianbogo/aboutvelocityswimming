@@ -257,6 +257,24 @@ try {
   const legend = myTimes.getByRole("complementary", {
     name: "USA Swimming motivational ranks",
   });
+  const displayToggle = (name) =>
+    myTimes.getByRole("switch", { name, exact: true });
+  const assertCardDescriptions = async () => {
+    const missing = await myTimes
+      .getByRole("button", { name: / rankings$/ })
+      .evaluateAll((cards) =>
+        cards.flatMap((card) =>
+          (card.getAttribute("aria-describedby") ?? "")
+            .split(/\s+/)
+            .filter((id) => id && !document.getElementById(id)),
+        ),
+      );
+    assert.deepEqual(
+      missing,
+      [],
+      "Visible cards describe only rendered content",
+    );
+  };
   const checkCollectedRanks = async (tier) => {
     for (const item of await legend.locator("li").all()) {
       const rankTier = await item.locator("strong").innerText();
@@ -272,6 +290,29 @@ try {
     }
   };
   const checkLayout = async () => {
+    const offCenterToggleRows = await myTimes
+      .getByRole("group", { name: "Times display options", exact: true })
+      .evaluate((group) => {
+        const bounds = group.getBoundingClientRect();
+        const rows = new Map();
+        for (const label of group.querySelectorAll("label")) {
+          const box = label.getBoundingClientRect();
+          const key = Math.round(box.top);
+          const row = rows.get(key) ?? { left: box.left, right: box.right };
+          row.left = Math.min(row.left, box.left);
+          row.right = Math.max(row.right, box.right);
+          rows.set(key, row);
+        }
+        const center = (bounds.left + bounds.right) / 2;
+        return [...rows.values()].filter(
+          (row) => Math.abs((row.left + row.right) / 2 - center) > 1,
+        );
+      });
+    assert.deepEqual(
+      offCenterToggleRows,
+      [],
+      "Display toggles stay centered, including wrapped rows",
+    );
     const overflowingCards = await myTimes
       .getByRole("button", { name: / rankings$/ })
       .evaluateAll((cards) =>
@@ -351,9 +392,12 @@ try {
   // Save through Account, then consume the same persisted choices in My Times.
   await page.goto(base + "/tools");
   const following = page.getByRole("region", {
-    name: "Athlete following",
+    name: "Athlete Tracking",
     exact: true,
   });
+  await following
+    .getByRole("button", { name: "Add primary athlete", exact: true })
+    .click();
   await following
     .getByLabel("Search for a primary athlete", { exact: true })
     .fill(athletes[0].name);
@@ -363,7 +407,14 @@ try {
       exact: true,
     })
     .click();
+  await following
+    .getByRole("status")
+    .filter({ hasText: "Athletes saved" })
+    .waitFor();
   for (const athlete of [athletes[1], athletes[2], athletes[5]]) {
+    await following
+      .getByRole("button", { name: "Add favorite athlete", exact: true })
+      .click();
     await following
       .getByLabel("Search for favorite athletes", { exact: true })
       .fill(athlete.name);
@@ -373,19 +424,41 @@ try {
         exact: true,
       })
       .click();
+    await following
+      .getByRole("status")
+      .filter({ hasText: "Athletes saved" })
+      .waitFor();
   }
-  await following
-    .getByRole("button", { name: "Save athletes", exact: true })
-    .click();
-  await following
-    .getByRole("status")
-    .filter({ hasText: "Athletes saved" })
-    .waitFor();
   const saved = await selected();
   assert.equal(saved.length, 4);
   assert.equal(saved.find((row) => row.is_primary)?.athlete_id, athletes[0].id);
 
-  await page.goto(myTimesUrl);
+  await following
+    .getByRole("link")
+    .filter({ hasText: athletes[1].name })
+    .click();
+  await page.waitForURL(
+    (url) =>
+      url.pathname === "/tools/my-times" &&
+      url.searchParams.get("myAthlete") === athletes[1].id,
+  );
+  await showTime("47.80");
+  assert.deepEqual(
+    await selected(),
+    saved,
+    "Following a chip preserves account selections",
+  );
+  await page.goBack();
+  await following.waitFor();
+  await following
+    .getByRole("link")
+    .filter({ hasText: athletes[0].name })
+    .click();
+  await page.waitForURL(
+    (url) =>
+      url.pathname === "/tools/my-times" &&
+      url.searchParams.get("myAthlete") === athletes[0].id,
+  );
   await showTime("35.20");
   assert.match(await myTimes.innerText(), new RegExp(athletes[0].name));
   assert.equal(
@@ -507,6 +580,82 @@ try {
     0,
     "Athletes over 10 hide their historical 25-yard swims",
   );
+  assert.equal(await displayToggle("Show 25s").isChecked(), false);
+  assert.equal(await displayToggle("Show team ranks").isChecked(), true);
+  assert.equal(await displayToggle("Show rank icon").isChecked(), true);
+  const beforeDisplayChanges = myTimesRequests.length;
+  await displayToggle("Show 25s").check();
+  await card("25 Freestyle")
+    .locator("strong")
+    .filter({ hasText: "18.00" })
+    .waitFor();
+  await displayToggle("Show team ranks").uncheck();
+  await legend.waitFor();
+  assert.doesNotMatch(await freestyle().innerText(), /\bRank \d+/);
+  assert.equal(
+    await myTimes
+      .getByText("All-time team ranks · each swim’s age group", { exact: true })
+      .count(),
+    0,
+    "Turning team ranks off also removes their summary",
+  );
+  assert.equal(
+    await freestyle().locator('img[src^="/assets/ranks/"]').count(),
+    1,
+    "Rank icons have a separate visibility preference",
+  );
+  await assertCardDescriptions();
+  await displayToggle("Show rank icon").uncheck();
+  await legend.waitFor({ state: "hidden" });
+  assert.equal(
+    await freestyle().locator('img[src^="/assets/ranks/"]').count(),
+    0,
+  );
+  await assertCardDescriptions();
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      ),
+  );
+  assert.equal(
+    myTimesRequests.length,
+    beforeDisplayChanges,
+    "Display toggles reuse the loaded times without a database query",
+  );
+  await page.reload();
+  await showTime("35.20");
+  assert.equal(await displayToggle("Show 25s").isChecked(), true);
+  assert.equal(await displayToggle("Show team ranks").isChecked(), false);
+  assert.equal(await displayToggle("Show rank icon").isChecked(), false);
+  await card("25 Freestyle").waitFor();
+  assert.equal(await legend.count(), 0);
+  assert.doesNotMatch(await freestyle().innerText(), /\bRank \d+/);
+  assert.equal(
+    await freestyle().locator('img[src^="/assets/ranks/"]').count(),
+    0,
+  );
+  await assertCardDescriptions();
+  await displayToggle("Show team ranks").check();
+  assert.equal(
+    await legend.count(),
+    0,
+    "Team ranks do not show the ranks bar while rank icons are hidden",
+  );
+  assert.match(await freestyle().innerText(), /\bRank \d+/);
+  assert.equal(
+    await freestyle().locator('img[src^="/assets/ranks/"]').count(),
+    0,
+  );
+  await displayToggle("Show rank icon").check();
+  await legend.waitFor();
+  await freestyle().locator('img[src^="/assets/ranks/"]').waitFor();
+  await displayToggle("Show 25s").uncheck();
+  assert.equal(await card("25 Freestyle").count(), 0);
+  await assertCardDescriptions();
+  // Return to the age-aware default before checking the younger athlete.
+  await page.goto(myTimesUrl);
+  await showTime("35.20");
   const time = freestyle().locator("strong");
   const dateLabel = freestyle().locator("time").locator("..");
   const iconSlot = freestyle().locator(":scope > span").nth(2);
@@ -557,10 +706,24 @@ try {
     youngSummary.events.find((event) => event.event === "25_FR")?.allTimeRank >=
       1,
   );
+  assert.equal(await displayToggle("Show 25s").isChecked(), true);
+  await displayToggle("Show 25s").uncheck();
+  assert.equal(
+    await card("25 Freestyle").count(),
+    0,
+    "The 25s toggle can hide events for younger athletes too",
+  );
+  await displayToggle("Show 25s").check();
+  await card("25 Freestyle").waitFor();
   await page.screenshot({
     path: "/tmp/velocity-my-times-young-25.png",
     fullPage: true,
     animations: "disabled",
+  });
+  await page.evaluate(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("my25s");
+    window.history.replaceState(null, "", url);
   });
   await chooseAthlete(athletes[0]);
   await showTime("35.20");
@@ -753,7 +916,7 @@ try {
     .waitFor();
   assert.deepEqual(errors, []);
   console.log(
-    "Verified My Times selection dropdowns, age/year bests and matching swim-age ranks, age-based 25-yard visibility, rank counts, ranking links, and desktop/mobile/dark card layouts.",
+    "Verified Account athlete links, My Times selection dropdowns, age/year bests and matching swim-age ranks, 25s/team-rank/rank-icon toggles, display-state reloads, rank counts, ranking links, and desktop/mobile/dark card layouts.",
   );
 } catch (error) {
   if (page && !page.isClosed()) {

@@ -1,8 +1,14 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ rpc: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  rpc: vi.fn(),
+  from: vi.fn(),
+  select: vi.fn(),
+  in: vi.fn(),
+  countAbortSignal: vi.fn(),
+}));
 vi.mock("@/lib/supabase/client", () => ({
-  browserClient: () => ({ rpc: mocks.rpc }),
+  browserClient: () => ({ rpc: mocks.rpc, from: mocks.from }),
 }));
 vi.mock("@/lib/update-safety", () => ({
   withUpdateHold: (fn: () => Promise<unknown>) => fn(),
@@ -18,8 +24,14 @@ const swimmer = {
   id: "a",
   name: "Alex Swimmer",
   teamName: "Velocity Swimming",
+  swimCount: 1234,
 };
-const favorite = { id: "b", name: "Jordan Swimmer", teamName: null };
+const favorite = {
+  id: "b",
+  name: "Jordan Swimmer",
+  teamName: null,
+  swimCount: 0,
+};
 const rows = [
   {
     id: "a",
@@ -33,6 +45,21 @@ const rows = [
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.rpc.mockResolvedValue({ data: rows, error: null });
+  const counts = {
+    data: [
+      { id: "a", public_swims: [{ count: 1234 }] },
+      { id: "b", public_swims: [{ count: 0 }] },
+    ],
+    error: null,
+  };
+  mocks.from.mockReturnValue({ select: mocks.select });
+  mocks.select.mockReturnValue({ in: mocks.in });
+  mocks.in.mockReturnValue(
+    Object.assign(Promise.resolve(counts), {
+      abortSignal: mocks.countAbortSignal,
+    }),
+  );
+  mocks.countAbortSignal.mockResolvedValue(counts);
 });
 
 it("loads account-specific primary and favorite athletes", async () => {
@@ -43,6 +70,9 @@ it("loads account-specific primary and favorite athletes", async () => {
   expect(mocks.rpc).toHaveBeenCalledWith("get_account_athletes", {
     account_user_id: "owner",
   });
+  expect(mocks.from).toHaveBeenCalledWith("public_athletes");
+  expect(mocks.select).toHaveBeenCalledWith("id, public_swims(count)");
+  expect(mocks.in).toHaveBeenCalledExactlyOnceWith("id", ["a", "b"]);
 });
 
 it("keeps return-visit snapshots account-scoped and replaces them after a successful save", async () => {
@@ -71,6 +101,32 @@ it("returns an empty selection only for a successful empty read", async () => {
   });
   mocks.rpc.mockResolvedValueOnce({ data: null, error: new Error("offline") });
   await expect(loadAccountAthletes("owner")).rejects.toThrow("offline");
+  expect(mocks.from).not.toHaveBeenCalled();
+});
+
+it("keeps unknown counts distinct from zero when an athlete is no longer visible", async () => {
+  mocks.in.mockResolvedValueOnce({
+    data: [{ id: "b", public_swims: [{ count: 0 }] }],
+    error: null,
+  });
+  await expect(loadAccountAthletes("owner")).resolves.toEqual({
+    primaryAthlete: { ...swimmer, swimCount: null },
+    favoriteAthletes: [favorite],
+  });
+});
+
+it("keeps selections readable and saved when the optional count query fails", async () => {
+  const unavailable = { data: null, error: new Error("count unavailable") };
+  mocks.in.mockResolvedValue(unavailable);
+  const expected = {
+    primaryAthlete: { ...swimmer, swimCount: null },
+    favoriteAthletes: [{ ...favorite, swimCount: null }],
+  };
+  await expect(loadAccountAthletes("owner")).resolves.toEqual(expected);
+  await expect(saveAccountAthletes("owner", expected)).resolves.toEqual(
+    expected,
+  );
+  expect(cachedAccountAthletes("owner")).toEqual(expected);
 });
 
 it("saves stable IDs and uses canonical returned names instead of draft labels", async () => {
@@ -126,4 +182,13 @@ it("bounds search and propagates cancellation to the backend", async () => {
     search_text: "Alex",
   });
   expect(abortSignal).toHaveBeenCalledWith(controller.signal);
+  expect(mocks.countAbortSignal).toHaveBeenCalledWith(controller.signal);
+});
+
+it("preserves search matches when count loading fails", async () => {
+  mocks.in.mockRejectedValueOnce(new Error("count connection unavailable"));
+  await expect(searchAccountAthletes("Alex")).resolves.toEqual([
+    { ...swimmer, swimCount: null },
+    { ...favorite, swimCount: null },
+  ]);
 });

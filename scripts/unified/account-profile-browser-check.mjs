@@ -1,14 +1,18 @@
 import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
-import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 
-const base = "http://127.0.0.1:3001";
-const config = JSON.parse(execFileSync("supabase", ["status", "--output", "json"], {
-  encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
-}));
-assert.equal(config.API_URL, "http://127.0.0.1:54321", "Browser checks require the local backend.");
+const base = process.env.ACCOUNT_PROFILE_TEST_URL ?? "http://127.0.0.1:3001";
+// Use the same seeded local configuration as dev:local. The active stack can
+// outlive a project rename, so its Docker container name is not authoritative.
+const localEnv = Object.fromEntries(readFileSync(process.env.VELOCITY_LOCAL_ENV_FILE ?? "supabase/.env.local", "utf8")
+  .split("\n").filter(line => line.includes("="))
+  .map(line => { const i = line.indexOf("="); return [line.slice(0, i), line.slice(i + 1)]; }));
+const config = { API_URL: localEnv.NEXT_PUBLIC_SUPABASE_URL, SERVICE_ROLE_KEY: localEnv.SUPABASE_SERVICE_ROLE_KEY };
+for (const url of [config.API_URL, base])
+  assert.ok(["localhost", "127.0.0.1"].includes(new URL(url).hostname), "Browser checks require local services.");
 const admin = createClient(config.API_URL, config.SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 // The tools currently permit this account only. Preserve every existing selection
 // and family membership, and keep test athlete/family records isolated.
@@ -56,9 +60,52 @@ try {
   await page.waitForURL(base + "/tools");
   await page.getByRole("heading", { name: "Account", level: 1, exact: true }).waitFor();
   const account = page.getByRole("region", { name: "Account management", exact: true });
-  const following = account.getByRole("region", { name: "Athlete following", exact: true });
+  const following = account.getByRole("region", { name: "Athlete Tracking", exact: true });
   const family = account.getByRole("region", { name: "Velocity Family", exact: true });
-  await following.getByLabel("Search for a primary athlete", { exact: true }).waitFor();
+  const primaryAdd = following.getByRole("button", { name: "Add primary athlete", exact: true });
+  const favoritesAdd = following.getByRole("button", { name: "Add favorite athlete", exact: true });
+  const primarySearch = following.getByLabel("Search for a primary athlete", { exact: true });
+  const favoritesSearch = following.getByLabel("Search for favorite athletes", { exact: true });
+  const openSearch = async (add, search) => {
+    if (!(await search.isVisible())) {
+      await add.click();
+      await search.waitFor();
+      assert.ok(await search.evaluate(element => element === document.activeElement), "Opening athlete search focuses the input");
+    } else {
+      await search.focus();
+    }
+  };
+  await primaryAdd.waitFor();
+  await favoritesAdd.waitFor();
+  assert.equal(await primarySearch.count(), 0, "Search inputs are hidden until Add Athlete is activated");
+  assert.equal(await favoritesSearch.count(), 0);
+  const primaryHeading = following.getByRole("heading", { name: "Primary", exact: true });
+  const favoritesHeading = following.getByRole("heading", { name: "Favorites", exact: true });
+  const primaryColumn = await primaryHeading.boundingBox();
+  const favoritesColumn = await favoritesHeading.boundingBox();
+  assert.ok(primaryColumn && favoritesColumn);
+  assert.ok(Math.abs(primaryColumn.y - favoritesColumn.y) < 1 && favoritesColumn.x > primaryColumn.x, "Primary and Favorites appear side by side on desktop");
+  assert.equal(await following.getByText("Choose the athlete you follow most closely.", { exact: true }).count(), 0);
+  assert.equal(await following.getByText("Add more athletes you want to keep up with.", { exact: true }).count(), 0);
+  const addDimensions = await primaryAdd.boundingBox();
+  await openSearch(primaryAdd, primarySearch);
+  const searchDimensions = await primarySearch.boundingBox();
+  assert.ok(addDimensions && searchDimensions);
+  for (const dimension of ["x", "y", "width", "height"]) {
+    assert.ok(Math.abs(addDimensions[dimension] - searchDimensions[dimension]) < 1, `Add Athlete and search have the same ${dimension}`);
+  }
+  await primarySearch.fill("Avery");
+  await primarySearch.press("Escape");
+  await primaryAdd.waitFor();
+  assert.equal(await primarySearch.count(), 0, "Escape closes the search");
+  const restoredFocus = await primaryAdd.evaluate(element => new Promise(resolve => requestAnimationFrame(() => resolve(element === document.activeElement))));
+  assert.ok(restoredFocus, "Escape restores focus to Add Athlete");
+  await openSearch(primaryAdd, primarySearch);
+  assert.equal(await primarySearch.inputValue(), "", "Reopening search starts with an empty query");
+  await favoritesAdd.click();
+  await favoritesSearch.waitFor();
+  assert.equal(await primarySearch.count(), 0, "Leaving a search closes it");
+  await favoritesSearch.press("Escape");
   assert.equal(await family.count(), 0, "Accounts without a family do not show the family section");
   const sidebar = page.getByRole("complementary", { name: "Navigation sidebar", exact: true });
   const navigation = sidebar.getByRole("navigation", { name: "Tools navigation", exact: true });
@@ -81,40 +128,35 @@ try {
 
   const main = page.getByRole("main");
   const about = main.getByRole("region", { name: "About the tools", exact: true });
-  for (const [name, description] of [
-    ["Times", /primary and favorite athletes/],
-    ["Rankings", /Compare swimmers by event/],
-    ["Records", /Browse team records/],
-    ["Standards", /Look up qualifying times/],
-    ["Velocity Workshare", /volunteer opportunities/],
-    ["Velocity Imports", /review proposed changes/],
-  ]) {
-    assert.ok(await about.getByText(name, { exact: true }).isVisible());
-    assert.ok(await about.getByText(description).isVisible());
-  }
+  assert.equal(await about.count(), 0, "The Account page no longer displays About the tools");
 
   assert.ifError((await admin.from("families").insert({ id: familyId, data: { accountName: "Account check family" } })).error);
   assert.ifError((await admin.from("family_emails").insert({ family_id: familyId, email })).error);
   await page.reload();
   await family.waitFor();
   assert.match(await family.innerText(), /sample/i, "Placeholder family content is clearly labeled");
-  await following.getByLabel("Search for a primary athlete", { exact: true }).waitFor();
+  await primaryAdd.waitFor();
 
-  const primarySearch = following.getByLabel("Search for a primary athlete", { exact: true });
-  const favoritesSearch = following.getByLabel("Search for favorite athletes", { exact: true });
   const save = following.getByRole("button", { name: "Save athletes", exact: true });
   const saved = following.getByRole("status").filter({ hasText: "Athletes saved" });
   const choosePrimary = async (athlete) => {
+    await openSearch(primaryAdd, primarySearch);
     await primarySearch.fill(athlete.name);
     await following.getByRole("button", { name: `Select ${athlete.name} as primary athlete`, exact: true }).click();
+    await primaryAdd.waitFor();
+    assert.equal(await primarySearch.count(), 0, "Selecting a primary athlete closes the search");
   };
   const addFavorite = async (athlete) => {
+    await openSearch(favoritesAdd, favoritesSearch);
     await favoritesSearch.fill(athlete.name);
     await following.getByRole("button", { name: `Add ${athlete.name} to favorite athletes`, exact: true }).click();
+    await favoritesAdd.waitFor();
+    assert.equal(await favoritesSearch.count(), 0, "Selecting a favorite closes the search");
   };
   const primaryRemove = (athlete) => following.getByRole("button", { name: `Remove ${athlete.name} as primary athlete`, exact: true });
   const favoriteRemove = (athlete) => following.getByRole("button", { name: `Remove ${athlete.name} from favorite athletes`, exact: true });
   assert.equal(await save.count(), 0);
+  await openSearch(primaryAdd, primarySearch);
   await primarySearch.fill("NoSuchAccountcheckAthlete");
   await following.getByRole("status").filter({ hasText: "No athletes found" }).waitFor();
   const searchRequests = "**/rest/v1/rpc/search_account_athletes";
@@ -136,6 +178,37 @@ try {
   await favoriteRemove(athletes[1]).waitFor();
   await favoriteRemove(athletes[2]).waitFor();
   assert.equal(await save.count(), 0, "Saved selections persist after reload");
+  const primaryList = following.getByRole("list", { name: "Selected primary athlete", exact: true });
+  const favoriteList = following.getByRole("list", { name: "Selected favorite athletes", exact: true });
+  assert.equal(await primaryList.getByText("0 swims", { exact: true }).count(), 1, "Selected primary shows its database swim count");
+  assert.equal(await favoriteList.getByText("0 swims", { exact: true }).count(), 2, "Selected favorites show database swim counts");
+  assert.equal(await following.getByText("Team unavailable", { exact: true }).count(), 0, "Athlete rows omit team subtitles");
+  for (const athlete of athletes) {
+    const chip = following.getByRole("link", { name: `View ${athlete.name} times`, exact: true });
+    const href = new URL(await chip.getAttribute("href"), base);
+    assert.equal(href.pathname, "/tools/my-times");
+    assert.equal(href.searchParams.get("myAthlete"), athlete.id, "Each chip links to its own athlete selection");
+    assert.equal(await chip.getByRole("button").count(), 0, "Removal is separate from the athlete navigation link");
+  }
+  for (const [index, athlete] of athletes.slice(0, 2).entries()) {
+    const chip = following.getByRole("link", { name: `View ${athlete.name} times`, exact: true });
+    if (index === 0) await chip.click();
+    else { await chip.focus(); await chip.press("Enter"); }
+    await page.waitForURL(url => url.pathname === "/tools/my-times" && url.searchParams.get("myAthlete") === athlete.id);
+    await page.getByRole("button", { name: `Athlete: ${athlete.name}`, exact: true }).waitFor();
+    await accountLink.click();
+    await page.waitForURL(base + "/tools");
+    await primaryRemove(athletes[0]).waitFor();
+  }
+  const removePrimary = primaryRemove(athletes[0]);
+  await primaryHeading.hover();
+  await page.waitForFunction(element => getComputedStyle(element).opacity === "0", await removePrimary.elementHandle());
+  await primaryList.hover();
+  await page.waitForFunction(element => getComputedStyle(element).opacity === "1", await removePrimary.elementHandle());
+  await primaryHeading.hover();
+  await removePrimary.focus();
+  await page.waitForFunction(element => getComputedStyle(element).opacity === "1", await removePrimary.elementHandle());
+  await openSearch(favoritesAdd, favoritesSearch);
   await favoritesSearch.fill(athletes[1].name);
   await following.getByRole("status").filter({ hasText: "These athletes are already selected" }).waitFor();
   assert.equal(await following.getByRole("button", { name: `Add ${athletes[1].name} to favorite athletes`, exact: true }).count(), 0, "A favorite cannot be selected twice");
@@ -151,6 +224,7 @@ try {
   const saveRequests = "**/rest/v1/rpc/save_account_athletes";
   await page.route(saveRequests, (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ message: "Synthetic save failure" }) }));
   await favoriteRemove(athletes[2]).click();
+  assert.equal(new URL(page.url()).pathname, "/tools", "The remove control does not navigate to Times");
   await following.getByRole("alert").filter({ hasText: /couldn.t save/i }).waitFor();
   assert.equal(await favoriteRemove(athletes[2]).count(), 0, "Failed saves preserve the draft");
   assert.equal((await readSelections()).length, 3, "Failed saves preserve stored selections");
@@ -182,17 +256,17 @@ try {
   await saved.waitFor();
   assert.deepEqual(await readSelections(), [], "Primary and favorites can all be cleared");
   await page.reload();
-  await primarySearch.waitFor();
+  await primaryAdd.waitFor();
   assert.equal(await primaryRemove(athletes[0]).count(), 0);
   assert.equal(await favoriteRemove(athletes[1]).count(), 0);
-  assert.deepEqual((await admin.from("account_profiles").select("*").eq("user_id", user.id).maybeSingle()).data, originalProfile.data, "Following athletes preserves the existing profile");
+  assert.deepEqual((await admin.from("account_profiles").select("*").eq("user_id", user.id).maybeSingle()).data, originalProfile.data, "Tracking athletes preserves the existing profile");
   await page.goto(base + "/account");
   await page.waitForURL(base + "/tools");
   await account.getByRole("group", { name: "Signed-in account" }).getByRole("button", { name: "Sign out", exact: true }).click();
-  await page.getByText("Tools are temporarily locked", { exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Access restricted", exact: true }).waitFor();
   assert.equal(await account.count(), 0);
   assert.deepEqual(errors, []);
-  console.log("Verified account sign-in controls, conditional sample family, primary and multiple favorite athletes, autosave/reload, failed-save retry, removal, responsive/dark layouts, navigation, and sign-out.");
+  console.log("Verified athlete tracking columns, click-to-search dimensions/focus/reset, swim counts, hover and keyboard removal controls, account sign-in controls, conditional sample family, primary and multiple favorites, autosave/reload, failed-save retry, responsive/dark layouts, navigation, and sign-out.");
 } finally {
   await browser.close();
   assert.ifError((await admin.from("account_followed_athletes").delete().eq("user_id", user.id)).error);

@@ -145,6 +145,28 @@ function SelectionDropdown({
   );
 }
 
+function DisplayToggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className={s.displayToggle}>
+      <input
+        type="checkbox"
+        role="switch"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      {label}
+    </label>
+  );
+}
+
 function MyTimesResults({
   preferences,
   standards,
@@ -157,6 +179,12 @@ function MyTimesResults({
   const cardId = useId();
   const [athleteId, setAthleteId] = useTimesSelection("myAthlete", "");
   const [filters, setFilters] = useTimesSelection("myFilters", defaultFilters);
+  const [twentyFives, setTwentyFives] = useTimesSelection("my25s", "auto");
+  const [showTeamRanks, setShowTeamRanks] = useTimesSelection(
+    "myTeamRanks",
+    true,
+  );
+  const [showRankIcon, setShowRankIcon] = useTimesSelection("myRankIcon", true);
   const athletes = [
     ...(preferences.primaryAthlete ? [preferences.primaryAthlete] : []),
     ...preferences.favoriteAthletes.filter(
@@ -222,9 +250,13 @@ function MyTimesResults({
       : filteredDetails?.period === "all"
         ? filteredDetails.events
         : undefined;
-  const hide25s = details?.latestAge != null && details.latestAge > 10;
+  const show25s =
+    twentyFives === "show" ||
+    (twentyFives !== "hide" &&
+      details != null &&
+      (details.latestAge == null || details.latestAge <= 10));
   const events = selectedEvents?.filter(
-    (event) => !hide25s || !event.event.startsWith("25_"),
+    (event) => show25s || !event.event.startsWith("25_"),
   );
   const bestCount = events?.filter((event) => event.race !== null).length ?? 0;
   const eventRanks = new Map(
@@ -439,10 +471,33 @@ function MyTimesResults({
           </p>
         )}
       </section>
-      <RankLegend
-        counts={rankCounts}
-        loading={loading || (standards.loading && !standards.sets.length)}
-      />
+      <div
+        className={s.displayOptions}
+        role="group"
+        aria-label="Times display options"
+      >
+        <DisplayToggle
+          label="Show 25s"
+          checked={show25s}
+          onChange={(checked) => setTwentyFives(checked ? "show" : "hide")}
+        />
+        <DisplayToggle
+          label="Show team ranks"
+          checked={showTeamRanks}
+          onChange={setShowTeamRanks}
+        />
+        <DisplayToggle
+          label="Show rank icon"
+          checked={showRankIcon}
+          onChange={setShowRankIcon}
+        />
+      </div>
+      {showRankIcon && (
+        <RankLegend
+          counts={rankCounts}
+          loading={loading || (standards.loading && !standards.sets.length)}
+        />
+      )}
       {(details || loading) && (
         <div className={s.summary}>
           <span>
@@ -454,7 +509,9 @@ function MyTimesResults({
               <SkeletonText width="20ch" />
             )}
           </span>
-          <span>All-time team ranks · each swim’s age group</span>
+          {showTeamRanks && (
+            <span>All-time team ranks · each swim’s age group</span>
+          )}
         </div>
       )}
       {failedQuery.error && (
@@ -480,7 +537,9 @@ function MyTimesResults({
               : undefined)
           }
           full={false}
-          hide25s={details?.latestAge != null ? details.latestAge > 10 : true}
+          hide25s={!show25s}
+          showTeamRanks={showTeamRanks}
+          showRankIcon={showRankIcon}
         />
       )}
       {!loading &&
@@ -534,7 +593,16 @@ function MyTimesResults({
                                 : undefined
                             }
                             aria-label={`View ${eventLabel(event.event)} rankings`}
-                            aria-describedby={`${cardId}-${event.event}-time ${cardId}-${event.event}-date ${cardId}-${event.event}-rank${rank ? ` ${cardId}-${event.event}-motivational` : ""}`}
+                            aria-describedby={[
+                              `${cardId}-${event.event}-time`,
+                              `${cardId}-${event.event}-date`,
+                              ...(showTeamRanks
+                                ? [`${cardId}-${event.event}-rank`]
+                                : []),
+                              ...(showRankIcon && rank
+                                ? [`${cardId}-${event.event}-motivational`]
+                                : []),
+                            ].join(" ")}
                             onClick={() => openRankings(event)}
                           >
                             <span className={s.cardHeading}>
@@ -560,56 +628,60 @@ function MyTimesResults({
                                 "No time in this selection"
                               )}
                             </span>
-                            <span className={s.rankIcon}>
-                              {standards.loading && !standards.sets.length ? (
-                                <SkeletonText width={22} height={22} />
-                              ) : (
-                                rank && (
-                                  <>
-                                    <MotivationalRankIcon
-                                      tier={rank.rank.tier}
-                                      size={28}
-                                    />
-                                    <span
-                                      className="sr-only"
-                                      id={`${cardId}-${event.event}-motivational`}
-                                    >
-                                      {rank.rank.name} rank: {rank.rank.tier}{" "}
-                                      motivational standard
-                                    </span>
-                                  </>
-                                )
-                              )}
-                            </span>
+                            {showRankIcon && (
+                              <span className={s.rankIcon}>
+                                {standards.loading && !standards.sets.length ? (
+                                  <SkeletonText width={22} height={22} />
+                                ) : (
+                                  rank && (
+                                    <>
+                                      <MotivationalRankIcon
+                                        tier={rank.rank.tier}
+                                        size={28}
+                                      />
+                                      <span
+                                        className="sr-only"
+                                        id={`${cardId}-${event.event}-motivational`}
+                                      >
+                                        {rank.rank.name} rank: {rank.rank.tier}{" "}
+                                        motivational standard
+                                      </span>
+                                    </>
+                                  )
+                                )}
+                              </span>
+                            )}
                             <strong id={`${cardId}-${event.event}-time`}>
                               <span className="sr-only">Best time: </span>
                               {event.race
                                 ? formatSwimTime(event.race.time)
                                 : "—"}
                             </strong>
-                            <span
-                              className={s.teamRank}
-                              id={`${cardId}-${event.event}-rank`}
-                            >
-                              {event.allTimeRank !== null ? (
-                                <>
-                                  Rank {event.allTimeRank}
-                                  <span>
-                                    of {event.allTimeCount} ·{" "}
-                                    {cohortLabel(
-                                      event.rankAgeGroup,
-                                      event.rankGender,
-                                    )}
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  {event.race?.ageAtSwim != null
-                                    ? "No all-time rank"
-                                    : "Age unavailable"}
-                                </>
-                              )}
-                            </span>
+                            {showTeamRanks && (
+                              <span
+                                className={s.teamRank}
+                                id={`${cardId}-${event.event}-rank`}
+                              >
+                                {event.allTimeRank !== null ? (
+                                  <>
+                                    Rank {event.allTimeRank}
+                                    <span>
+                                      of {event.allTimeCount} ·{" "}
+                                      {cohortLabel(
+                                        event.rankAgeGroup,
+                                        event.rankGender,
+                                      )}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    {event.race?.ageAtSwim != null
+                                      ? "No all-time rank"
+                                      : "Age unavailable"}
+                                  </>
+                                )}
+                              </span>
+                            )}
                           </button>
                         );
                       })}
@@ -620,7 +692,7 @@ function MyTimesResults({
             </>
           )
         ))}
-      {standards.error && (
+      {standards.error && showRankIcon && (
         <p className={s.notice} role="alert">
           Motivational ranks are temporarily unavailable.{" "}
           <button
@@ -632,13 +704,37 @@ function MyTimesResults({
           </button>
         </p>
       )}
-      <p className={s.explainer}>
-        Team ranks compare the displayed time with each swimmer’s all-time best
-        in that swim’s age group. Select a card for all-time rankings of
-        swimmers in the same age group, gender, event, and course. Icons use the
-        USA Swimming standard in effect on the displayed swim’s date.
-      </p>
+      {(showTeamRanks || showRankIcon) && (
+        <p className={s.explainer}>
+          {showTeamRanks && (
+            <>
+              Team ranks compare the displayed time with each swimmer’s all-time
+              best in that swim’s age group. Select a card for all-time rankings
+              of swimmers in the same age group, gender, event, and course.{" "}
+            </>
+          )}
+          {showRankIcon && (
+            <>
+              Icons use the USA Swimming standard in effect on the displayed
+              swim’s date.
+            </>
+          )}
+        </p>
+      )}
     </section>
+  );
+}
+
+function MyTimesLoading() {
+  const [twentyFives] = useTimesSelection("my25s", "auto");
+  const [showTeamRanks] = useTimesSelection("myTeamRanks", true);
+  const [showRankIcon] = useTimesSelection("myRankIcon", true);
+  return (
+    <MyTimesSkeleton
+      hide25s={twentyFives !== "show"}
+      showTeamRanks={showTeamRanks}
+      showRankIcon={showRankIcon}
+    />
   );
 }
 
@@ -698,7 +794,7 @@ function FollowedAthletes({
   if (!preferences)
     return (
       <div aria-busy="true">
-        <MyTimesSkeleton />
+        <MyTimesLoading />
       </div>
     );
   return <MyTimesResults preferences={preferences} {...props} />;
@@ -715,7 +811,7 @@ export default function MyTimes(
       aria-busy={loading || undefined}
     >
       {loading ? (
-        <MyTimesSkeleton />
+        <MyTimesLoading />
       ) : !user ? (
         <p className={s.notice}>
           <Link href="/login">Sign in</Link> to see the athletes you follow.

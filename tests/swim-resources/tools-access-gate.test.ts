@@ -30,7 +30,7 @@ describe("already-loaded tool access", () => {
     expect(render()).toContain("Checking your account");
     expect(render()).not.toContain("Protected tool content");
     mocks.auth.loading = false;
-    expect(render()).toContain("Tools are temporarily locked");
+    expect(render()).toContain("Access restricted");
     expect(render()).not.toContain("Protected tool content");
   });
   it("hides tools for other signed-in accounts", () => {

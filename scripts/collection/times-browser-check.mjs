@@ -485,9 +485,7 @@ try {
     );
   }
   await checkCenteredSummary();
-  await page
-    .getByRole("button", { name: "Collapse navigation sidebar" })
-    .click();
+  await toolsLink.press("[");
   await timesNav.waitFor({ state: "hidden" });
   await page.getByRole("button", { name: "Open navigation sidebar" }).click();
   await timesNav.waitFor();

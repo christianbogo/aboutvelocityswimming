@@ -16,7 +16,7 @@ import {
 } from "@/lib/collection/held-observations";
 import { getInventoryStaffClient } from "@/lib/collection/inventory-staff";
 
-export const metadata = { title: "Held Observations | Velocity Imports" };
+export const metadata = { title: "Held Observations | Imports" };
 
 const description = "Review historical source results, resolve shared issues, and send verified times for approval.";
 const views = [

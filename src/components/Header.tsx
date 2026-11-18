@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { isToolsPage } from "@/lib/tools-access";
+import { useAuth } from "@/features/workshare/contexts/auth";
 import styles from "./Header.module.css";
 import { scopedClasses } from "@/lib/styles";
 
@@ -37,15 +38,18 @@ const getScrollSnapshot = () => window.scrollY > 24;
 const getServerScrollSnapshot = () => false;
 
 function Navigation({ pathname }: { pathname: string }) {
+  const { isAdmin, loading } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<"about" | "more" | null>(null);
   const aboutOpen = openDropdown === "about";
   const moreOpen = openDropdown === "more";
   const moreToggle = useRef<HTMLButtonElement>(null);
+  const moreMenu = useRef<HTMLUListElement>(null);
   const moreActive = moreSections.some(({ href }) => href.startsWith("/") && (pathname === href || pathname.startsWith(href + "/")));
   const headerRef = useRef<HTMLElement>(null);
   const mobileToggle = useRef<HTMLButtonElement>(null);
   const aboutLink = useRef<HTMLAnchorElement>(null);
+  const aboutMenu = useRef<HTMLUListElement>(null);
   const aboutToggle = useRef<HTMLButtonElement>(null);
   const scrolled = useSyncExternalStore(subscribeScroll, getScrollSnapshot, getServerScrollSnapshot);
   const isHome = pathname === "/";
@@ -149,7 +153,7 @@ function Navigation({ pathname }: { pathname: string }) {
                     onKeyDown={(event) => {
                       if (event.key === "ArrowDown" && aboutOpen) {
                         event.preventDefault();
-                        event.currentTarget.closest(".site-about")?.querySelector<HTMLAnchorElement>(".site-dropdown a")?.focus();
+                        aboutMenu.current?.querySelector<HTMLAnchorElement>("a")?.focus();
                       }
                     }}
                     onClick={closeMenus}
@@ -166,13 +170,16 @@ function Navigation({ pathname }: { pathname: string }) {
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
                   </button>
                 </div>
-                <ul id="about-sections" className={scopedClasses(styles, 'site-dropdown')} hidden={!aboutOpen}>
+                <ul ref={aboutMenu} id="about-sections" className={scopedClasses(styles, 'site-dropdown')} hidden={!aboutOpen}>
                   {aboutSections.map(({ href, label }) => <li key={href}><Link href={href} aria-current={pathname === href ? "page" : undefined} onClick={closeMenus}>{label}</Link></li>)}
                 </ul>
               </div>
               {sections.map(({ href, label }) => (
                 <Link key={href} href={href} className={scopedClasses(styles, 'site-nav-link')} aria-current={pathname === href || pathname.startsWith(`${href}/`) ? "page" : undefined} onClick={closeMenus}>{label}</Link>
               ))}
+              {!loading && isAdmin && (
+                <Link href="/tools/admin" className={scopedClasses(styles, 'site-nav-link')} onClick={closeMenus}>Admin</Link>
+              )}
               <div className={scopedClasses(styles, 'site-more')}
                 onPointerEnter={(event) => {
                   if (event.pointerType === "mouse" && window.matchMedia("(min-width: 961px)").matches) setOpenDropdown("more");
@@ -195,11 +202,11 @@ function Navigation({ pathname }: { pathname: string }) {
                   onKeyDown={(event) => {
                     if (event.key === "ArrowDown" && moreOpen) {
                       event.preventDefault();
-                      event.currentTarget.closest(".site-more")?.querySelector<HTMLAnchorElement>(".site-dropdown a")?.focus();
+                      moreMenu.current?.querySelector<HTMLAnchorElement>("a")?.focus();
                     }
                   }}
                 >More</button>
-                <ul id="more-sections" className={scopedClasses(styles, 'site-dropdown')} hidden={!moreOpen}>
+                <ul ref={moreMenu} id="more-sections" className={scopedClasses(styles, 'site-dropdown')} hidden={!moreOpen}>
                   {moreSections.map(({ href, label }) => (
                     <li key={href}>
                       {href.startsWith("/") ? (

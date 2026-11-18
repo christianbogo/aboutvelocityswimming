@@ -178,7 +178,17 @@
   color: var(--text-muted);
 }
 
+.frame .homeLink {
+  border: 1px solid var(--border);
+  background: var(--background-alt);
+}
+
+.frame .homeLink:hover {
+  border-color: var(--accent);
+}
+
 .navigation :is(a, button):focus-visible,
+.themeSwitcher button:focus-visible,
 .footer :is(a, button):focus-visible {
   outline-offset: -2px;
 }
@@ -187,6 +197,39 @@
   flex: none;
   padding: .75rem;
   border-top: 1px solid var(--border);
+}
+
+.themeSwitcher {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  width: 100%;
+  padding: .375rem .75rem;
+}
+
+.themeButton {
+  display: grid;
+  place-items: center;
+  flex: 1;
+  min-width: 0;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: .5rem;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.themeButton:hover {
+  background: var(--background-alt);
+  color: var(--text-main);
+}
+
+.themeButton[aria-pressed="true"] {
+  background: var(--background-alt);
+  color: var(--text-main);
 }
 
 .resize {
@@ -271,6 +314,15 @@
     gap: 0;
     min-height: 2.75rem;
     padding: .625rem;
+  }
+
+  .sidebar[data-collapsed="true"] .themeSwitcher {
+    flex-direction: column;
+    padding: .375rem .625rem;
+  }
+
+  .sidebar[data-collapsed="true"] .themeButton {
+    flex: none;
   }
 
   .sidebar[data-collapsed="true"] .subpages {
@@ -358,7 +410,7 @@
     width: 100%;
   }
 
-  .frame .resize {
+  .frame :is(.resize, .expandControl) {
     display: none;
   }
 

@@ -19,8 +19,8 @@
   font-size: 0.88rem;
   margin-bottom: 2rem;
   padding: 0.5rem 1.15rem 0.5rem 0.85rem;
-  background: white;
-  border: 1px solid rgba(19, 65, 93, 0.12);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-full);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   transition: all var(--transition-normal);
@@ -32,7 +32,7 @@
 }
 
 .back-link:hover {
-  color: var(--primary);
+  color: var(--text-main);
   border-color: var(--accent);
   box-shadow: var(--shadow-md);
   transform: translateY(-1px);
@@ -57,7 +57,7 @@
 
 .legal-title-block h1 {
   font-size: 2.75rem;
-  color: var(--primary);
+  color: var(--text-main);
   line-height: 1.15;
   margin-bottom: 0.5rem;
 }
@@ -71,8 +71,8 @@
 .legal-content {
   max-width: 800px;
   margin: 0 auto;
-  background: white;
-  border: 1px solid rgba(19, 65, 93, 0.1);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 3rem;
   box-shadow: var(--shadow-sm);
@@ -83,9 +83,9 @@
 
 .legal-section h2 {
   font-size: 1.35rem;
-  color: var(--primary);
+  color: var(--text-main);
   margin-bottom: 0.85rem;
-  border-bottom: 1px solid rgba(19, 65, 93, 0.08);
+  border-bottom: 1px solid var(--border);
   padding-bottom: 0.5rem;
 }
 
@@ -126,7 +126,7 @@
 
 .contact-card {
   background: var(--background-alt);
-  border: 1px solid rgba(19, 65, 93, 0.08);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 1.25rem 1.5rem;
   margin-top: 1rem;
@@ -139,55 +139,6 @@
 .contact-card p:last-child {
   margin-bottom: 0;
 }
-
-/* Dark Mode Adjustments */
-@media (prefers-color-scheme: dark) {
-  .legal-page {
-    background-color: var(--background);
-  }
-
-  .back-link {
-    background: var(--background-alt);
-    border-color: rgba(255, 255, 255, 0.12);
-    color: rgba(255, 255, 255, 0.85);
-  }
-
-  .back-link:hover {
-    color: white;
-    border-color: var(--accent);
-  }
-
-  .legal-title-block h1,
-  .legal-header h1 {
-    color: var(--text-main);
-  }
-
-  .legal-title-block .section-badge {
-    background-color: rgba(52, 211, 153, 0.15);
-    color: #34D399;
-    border: 1px solid rgba(52, 211, 153, 0.3);
-  }
-
-  .legal-content {
-    background: var(--background-alt);
-    border-color: rgba(255, 255, 255, 0.1);
-  }
-
-  .legal-section h2 {
-    color: var(--text-main);
-    border-bottom-color: rgba(255, 255, 255, 0.1);
-  }
-
-  .legal-section p, .legal-section li {
-    color: rgba(255, 255, 255, 0.9);
-  }
-
-  .contact-card {
-    background: rgba(255, 255, 255, 0.04);
-    border-color: rgba(255, 255, 255, 0.1);
-  }
-}
-
 
 @media (max-width: 768px) {
   .legal-page {

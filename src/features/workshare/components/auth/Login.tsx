@@ -200,7 +200,7 @@ export function Login() {
   return (
     <div className="min-h-[calc(100svh-var(--site-header-height))] bg-bg flex flex-col items-center justify-center px-4 py-8 sm:px-6">
       <div className="w-full max-w-md flex flex-col items-center">
-        <Card className="w-full bg-surface shadow-sm border border-slate-200 p-6 sm:p-8">
+        <Card className="w-full bg-surface shadow-sm border border-border p-6 sm:p-8">
           <h2 className="text-2xl font-bold mb-1 text-text-primary text-center">
             {step === "code" ? "Enter Verification Code" : "Sign In to Portal"}
           </h2>
@@ -235,14 +235,14 @@ export function Login() {
           {error && (
             <div
               role="alert"
-              className="p-3.5 mb-5 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-xl"
+              className="p-3.5 mb-5 text-sm font-medium text-error-text bg-error-bg border border-error-border rounded-xl"
             >
               {error}
             </div>
           )}
 
           {successMessage && step === "code" && (
-            <div className="p-3.5 mb-5 text-sm font-medium text-accent bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2">
+            <div role="status" className="p-3.5 mb-5 text-sm font-medium text-success-text bg-success-bg border border-success-border rounded-xl flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
               <span>{successMessage}</span>
             </div>
@@ -441,7 +441,7 @@ export function Login() {
 
           {/* Show OAuth only after each provider is configured in Supabase. */}
           {configuredSignInProviders.length > 0 && (
-            <div className="mt-6 space-y-2 border-t border-slate-100 pt-6 text-center">
+            <div className="mt-2 space-y-2 text-center">
               {configuredSignInProviders.map((provider) => (
                 <Button
                   key={provider.id}
@@ -453,6 +453,19 @@ export function Login() {
                     loading || providerLoading !== null || passkeyLoading
                   }
                 >
+                  {provider.id === "google" && (
+                    <svg
+                      className="mr-2 size-4 shrink-0"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <path fill="#4285F4" d="M21.6 12.227c0-.709-.064-1.391-.182-2.045H12v3.868h5.382a4.6 4.6 0 0 1-1.996 3.018v2.509h3.232c1.891-1.741 2.982-4.305 2.982-7.35Z" />
+                      <path fill="#34A853" d="M12 22c2.7 0 4.964-.895 6.618-2.423l-3.232-2.509c-.895.6-2.041.955-3.386.955-2.605 0-4.809-1.759-5.595-4.123H3.064v2.591A9.996 9.996 0 0 0 12 22Z" />
+                      <path fill="#FBBC05" d="M6.405 13.9A6.01 6.01 0 0 1 6.091 12c0-.659.114-1.3.314-1.9V7.509H3.064A9.996 9.996 0 0 0 2 12c0 1.614.386 3.141 1.064 4.491L6.405 13.9Z" />
+                      <path fill="#EA4335" d="M12 5.977c1.468 0 2.786.505 3.823 1.496l2.868-2.868C16.959 2.991 14.695 2 12 2a9.996 9.996 0 0 0-8.936 5.509L6.405 10.1C7.191 7.736 9.395 5.977 12 5.977Z" />
+                    </svg>
+                  )}
                   {providerLoading === provider.id
                     ? `Connecting to ${provider.name}…`
                     : `Sign in with ${provider.name}`}

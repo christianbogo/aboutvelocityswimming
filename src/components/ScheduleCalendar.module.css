@@ -73,8 +73,6 @@
 .practiceDot { background: var(--green); }
 .meetDot { background: var(--blue); }
 .noticeDot { background: var(--amber); }
-.help { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .8rem; padding: 1.25rem 2rem; background: var(--background-alt); border-top: 1px solid var(--line); color: var(--text-muted); font-size: .75rem; line-height: 1.7; }
-.help a { color: var(--green); text-decoration: underline; text-underline-offset: 3px; }
 .dialog { width: min(520px, calc(100% - 2rem)); max-height: calc(100svh - 3rem); margin: auto; padding: 2rem; border: 1px solid var(--line); border-radius: 20px; background: var(--background); color: var(--text-main); box-shadow: var(--shadow-lg); }
 .dialog::backdrop { background: #0d2c40a6; backdrop-filter: blur(4px); }
 .dialogTop { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
@@ -122,6 +120,6 @@
   .agendaDetails strong { font-size: .85rem; }
   .agendaDetails > span { font-size: .7rem; }
   .detailArrow { display: none; }
-  .footer, .help, .filterNote { padding: 1.25rem; }
+  .footer, .filterNote { padding: 1.25rem; }
   .dialog { padding: 1.5rem; }
 }

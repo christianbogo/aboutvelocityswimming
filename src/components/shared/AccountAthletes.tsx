@@ -1,6 +1,15 @@
 "use client";
 
-import { Check, LoaderCircle, Search, Star, UserRound, X } from "lucide-react";
+import Link from "next/link";
+import {
+  Check,
+  LoaderCircle,
+  Plus,
+  Search,
+  Star,
+  UserRound,
+  X,
+} from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useUpdateBlocker } from "@/hooks/useUpdateBlocker";
 import {
@@ -16,17 +25,48 @@ import { Input } from "./Input";
 
 type SelectionKind = "primary" | "favorite";
 
+function AthleteLabel({
+  athlete,
+  kind,
+}: {
+  athlete: AccountAthlete;
+  kind: SelectionKind;
+}) {
+  const Icon = kind === "primary" ? UserRound : Star;
+  return (
+    <>
+      <Icon className="size-4 shrink-0 text-accent" aria-hidden="true" />
+      <span className="min-w-0 flex-1 break-words text-sm font-medium">
+        {athlete.name}
+      </span>
+      <span
+        className="shrink-0 text-xs text-text-secondary tabular-nums"
+        aria-label={
+          athlete.swimCount == null ? "Swim count unavailable" : undefined
+        }
+      >
+        {athlete.swimCount == null
+          ? "— swims"
+          : `${athlete.swimCount.toLocaleString()} ${athlete.swimCount === 1 ? "swim" : "swims"}`}
+      </span>
+    </>
+  );
+}
+
 function AthleteSearch({
   kind,
   excludedIds,
   onSelect,
+  atLimit = false,
 }: {
   kind: SelectionKind;
   excludedIds: string[];
   onSelect: (athlete: AccountAthlete) => void;
+  atLimit?: boolean;
 }) {
   const id = useId();
-  const input = useRef<HTMLInputElement>(null);
+  const addButton = useRef<HTMLButtonElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [result, setResult] = useState<{
@@ -42,6 +82,12 @@ function AthleteSearch({
   const matches = current?.athletes.filter(
     (athlete) => !excludedIds.includes(athlete.id),
   );
+
+  function closeSearch(restoreFocus = false) {
+    setQuery("");
+    setIsOpen(false);
+    if (restoreFocus) requestAnimationFrame(() => addButton.current?.focus());
+  }
 
   useEffect(() => {
     if (term.length < 2) return;
@@ -63,8 +109,41 @@ function AthleteSearch({
     };
   }, [term, attempt]);
 
+  if (!isOpen) {
+    return (
+      <div>
+        <button
+          ref={addButton}
+          type="button"
+          className="flex h-11 w-full items-center gap-2.5 rounded-lg border border-dashed border-border px-3.5 py-2 text-left text-sm text-text-secondary/60 transition-colors hover:border-accent/40 hover:text-text-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          aria-label={
+            kind === "primary" ? "Add primary athlete" : "Add favorite athlete"
+          }
+          aria-disabled={atLimit || undefined}
+          aria-describedby={atLimit ? `${id}-limit` : undefined}
+          onClick={() => {
+            if (!atLimit) setIsOpen(true);
+          }}
+        >
+          <Plus className="size-4 shrink-0" aria-hidden="true" />
+          Add Athlete
+        </button>
+        {atLimit && (
+          <p id={`${id}-limit`} className="mt-2 text-xs text-text-secondary">
+            You have selected {maxFavoriteAthletes} favorites. Remove one to add
+            another athlete.
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div>
+    <div
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) closeSearch();
+      }}
+    >
       <label htmlFor={id} className="sr-only">
         {kind === "primary"
           ? "Search for a primary athlete"
@@ -76,9 +155,9 @@ function AthleteSearch({
           aria-hidden="true"
         />
         <Input
-          ref={input}
           id={id}
           type="search"
+          autoFocus
           autoComplete="off"
           maxLength={100}
           className="pl-10"
@@ -90,11 +169,11 @@ function AthleteSearch({
           onKeyDown={(event) => {
             // Searching must not submit a partially edited preferences form.
             if (event.key === "Enter") event.preventDefault();
-            if (event.key === "Escape") setQuery("");
+            if (event.key === "Escape") closeSearch(true);
           }}
         />
       </div>
-      <p id={`${id}-hint`} className="mt-2 text-xs text-text-secondary">
+      <p id={`${id}-hint`} className="sr-only">
         Search with at least 2 characters.
       </p>
       {canSearch && (
@@ -144,7 +223,7 @@ function AthleteSearch({
                   <li key={athlete.id}>
                     <button
                       type="button"
-                      className="flex w-full items-center justify-between gap-3 p-3 text-left transition-colors hover:bg-hover-bg focus-visible:bg-hover-bg focus-visible:outline-offset-[-3px]"
+                      className="flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-hover-bg focus-visible:bg-hover-bg focus-visible:outline-offset-[-3px]"
                       aria-label={
                         kind === "primary"
                           ? `Select ${athlete.name} as primary athlete`
@@ -152,21 +231,10 @@ function AthleteSearch({
                       }
                       onClick={() => {
                         onSelect(athlete);
-                        setQuery("");
-                        input.current?.focus();
+                        closeSearch(true);
                       }}
                     >
-                      <span className="min-w-0">
-                        <span className="block break-words text-sm font-medium">
-                          {athlete.name}
-                        </span>
-                        <span className="mt-0.5 block text-xs text-text-secondary">
-                          {athlete.teamName || "Team unavailable"}
-                        </span>
-                      </span>
-                      <span className="shrink-0 text-xs font-semibold text-accent">
-                        {kind === "primary" ? "Select" : "Add"}
-                      </span>
+                      <AthleteLabel athlete={athlete} kind={kind} />
                     </button>
                   </li>
                 ))}
@@ -199,19 +267,18 @@ function SelectedAthlete({
   kind: SelectionKind;
   onRemove: () => void;
 }) {
-  const Icon = kind === "primary" ? UserRound : Star;
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-hover-bg p-3">
-      <Icon className="size-4 shrink-0 text-accent" aria-hidden="true" />
-      <div className="min-w-0 flex-1">
-        <p className="break-words text-sm font-medium">{athlete.name}</p>
-        <p className="mt-0.5 text-xs text-text-secondary">
-          {athlete.teamName || "Team unavailable"}
-        </p>
-      </div>
+    <div className="flex min-h-11 items-center gap-3 rounded-lg px-3 transition-colors hover:bg-hover-bg [@media(hover:hover)]:[&:not(:hover):not(:focus-within)_button]:opacity-0">
+      <Link
+        href={{ pathname: "/tools/my-times", query: { myAthlete: athlete.id } }}
+        className="flex min-w-0 flex-1 items-center gap-3 self-stretch rounded-md py-1.5 text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        aria-label={`View ${athlete.name} times`}
+      >
+        <AthleteLabel athlete={athlete} kind={kind} />
+      </Link>
       <button
         type="button"
-        className="flex size-9 shrink-0 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
+        className="flex size-7 shrink-0 items-center justify-center rounded-md text-text-secondary transition-[color,background-color,opacity] hover:bg-hover-bg hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         aria-label={
           kind === "primary"
             ? `Remove ${athlete.name} as primary athlete`
@@ -306,23 +373,22 @@ function AthleteEditor({
   useUpdateBlocker(status === "saving" || status === "error");
 
   return (
-    <div role="group" aria-label="Choose athletes to follow">
+    <div role="group" aria-label="Choose athletes to track">
       <fieldset className="min-w-0">
         <legend className="sr-only">Athlete preferences</legend>
-        <div className="space-y-7">
-          <div>
-            <h3 className="text-sm font-semibold">Primary Athlete</h3>
-            <p className="mt-1 mb-3 text-sm text-text-secondary">
-              Choose the athlete you follow most closely.
-            </p>
+        <div className="grid grid-cols-1 items-start gap-6 sm:grid-cols-2">
+          <div className="min-w-0">
+            <h3 className="mb-3 text-sm font-semibold">Primary</h3>
             {draft.primaryAthlete && (
-              <div className="mb-3">
-                <SelectedAthlete
-                  athlete={draft.primaryAthlete}
-                  kind="primary"
-                  onRemove={() => change({ ...draft, primaryAthlete: null })}
-                />
-              </div>
+              <ul aria-label="Selected primary athlete" className="mb-2">
+                <li>
+                  <SelectedAthlete
+                    athlete={draft.primaryAthlete}
+                    kind="primary"
+                    onRemove={() => change({ ...draft, primaryAthlete: null })}
+                  />
+                </li>
+              </ul>
             )}
             <AthleteSearch
               kind="primary"
@@ -339,22 +405,12 @@ function AthleteEditor({
               }
             />
           </div>
-          <div className="border-t border-border pt-6">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold">Favorite Athletes</h3>
-              {draft.favoriteAthletes.length > 0 && (
-                <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent">
-                  {draft.favoriteAthletes.length}
-                </span>
-              )}
-            </div>
-            <p className="mt-1 mb-3 text-sm text-text-secondary">
-              Add more athletes you want to keep up with.
-            </p>
+          <div className="min-w-0">
+            <h3 className="mb-3 text-sm font-semibold">Favorites</h3>
             {draft.favoriteAthletes.length > 0 && (
               <ul
                 aria-label="Selected favorite athletes"
-                className="mb-3 space-y-2"
+                className="mb-2 space-y-1"
               >
                 {draft.favoriteAthletes.map((athlete) => (
                   <li key={athlete.id}>
@@ -374,26 +430,20 @@ function AthleteEditor({
                 ))}
               </ul>
             )}
-            {draft.favoriteAthletes.length < maxFavoriteAthletes ? (
-              <AthleteSearch
-                kind="favorite"
-                excludedIds={[
-                  ...(draft.primaryAthlete ? [draft.primaryAthlete.id] : []),
-                  ...draft.favoriteAthletes.map((athlete) => athlete.id),
-                ]}
-                onSelect={(athlete) =>
-                  change({
-                    ...draft,
-                    favoriteAthletes: [...draft.favoriteAthletes, athlete],
-                  })
-                }
-              />
-            ) : (
-              <p className="text-sm text-text-secondary">
-                You have selected {maxFavoriteAthletes} favorites. Remove one to
-                add another athlete.
-              </p>
-            )}
+            <AthleteSearch
+              kind="favorite"
+              atLimit={draft.favoriteAthletes.length >= maxFavoriteAthletes}
+              excludedIds={[
+                ...(draft.primaryAthlete ? [draft.primaryAthlete.id] : []),
+                ...draft.favoriteAthletes.map((athlete) => athlete.id),
+              ]}
+              onSelect={(athlete) =>
+                change({
+                  ...draft,
+                  favoriteAthletes: [...draft.favoriteAthletes, athlete],
+                })
+              }
+            />
           </div>
         </div>
       </fieldset>
@@ -454,11 +504,11 @@ export default function AccountAthletes({ userId }: { userId: string }) {
 
   return (
     <section
-      aria-labelledby="athlete-following-heading"
+      aria-labelledby="athlete-tracking-heading"
       className="rounded-2xl border border-border bg-surface p-5 sm:p-6"
     >
-      <h2 id="athlete-following-heading" className="mb-6 text-xl font-semibold">
-        Athlete following
+      <h2 id="athlete-tracking-heading" className="mb-6 text-xl font-semibold">
+        Athlete Tracking
       </h2>
       {preferences ? (
         <AthleteEditor key={userId} userId={userId} initial={preferences} />

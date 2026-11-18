@@ -39,7 +39,7 @@ try {
   await page.waitForURL(base + "/tools");
   const navigation = page.getByRole("navigation", { name: "Tools navigation", exact: true });
   const account = navigation.getByRole("link", { name: "Account", exact: true });
-  const home = page.getByRole("link", { name: "Back to Home", exact: true });
+  const home = page.getByRole("link", { name: "Leave Tools", exact: true });
   const importPage = page.getByRole("main", { name: "Velocity Imports", exact: true });
   const toolNames = ["Admin", "Velocity Imports"];
   const toolLink = (name) => navigation.getByRole("link", { name, exact: true });

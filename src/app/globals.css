@@ -10,6 +10,12 @@
   --color-primary-ink: var(--primary-ink);
   --color-hover-bg: var(--background-alt);
   --color-border: var(--border);
+  --color-success-text: var(--success-text);
+  --color-success-bg: var(--success-bg);
+  --color-success-border: var(--success-border);
+  --color-error-text: var(--error-text);
+  --color-error-bg: var(--error-bg);
+  --color-error-border: var(--error-border);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-present: #16a34a;
@@ -35,6 +41,12 @@
   --background-alt: #f3f7f8;
   --top-gradient-bg: #fff;
   --border: #dce5ea;
+  --success-text: #086a56;
+  --success-bg: #ecfdf5;
+  --success-border: #a7f3d0;
+  --error-text: #b91c1c;
+  --error-bg: #fef2f2;
+  --error-border: #fecaca;
   --text-main: #1e293b;
   --text-muted: #475569;
   --text-light: #f8fafc;
@@ -69,6 +81,12 @@
   --background-alt: #1d3d52;
   --top-gradient-bg: #102638;
   --border: #365468;
+  --success-text: #8be0c5;
+  --success-bg: #143e3c;
+  --success-border: #2b6358;
+  --error-text: #fca5a5;
+  --error-bg: #422c37;
+  --error-border: #75434f;
   --text-main: #f8fafc;
   --text-muted: #b0c2d0;
   --accent: #53c9ad;
@@ -77,6 +95,11 @@
 @layer base {
   * {
     box-sizing: border-box;
+  }
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border);
   }
   body {
     margin: 0;

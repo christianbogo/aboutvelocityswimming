@@ -29,11 +29,15 @@ export default function MyTimesSkeleton({
   events,
   full = true,
   hide25s = true,
+  showTeamRanks = true,
+  showRankIcon = true,
 }: {
   course?: string;
   events?: MyTimesEvent[];
   full?: boolean;
   hide25s?: boolean;
+  showTeamRanks?: boolean;
+  showRankIcon?: boolean;
 }) {
   const eventKeys = (
     events?.map(({ event }) => event) ?? timesEvents(course)
@@ -59,12 +63,14 @@ export default function MyTimesSkeleton({
                 </div>
               ))}
             </div>
-            <RankLegend loading />
+            {showRankIcon && <RankLegend loading />}
             <div className={s.summary}>
               <span>
                 <SkeletonText width="20ch" />
               </span>
-              <span>All-time team ranks · each swim’s age group</span>
+              {showTeamRanks && (
+                <span>All-time team ranks · each swim’s age group</span>
+              )}
             </div>
           </>
         )}
@@ -99,27 +105,31 @@ export default function MyTimesSkeleton({
                         <SkeletonText width="6ch" />
                       </span>
                     </span>
-                    <span className={s.rankIcon}>
-                      <SkeletonText
-                        width={22}
-                        height={22}
-                        style={{ borderRadius: 6 }}
-                      />
-                    </span>
+                    {showRankIcon && (
+                      <span className={s.rankIcon}>
+                        <SkeletonText
+                          width={22}
+                          height={22}
+                          style={{ borderRadius: 6 }}
+                        />
+                      </span>
+                    )}
                     <strong>
                       <SkeletonText width="6ch" />
                     </strong>
-                    <span className={s.teamRank}>
-                      <b>
-                        <SkeletonText width="6ch" />
-                      </b>
-                      <span>
-                        <SkeletonText
-                          width="90%"
-                          className={s.skeletonCohort}
-                        />
+                    {showTeamRanks && (
+                      <span className={s.teamRank}>
+                        <b>
+                          <SkeletonText width="6ch" />
+                        </b>
+                        <span>
+                          <SkeletonText
+                            width="90%"
+                            className={s.skeletonCohort}
+                          />
+                        </span>
                       </span>
-                    </span>
+                    )}
                   </div>
                 ))}
               </section>

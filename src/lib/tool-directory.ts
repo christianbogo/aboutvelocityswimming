@@ -4,6 +4,7 @@ import {
   ClipboardList,
   Shield,
   Target,
+  UsersRound,
   Timer,
   Trophy,
   type LucideIcon,
@@ -33,14 +34,6 @@ export const toolDirectory = {
     href: timesViewPaths["my-times"],
     homeHref: timesViewPaths["my-times"],
     icon: Timer,
-  },
-  goals: {
-    title: "Goals",
-    description:
-      "Find the next standards, ranking milestones, and new events for your primary and favorite athletes.",
-    href: "/tools/goals",
-    homeHref: "/tools/goals",
-    icon: Target,
   },
   rankings: {
     title: "Rankings",
@@ -76,12 +69,30 @@ export const toolDirectory = {
     adminOnly: true,
   },
   imports: {
-    title: "Velocity Imports",
+    title: "Imports",
     description:
       "Inspect swim and meet data, and review proposed changes before publication.",
     href: "/tools/review",
     homeHref: "/tools/review",
     icon: ClipboardList,
+    adminOnly: true,
+  },
+  goals: {
+    title: "Goals",
+    description:
+      "Find the next standards, ranking milestones, and new events for your primary and favorite athletes.",
+    href: "/tools/goals",
+    homeHref: "/tools/goals",
+    icon: Target,
+    adminOnly: true,
+  },
+  "team-map": {
+    title: "Team Map",
+    description:
+      "Explore the current roster’s rank contributions, age-group leaders, and progress through the year.",
+    href: "/tools/team-map",
+    homeHref: "/tools/team-map",
+    icon: UsersRound,
     adminOnly: true,
   },
 } as const satisfies Record<string, Tool>;
@@ -90,9 +101,11 @@ export type ToolId = keyof typeof toolDirectory;
 
 export function getAvailableTools(access: ToolsCapabilities) {
   const tools = Object.entries(toolDirectory) as [ToolId, Tool][];
-  return tools.filter(([id, tool]) => access.allTools
-    ? access.staff || !tool.adminOnly
-    : access.staff && id === "admin");
+  return tools.filter(([id, tool]) =>
+    access.allTools
+      ? access.staff || !tool.adminOnly
+      : access.staff && id === "admin",
+  );
 }
 
 export const timesViews = [

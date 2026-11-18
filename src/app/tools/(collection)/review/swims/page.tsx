@@ -21,7 +21,7 @@ import {
   swimInventoryPageSize,
 } from "@/lib/collection/swim-inventory";
 
-export const metadata = { title: "Swims | Velocity Imports Viewer" };
+export const metadata = { title: "Swims | Imports Viewer" };
 
 const href = "/tools/review/swims";
 const description = "Browse stored swim and relay results and spot gaps in result fields, splits, and source references.";

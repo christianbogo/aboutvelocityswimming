@@ -3,7 +3,7 @@ import ReviewQueue from "@/components/collection/ReviewQueue";
 import { heldUuid } from "@/lib/collection/held-observations";
 import styles from "../review.module.css";
 
-export const metadata = { title: "Batch review and history | Velocity Imports" };
+export const metadata = { title: "Batch review and history | Imports" };
 
 export default async function Page({ searchParams }: {
   searchParams: Promise<{ batchId?: string | string[] }>;

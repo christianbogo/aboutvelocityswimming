@@ -54,7 +54,9 @@ const backend = createServer(async (request, response) => {
   }
   if (url.pathname === "/auth/v1/passkeys") return json(response, 200, []);
   if (url.pathname === "/auth/v1/logout") return json(response, 200, {});
-  if (url.pathname === "/rest/v1/rpc/is_staff") return json(response, 200, true);
+  if (["/rest/v1/rpc/is_staff", "/rest/v1/rpc/is_workshare_staff"].includes(url.pathname)) return json(response, 200, true);
+  if (url.pathname === "/rest/v1/rpc/read_my_workshare_summary") return json(response, 200, { seasons: [], seasonId: null, accounts: [] });
+  if (url.pathname === "/rest/v1/public_athletes") return json(response, 200, athletes.map((athlete, index) => ({ id: athlete.id, public_swims: [{ count: 10 + index }] })));
   if (url.pathname === "/rest/v1/family_emails") return json(response, 200, []);
   if (url.pathname === "/rest/v1/rpc/get_account_athletes") return json(response, 200, selection);
   if (url.pathname === "/rest/v1/rpc/search_account_athletes") return json(response, 200, athletes.filter((athlete) => athlete.name.toLowerCase().includes(body.search_text.toLowerCase())));
@@ -142,14 +144,16 @@ try {
   assert.equal(await confirmation.inputValue(), "");
   await settingsButton.click();
 
-  const following = account.getByRole("region", { name: "Athlete following", exact: true });
+  const workshare = account.getByRole("region", { name: "Workshare Tracking", exact: true });
+  await workshare.getByText("No Workshare account is linked to your sign-in email.", { exact: true }).waitFor();
+  const following = account.getByRole("region", { name: "Athlete Tracking", exact: true });
   assert.equal(await following.locator("h2 + p").count(), 0, "Following subtitle is removed");
   assert.equal(await following.locator("h2 svg").count(), 0);
   assert.equal(await following.getByRole("button", { name: "Save athletes", exact: true }).count(), 0);
   const primary = following.getByLabel("Search for a primary athlete", { exact: true });
   const favorites = following.getByLabel("Search for favorite athletes", { exact: true });
-  const choosePrimary = async (athlete) => { await primary.fill(athlete.name); await following.getByRole("button", { name: `Select ${athlete.name} as primary athlete`, exact: true }).click(); };
-  const addFavorite = async (athlete) => { await favorites.fill(athlete.name); await following.getByRole("button", { name: `Add ${athlete.name} to favorite athletes`, exact: true }).click(); };
+  const choosePrimary = async (athlete) => { await following.getByRole("button", { name: "Add primary athlete", exact: true }).click(); await primary.fill(athlete.name); await following.getByRole("button", { name: `Select ${athlete.name} as primary athlete`, exact: true }).click(); };
+  const addFavorite = async (athlete) => { await following.getByRole("button", { name: "Add favorite athlete", exact: true }).click(); await favorites.fill(athlete.name); await following.getByRole("button", { name: `Add ${athlete.name} to favorite athletes`, exact: true }).click(); };
   const removeFavorite = (athlete) => following.getByRole("button", { name: `Remove ${athlete.name} from favorite athletes`, exact: true });
   holdNextSave = new Promise((done) => { releaseHeldSave = done; });
   await choosePrimary(athletes[0]);
@@ -175,7 +179,15 @@ try {
   await page.screenshot({ path: "/tmp/velocity-account-settings-desktop.png", fullPage: true, animations: "disabled" });
 
   const sidebar = page.getByRole("complementary", { name: "Navigation sidebar", exact: true });
-  await sidebar.getByRole("button", { name: "Collapse navigation sidebar", exact: true }).click();
+  const home = sidebar.getByRole("link", { name: "Leave Tools", exact: true });
+  const expand = sidebar.getByRole("button", { name: "Open navigation sidebar", exact: true });
+  const accountLink = sidebar.getByRole("link", { name: "Account", exact: true });
+  assert.equal(await sidebar.getByRole("button", { name: "Collapse navigation sidebar", exact: true }).count(), 0);
+  assert.equal(await sidebar.getByRole("button", { name: "Sign Out", exact: true }).count(), 0);
+  assert.equal(await expand.count(), 0, "Expanded sidebar has no collapse or expand footer button");
+  assert.equal(await home.getAttribute("href"), "/");
+  assert.ok(await home.getByText("Leave Tools", { exact: true }).isVisible());
+  await accountLink.press("[");
   await eventually(async () => Math.round((await sidebar.boundingBox()).width) === 72, "Collapsed sidebar is not an icon rail");
   const navLinks = sidebar.getByRole("navigation", { name: "Tools navigation", exact: true }).getByRole("link");
   for (const link of await navLinks.all()) {
@@ -184,13 +196,20 @@ try {
     assert.equal(await link.locator("svg").count(), 1);
     assert.equal(await link.locator("span").isVisible(), false, "Collapsed labels are hidden visually");
   }
-  assert.ok(await sidebar.getByRole("link", { name: "Back to Home", exact: true }).isVisible());
-  assert.ok(await sidebar.getByRole("button", { name: "Sign Out", exact: true }).isVisible());
+  assert.ok(await home.isVisible());
+  assert.ok(await expand.isVisible(), "Collapsed sidebar keeps the expand button");
   await page.screenshot({ path: "/tmp/velocity-account-sidebar-icons.png", fullPage: true, animations: "disabled" });
+  await expand.press("Enter");
+  await eventually(async () => Math.round((await sidebar.boundingBox()).width) === 256, "Expand restores the full sidebar");
+  await eventually(async () => accountLink.evaluate((link) => document.activeElement === link), "Expanding restores focus to the current navigation link");
+  assert.equal(await expand.count(), 0);
+  await accountLink.press("[");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator("[data-tool-sidebar] > header").getByRole("button", { name: "Open navigation sidebar", exact: true }).click();
   await eventually(async () => (await sidebar.boundingBox()).width > 180, "Mobile drawer did not retain full labels");
   assert.ok(await sidebar.getByRole("navigation", { name: "Tools navigation", exact: true }).getByRole("link", { name: "Account", exact: true }).locator("span").isVisible());
+  assert.equal(await expand.count(), 0, "Mobile drawer has no desktop expand or collapse button");
+  assert.ok(await home.getByText("Leave Tools", { exact: true }).isVisible());
   await page.screenshot({ path: "/tmp/velocity-account-settings-mobile.png", fullPage: true, animations: "disabled" });
   await page.keyboard.press("Escape");
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "Mobile layout does not overflow");

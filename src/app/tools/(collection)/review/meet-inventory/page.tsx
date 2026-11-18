@@ -28,7 +28,7 @@ const columns = [
   "Approved swims", "Blockers", "Source",
 ];
 
-export const metadata = { title: "Meets | Velocity Imports Viewer" };
+export const metadata = { title: "Meets | Imports Viewer" };
 
 function stateLabel(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1).replaceAll("_", " ");

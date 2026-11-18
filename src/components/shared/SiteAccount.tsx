@@ -13,7 +13,11 @@ import styles from "./SiteAccount.module.css";
 export default function SiteAccount() {
   const { user, loading } = useAuth();
   const pathname = usePathname();
-  if (loading || (isToolsPage(pathname) && canAccessToolsPath(pathname, user)))
+  if (
+    loading ||
+    pathname === "/login" ||
+    (isToolsPage(pathname) && canAccessToolsPath(pathname, user))
+  )
     return null;
   const className = `${styles.pill} ${styles.account}`;
   return user ? (

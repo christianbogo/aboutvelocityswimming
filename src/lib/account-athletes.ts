@@ -5,6 +5,7 @@ export interface AccountAthlete {
   id: string;
   name: string;
   teamName: string | null;
+  swimCount?: number | null;
 }
 
 export interface AccountAthletePreferences {
@@ -49,6 +50,51 @@ function preferences(
   };
 }
 
+async function withSwimCounts(
+  athletes: AccountAthlete[],
+  signal?: AbortSignal,
+): Promise<AccountAthlete[]> {
+  if (!athletes.length) return athletes;
+  try {
+    // Count the visible, published records on the server instead of downloading
+    // swims or issuing one request per athlete. The parent filter bounds this
+    // read to the current selection or search result, and both tables retain RLS.
+    const request = browserClient()
+      .from("public_athletes")
+      .select("id, public_swims(count)")
+      .in("id", [...new Set(athletes.map(({ id }) => id))]);
+    const { data, error } = await (signal
+      ? request.abortSignal(signal)
+      : request);
+    if (error) throw error;
+    const counts = new Map(
+      (data ?? []).map((row) => [row.id, row.public_swims[0]?.count ?? 0]),
+    );
+    return athletes.map((athlete) => ({
+      ...athlete,
+      swimCount: counts.get(athlete.id) ?? null,
+    }));
+  } catch {
+    // A count outage must not hide search results or turn a successful
+    // preference save into an error. Unknown counts are not reported as zero.
+    return athletes.map((athlete) => ({ ...athlete, swimCount: null }));
+  }
+}
+
+async function preferencesWithSwimCounts(
+  rows: (AthleteRow & { is_primary: boolean })[],
+): Promise<AccountAthletePreferences> {
+  const selection = preferences(rows);
+  const counted = await withSwimCounts([
+    ...(selection.primaryAthlete ? [selection.primaryAthlete] : []),
+    ...selection.favoriteAthletes,
+  ]);
+  return {
+    primaryAthlete: selection.primaryAthlete ? counted[0] : null,
+    favoriteAthletes: counted.slice(selection.primaryAthlete ? 1 : 0),
+  };
+}
+
 export async function loadAccountAthletes(
   userId: string,
 ): Promise<AccountAthletePreferences> {
@@ -56,7 +102,10 @@ export async function loadAccountAthletes(
     account_user_id: userId,
   });
   if (error) throw error;
-  return rememberPreferences(userId, preferences(data ?? []));
+  return rememberPreferences(
+    userId,
+    await preferencesWithSwimCounts(data ?? []),
+  );
 }
 
 export async function searchAccountAthletes(
@@ -74,7 +123,7 @@ export async function searchAccountAthletes(
     ? request.abortSignal(signal)
     : request);
   if (error) throw error;
-  return (data ?? []).map(athlete);
+  return withSwimCounts((data ?? []).map(athlete), signal);
 }
 
 export async function saveAccountAthletes(
@@ -107,7 +156,10 @@ export async function saveAccountAthletes(
       favorite_ids: favorites,
     });
     if (error) throw error;
-    const next = rememberPreferences(userId, preferences(data ?? []));
+    const next = rememberPreferences(
+      userId,
+      await preferencesWithSwimCounts(data ?? []),
+    );
     if (typeof window !== "undefined")
       window.dispatchEvent(new Event(accountAthletesChangedEvent));
     return next;
