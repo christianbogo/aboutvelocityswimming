@@ -30,6 +30,10 @@ values
 ('summary-unverified','summary-unverified@example.test'),
 ('summary-anonymous','summary-anonymous@example.test');
 
+insert into public.workshare_athletes(account_id,full_name,training_group)
+values ('summary-linked-a','Summary Swimmer','Gold'), ('summary-unrelated','Private Swimmer','Silver');
+update auth.users set encrypted_password='synthetic-hash' where id='95222222-2222-4222-8222-222222222222';
+
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"95111111-1111-4111-8111-111111111111","role":"authenticated","email":"forged@example.test"}',true);
 do $$
@@ -42,7 +46,11 @@ begin
   select value into item from jsonb_array_elements(result->'accounts') where value->>'id'='summary-linked-a';
   assert item->'requirements'='{"generalHoursRequired":null,"starlightHoursRequired":0,"appleCapitalHoursRequired":16}'::jsonb, 'Legacy blank, zero, and configured requirements are preserved';
   assert item->'completed'='{"general":0,"starlight":0,"appleCapital":0}'::jsonb, 'No-season completed hours start at zero';
-  assert not(item ?| array['emails','athletes','updatedAt']), 'Summary excludes roster contact details';
+  assert item->'emails'='["private-secondary@example.test","summary-parent@example.test"]'::jsonb, 'All linked account emails are included';
+  assert item->'athletes'->0->>'fullName'='Summary Swimmer', 'Linked athlete name is included';
+  assert item->'athletes'->0->>'trainingGroup'='Gold', 'Linked athlete training group is included';
+  assert not(item ? 'updatedAt'), 'Internal revision stays private';
+  assert not public.has_account_password(), 'Account without a password returns false';
   assert item->'tickets'='[]'::jsonb, 'No season has no tickets';
   assert (select bool_or((value->>'isArchived')::boolean) from jsonb_array_elements(result->'accounts')), 'Archived association is retained';
   assert (select count(*) from public.workshare_accounts)=0, 'Reading a summary does not grant direct roster access';
@@ -52,6 +60,7 @@ $$;
 select set_config('request.jwt.claims','{"sub":"95222222-2222-4222-8222-222222222222","role":"authenticated","email":"summary-parent@example.test","user_metadata":{"email":"summary-parent@example.test","staff":true}}',true);
 do $$
 begin
+  assert public.has_account_password(), 'Status resolves only the current user';
   assert public.read_my_workshare_summary()->'accounts'='[]'::jsonb, 'JWT email and editable metadata cannot impersonate the associated account';
 end;
 $$;
@@ -76,6 +85,10 @@ $$;
 set local role anon;
 do $$
 begin
+  begin
+    perform public.has_account_password(); raise exception 'Expected signed-out password-status rejection';
+  exception when insufficient_privilege then null;
+  end;
   begin
     perform public.read_my_workshare_summary(); raise exception 'Expected signed-out rejection';
   exception when insufficient_privilege then null;

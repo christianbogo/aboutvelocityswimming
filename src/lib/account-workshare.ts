@@ -7,6 +7,13 @@ export interface AccountWorkshareSummary {
   id: string;
   fullName: string;
   isArchived: boolean;
+  emails: string[];
+  athletes: {
+    id: string;
+    fullName: string;
+    trainingGroup: string;
+    isArchived: boolean;
+  }[];
   tickets: (TicketFields & { id: string })[];
   requirements: {
     generalHoursRequired: number | null;

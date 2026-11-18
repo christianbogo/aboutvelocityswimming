@@ -69,6 +69,12 @@ export function signInWithAccountProvider(provider: AccountProvider) {
   return redirectToProvider(provider, false);
 }
 
+export async function hasAccountPassword(): Promise<boolean> {
+  const { data, error } = await browserClient().rpc("has_account_password");
+  if (error) throw error;
+  return data;
+}
+
 export async function saveAccountPassword(password: string) {
   if (password.length < 8)
     throw new Error("Use at least 8 characters for your password.");

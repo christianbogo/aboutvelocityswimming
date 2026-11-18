@@ -1625,6 +1625,7 @@ export type Database = {
       };
     };
     Functions: {
+      has_account_password: { Args: Record<PropertyKey, never>; Returns: boolean };
       list_workshare_seasons: { Args: Record<PropertyKey, never>; Returns: Json };
       read_my_workshare_summary: { Args: { season_id?: string }; Returns: Json };
       create_workshare_season: { Args: { input: Json }; Returns: Json };

@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import {
   loadAccountWorkshare,
@@ -28,6 +29,34 @@ function AccountHours({ account }: { account: AccountWorkshareSummary }) {
             Archived
           </span>
         )}
+      </div>
+      <div className="mb-4 grid min-w-0 gap-4 text-sm sm:grid-cols-2">
+        <div>
+          <h4 className="font-semibold">Associated emails</h4>
+          <ul className="mt-1 space-y-1 text-text-secondary">
+            {account.emails.map((email) => (
+              <li key={email} className="break-all">
+                {email}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <h4 className="font-semibold">Athletes</h4>
+          {account.athletes.length ? (
+            <ul className="mt-1 space-y-1 text-text-secondary">
+              {account.athletes.map((athlete) => (
+                <li key={athlete.id} className="break-words">
+                  {athlete.fullName}
+                  {athlete.trainingGroup && ` · ${athlete.trainingGroup}`}
+                  {athlete.isArchived && " · Archived"}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-1 text-text-secondary">No athletes listed.</p>
+          )}
+        </div>
       </div>
       <dl className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
         {categories.map(([label, completedKey, requiredKey]) => (
@@ -159,21 +188,45 @@ export default function AccountWorkshare({ userId }: { userId: string }) {
             >
               Season
             </label>
-            <select
-              id={seasonInputId}
-              value={selectedSeasonId}
-              onChange={(event) => setRequestedSeasonId(event.target.value)}
-              className="h-11 w-full rounded-lg border border-border bg-surface px-3.5 py-2 text-sm text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            >
-              {seasons.map((season) => (
-                <option key={season.id} value={season.id}>
-                  {season.name}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                id={seasonInputId}
+                value={selectedSeasonId}
+                onChange={(event) => setRequestedSeasonId(event.target.value)}
+                className="h-11 w-full rounded-lg border border-border bg-surface appearance-none pl-3.5 pr-11 py-2 text-sm text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                {seasons.map((season) => (
+                  <option key={season.id} value={season.id}>
+                    {season.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2"
+                aria-hidden="true"
+              />
+            </div>
           </div>
         )}
       </div>
+      <p className="mb-5 text-sm text-text-secondary">
+        If any account, email, or athlete information is incorrect or out of
+        date, please reach out to Coach Christian at{" "}
+        <a
+          className="break-all underline"
+          href="mailto:coachchristian@velocity-swimming.com"
+        >
+          coachchristian@velocity-swimming.com
+        </a>{" "}
+        or Coach Audrey at{" "}
+        <a
+          className="break-all underline"
+          href="mailto:coachaudrey@velocity-swimming.com"
+        >
+          coachaudrey@velocity-swimming.com
+        </a>
+        .
+      </p>
       {!current ? (
         <p role="status" className="text-sm text-text-secondary">
           Loading your Workshare information…

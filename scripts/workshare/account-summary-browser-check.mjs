@@ -62,6 +62,10 @@ try {
     { account_id: accountIds[1], email: staff.email },
     { account_id: accountIds[2], email: `${prefix}-other@example.test` },
   ]));
+  await check(await admin.from("workshare_athletes").insert([
+    { account_id: accountIds[0], full_name: `${prefix} Swimmer`, training_group: "Gold" },
+    { account_id: accountIds[2], full_name: `${prefix} Private Swimmer`, training_group: "Silver" },
+  ]));
   const existing = await check(await admin.from("workshare_seasons").select("starts_on,ends_on"));
   let year = 2400;
   while (existing.some((season) => season.starts_on <= `${year}-12-31` && season.ends_on >= `${year}-01-01`)) year += 1;
@@ -105,12 +109,31 @@ try {
   assert.equal(response.headers()["cache-control"], "private, no-store");
   const summary = (await response.json()).data;
   assert.equal(summary.accounts.length, 2);
-  for (const account of summary.accounts) for (const key of ["emails", "athletes", "tickets", "updatedAt"]) assert.ok(!(key in account));
+  const activeAccount = summary.accounts.find((account) => account.id === accountIds[0]);
+  assert.ok(activeAccount.emails.includes(`${prefix}-private@example.test`));
+  assert.equal(activeAccount.athletes[0].trainingGroup, "Gold");
+  await tracking.getByText(`${prefix} Swimmer · Gold`, { exact: true }).waitFor();
+  await tracking.getByText(`${prefix}-private@example.test`, { exact: true }).waitFor();
+  assert.equal(await tracking.getByText(`${prefix} Private Swimmer`, { exact: false }).count(), 0);
+  assert.equal(await tracking.getByRole("link", { name: "coachchristian@velocity-swimming.com" }).getAttribute("href"), "mailto:coachchristian@velocity-swimming.com");
+  assert.equal(await tracking.getByRole("link", { name: "coachaudrey@velocity-swimming.com" }).getAttribute("href"), "mailto:coachaudrey@velocity-swimming.com");
+  await staff.page.getByRole("button", { name: "Account Sign-in Settings", exact: true }).click();
+  const passwordSection = staff.page.getByRole("form", { name: "Set account password" });
+  await passwordSection.getByRole("button", { name: "Change Password", exact: true }).click();
+  await passwordSection.getByLabel("New password", { exact: true }).fill(`Aa1!${randomUUID()}`);
+  await passwordSection.getByLabel("Confirm password", { exact: true }).fill(await passwordSection.getByLabel("New password", { exact: true }).inputValue());
+  await passwordSection.getByRole("button", { name: "Save password", exact: true }).click();
+  await passwordSection.getByRole("status").filter({ hasText: "Password saved" }).waitFor();
+  assert.equal(await passwordSection.getByLabel("New password", { exact: true }).count(), 0);
+  await passwordSection.getByRole("button", { name: "Change Password", exact: true }).waitFor();
+  await staff.page.reload();
+  await staff.page.getByRole("button", { name: "Account Sign-in Settings", exact: true }).click();
+  await staff.page.getByRole("form", { name: "Set account password" }).getByRole("button", { name: "Change Password", exact: true }).waitFor();
   assert.equal((await staff.context.request.get(base + `/api/account/workshare?accountId=${accountIds[2]}`)).status(), 400);
   assert.equal((await staff.context.request.get(base + "/api/account/workshare?seasonId=invalid")).status(), 400);
   assert.equal((await staff.context.request.get(base + `/api/account/workshare?seasonId=${seasonId}&seasonId=${seasonId}`)).status(), 400);
   assert.equal((await staff.context.request.get(base + `/api/account/workshare?seasonId=${randomUUID()}`)).status(), 404);
-  assert.equal((await staff.context.request.get(base + "/api/times")).status(), 403, "Other Tools remain restricted to the owner");
+  assert.equal((await staff.context.request.get(base + "/api/times?view=records_board")).status(), 200, "Released Records API accepts verified accounts");
   assert.equal((await staff.context.request.get(base + "/api/workshare/accounts")).status(), 200, "Domain staff can use Admin APIs");
 
   const other = await session("example.test", { email: staff.email, staff: true });

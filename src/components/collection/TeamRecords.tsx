@@ -224,7 +224,9 @@ export default function TeamRecords({
       new Map(
         visibleCourses.map(([course]) => [
           course,
-          recordEvents(course, visibleRaces),
+          recordEvents(course, visibleRaces).filter(
+            (event) => !(event.startsWith("100_") && event.endsWith("-R")),
+          ),
         ]),
       ),
     [visibleRaces],

@@ -299,13 +299,6 @@ function MyTimesResults({
       rankCounts[tier] = (rankCounts[tier] ?? 0) + 1;
     }
   }
-  const bestDescription =
-    mode === "age"
-      ? `Best at ages ${ageGroups.find(([key]) => key === age)?.[1] ?? age}`
-      : mode === "years"
-        ? `Best in ${startYear === endYear ? startYear : `${startYear}–${endYear}`}`
-        : "All-time best";
-
   function openRankings(event: MyTimesEvent) {
     if (!details) return;
     const race = event.race;
@@ -554,22 +547,6 @@ function MyTimesResults({
           counts={rankCounts}
           loading={loading || (standards.loading && !standards.sets.length)}
         />
-      )}
-      {(details || loading) && (
-        <div className={s.summary}>
-          <span>
-            {details ? (
-              <>
-                {bestDescription} · {course}
-              </>
-            ) : (
-              <SkeletonText width="20ch" />
-            )}
-          </span>
-          {showTeamRanks && (
-            <span>All-time team ranks · each swim’s age group</span>
-          )}
-        </div>
       )}
       {failedQuery.error && (
         <p role="alert" className={s.notice}>

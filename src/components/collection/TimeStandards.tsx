@@ -188,7 +188,7 @@ function StandardPicker({
           key={set.id}
           type="button"
           className={recommended ? s.recommendedStandard : undefined}
-          aria-label={`${set.name} · ${status}`}
+          aria-label={set.name}
           aria-pressed={selected.id === set.id}
           onClick={() => {
             onChange(set.id);
@@ -196,10 +196,11 @@ function StandardPicker({
           }}
         >
           <strong>{set.name}</strong>
-          <span className={s.standardStatus} aria-hidden="true">
-            {status}
-            {recommended && <span>USA Swimming age group motivational</span>}
-          </span>
+          {recommended && (
+            <span className={s.standardStatus}>
+              USA Swimming age group motivational
+            </span>
+          )}
         </button>
       );
     });
@@ -220,9 +221,7 @@ function StandardPicker({
             ?.focus();
         }}
       >
-        <span>
-          {selected.name} · {standardStatus(selected, day)}
-        </span>
+        <span>{selected.name}</span>
         <ChevronDown size={16} aria-hidden="true" />
       </button>
       <dialog

@@ -476,10 +476,11 @@ try {
   const bounds = await picker.boundingBox();
   assert.ok(bounds.width >= 1440 * 0.9 && bounds.height >= 1000 * 0.9);
   const selected = picker.getByRole("button", {
-    name: standard.name + " · Current",
+    name: standard.name,
     exact: true,
   });
   assert.equal(await selected.getAttribute("aria-pressed"), "true");
+  assert.equal(await picker.getByText(/^(Current|Expired)$/).count(), 0);
   assert.ok(
     await selected
       .getByText("USA Swimming age group motivational", { exact: true })
@@ -569,6 +570,10 @@ try {
     );
     await records.getByRole("table").first().waitFor();
     assert.equal(await records.getByRole("table").count(), 1);
+    assert.equal(await records.locator('th[scope="row"]').filter({ hasText: /^100 (Free|Freestyle|Medley) relay$/i }).count(), 0);
+    for (const course of ["Short course yards", "Long course meters"]) {
+      assert.equal(await records.getByRole("button", { name: `${course} records`, exact: true }).evaluate((el) => getComputedStyle(el).justifyContent), "center");
+    }
     assert.equal(
       await records
         .getByRole("heading", {
@@ -872,6 +877,8 @@ try {
       exact: true,
     });
     await timeFilters.waitFor();
+    assert.equal(await page.getByText("All-time team ranks · each swim’s age group", { exact: true }).count(), 0);
+    assert.equal(await page.getByText("All-time best · SCY", { exact: true }).count(), 0);
     await page.setViewportSize({ width: 1440, height: 1000 });
     const card25 = page.getByRole("button", {
       name: "View 25 Freestyle rankings",

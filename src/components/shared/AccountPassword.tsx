@@ -1,10 +1,11 @@
 "use client";
 
-import { useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { KeyRound, LoaderCircle } from "lucide-react";
 import { useUpdateBlocker } from "@/hooks/useUpdateBlocker";
 import {
   accountSecurityError,
+  hasAccountPassword,
   saveAccountPassword,
 } from "@/lib/account-security";
 import { Button } from "./Button";
@@ -21,7 +22,23 @@ export default function AccountPassword({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [hasPassword, setHasPassword] = useState<boolean>();
+  const [editing, setEditing] = useState(false);
   const busy = useRef(false);
+  useEffect(() => {
+    let active = true;
+    void hasAccountPassword()
+      .then((value) => {
+        if (active) setHasPassword(value);
+      })
+      .catch(() => {
+        // Keep password management available if status cannot be loaded.
+        if (active) setHasPassword(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
   useUpdateBlocker(saving || password.length > 0 || confirmation.length > 0);
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -44,6 +61,8 @@ export default function AccountPassword({
       setPassword("");
       setConfirmation("");
       setSaved(true);
+      setHasPassword(true);
+      setEditing(false);
     } catch (cause) {
       setError(
         accountSecurityError(
@@ -67,76 +86,99 @@ export default function AccountPassword({
         <KeyRound className="size-4 text-accent" aria-hidden="true" />
         Password
       </h3>
-      <p id={`${id}-hint`} className="mt-1 text-sm text-text-secondary">
-        Set or change your password to sign in with your email address. Use at
-        least 8 characters.
-      </p>
-      <fieldset
-        disabled={saving || !emailVerified}
-        className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2"
-      >
-        <legend className="sr-only">Your new password</legend>
-        <div>
-          <label
-            htmlFor={`${id}-password`}
-            className="mb-1.5 block text-sm font-medium"
-          >
-            New password
-          </label>
-          <Input
-            id={`${id}-password`}
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            aria-describedby={`${id}-hint`}
-            value={password}
-            onChange={(event) => {
-              setPassword(event.target.value);
-              setSaved(false);
-            }}
-          />
-        </div>
-        <div>
-          <label
-            htmlFor={`${id}-confirmation`}
-            className="mb-1.5 block text-sm font-medium"
-          >
-            Confirm password
-          </label>
-          <Input
-            id={`${id}-confirmation`}
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            value={confirmation}
-            onChange={(event) => {
-              setConfirmation(event.target.value);
-              setSaved(false);
-            }}
-          />
-        </div>
+      {hasPassword && !editing ? (
         <Button
-          type="submit"
+          type="button"
           variant="outline"
           size="sm"
-          className="justify-self-start"
-          disabled={saving || !password || !confirmation}
+          className="mt-3"
+          aria-expanded={false}
+          aria-controls={`${id}-fields`}
+          onClick={() => {
+            setEditing(true);
+            setSaved(false);
+          }}
         >
-          {saving && (
-            <LoaderCircle
-              className="mr-2 size-4 animate-spin"
-              aria-hidden="true"
-            />
-          )}
-          {saving ? "Saving password…" : "Save password"}
+          Change Password
         </Button>
-      </fieldset>
-      {!emailVerified && (
-        <p className="mt-3 text-sm text-text-secondary">
-          Verify your email to set a password.
+      ) : hasPassword === undefined ? (
+        <p role="status" className="mt-3 text-sm text-text-secondary">
+          Loading password settings…
         </p>
+      ) : (
+        <div id={`${id}-fields`}>
+          <p id={`${id}-hint`} className="mt-1 text-sm text-text-secondary">
+            Set or change your password to sign in with your email address. Use
+            at least 8 characters.
+          </p>
+          <fieldset
+            disabled={saving || !emailVerified}
+            className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2"
+          >
+            <legend className="sr-only">Your new password</legend>
+            <div>
+              <label
+                htmlFor={`${id}-password`}
+                className="mb-1.5 block text-sm font-medium"
+              >
+                New password
+              </label>
+              <Input
+                id={`${id}-password`}
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                aria-describedby={`${id}-hint`}
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  setSaved(false);
+                }}
+              />
+            </div>
+            <div>
+              <label
+                htmlFor={`${id}-confirmation`}
+                className="mb-1.5 block text-sm font-medium"
+              >
+                Confirm password
+              </label>
+              <Input
+                id={`${id}-confirmation`}
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                value={confirmation}
+                onChange={(event) => {
+                  setConfirmation(event.target.value);
+                  setSaved(false);
+                }}
+              />
+            </div>
+            <Button
+              type="submit"
+              variant="outline"
+              size="sm"
+              className="justify-self-start"
+              disabled={saving || !password || !confirmation}
+            >
+              {saving && (
+                <LoaderCircle
+                  className="mr-2 size-4 animate-spin"
+                  aria-hidden="true"
+                />
+              )}
+              {saving ? "Saving password…" : "Save password"}
+            </Button>
+          </fieldset>
+          {!emailVerified && (
+            <p className="mt-3 text-sm text-text-secondary">
+              Verify your email to set a password.
+            </p>
+          )}
+        </div>
       )}
       {error && (
         <p role="alert" className="mt-3 text-sm text-red-600">

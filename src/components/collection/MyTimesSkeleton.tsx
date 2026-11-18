@@ -64,14 +64,6 @@ export default function MyTimesSkeleton({
               ))}
             </div>
             {showRankIcon && <RankLegend loading />}
-            <div className={s.summary}>
-              <span>
-                <SkeletonText width="20ch" />
-              </span>
-              {showTeamRanks && (
-                <span>All-time team ranks · each swim’s age group</span>
-              )}
-            </div>
           </>
         )}
         <div className={grid.grid}>

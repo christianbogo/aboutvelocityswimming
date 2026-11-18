@@ -52,7 +52,7 @@
   color: var(--accent);
 }
 .jumpLinks .courseLink {
-  justify-content: flex-start;
+  justify-content: center;
   padding-inline: 10px;
   color: var(--accent);
   font-weight: 750;
