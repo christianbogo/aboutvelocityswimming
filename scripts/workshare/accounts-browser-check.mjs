@@ -111,7 +111,7 @@ try {
     await page
       .getByLabel("Search accounts and athletes", { exact: true })
       .isDisabled(),
-    true,
+    false,
   );
   assert.equal(
     await page

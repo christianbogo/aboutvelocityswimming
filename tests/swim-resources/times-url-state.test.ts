@@ -1,12 +1,29 @@
 import { describe, expect, it } from "vitest";
 import { initialFilters } from "@/components/collection/times-data";
 import {
+  athleteTimesHref,
   readTimesSelection,
   writeTimesSelection,
   timesViewHref,
 } from "@/components/collection/times-url-state";
 
 describe("shared times selections", () => {
+  it("opens a swimmer’s Times profile in the ranked course with all-time results", () => {
+    const url = new URL(
+      athleteTimesHref("swimmer + & /", "LCM"),
+      "https://example.com",
+    );
+    expect(url.pathname).toBe("/tools/my-times");
+    expect(url.searchParams.get("myAthlete")).toBe("swimmer + & /");
+    expect(JSON.parse(url.searchParams.get("myFilters")!)).toEqual({
+      course: "LCM",
+      mode: "all",
+      age: "",
+      startYear: "",
+      endYear: "",
+    });
+    expect(url.searchParams.has("filters")).toBe(false);
+  });
   it("uses separate tool pages and clears ranking state when changing tools", () => {
     for (const [view, path] of [
       ["my-times", "/tools/my-times"],

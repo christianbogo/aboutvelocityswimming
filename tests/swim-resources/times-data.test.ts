@@ -15,7 +15,6 @@ import {
   resultName,
   matches,
   normalizeRace,
-  percentile,
   rankedTimes,
   type Race,
   initialFilters,
@@ -58,27 +57,6 @@ describe("IES performance comparisons", () => {
       matches(result, { ...initialFilters, team: "Tri-City Channel Cats" }),
     ).toBe(false);
   });
-  it("uses complete cohorts, tie midpoints and faster-is-higher percentiles", () => {
-    const races = [
-      race("a", 50000),
-      race("b", 50000),
-      race("c", 60000),
-      race("d", 70000),
-    ];
-    expect(percentile(50000, races)).toEqual({
-      value: 75,
-      faster: 0,
-      tied: 2,
-      slower: 2,
-      count: 4,
-      rank: 1,
-    });
-    expect(percentile(60000, races)?.value).toBe(37.5);
-    expect(percentile(40000, races)?.value).toBe(100);
-    expect(percentile(80000, races)?.value).toBe(0);
-    expect(percentile(0, races)).toBeNull();
-    expect(percentile(50000, [])).toBeNull();
-  });
   it("keeps one best per athlete per event and course, excluding invalid swims", () => {
     const races = [
       race("a", 60000),
@@ -90,7 +68,6 @@ describe("IES performance comparisons", () => {
       race("missing", 0),
     ];
     expect(bestTimes(races).map((r) => r.id)).toEqual(["a2", "a3"]);
-    expect(percentile(50000, races)?.count).toBe(3);
   });
   it("preserves competition rank for ties", () => {
     expect(

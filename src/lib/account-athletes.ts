@@ -1,3 +1,4 @@
+import { athleteName } from "@/components/collection/times-data";
 import { browserClient } from "./supabase/client";
 import { withUpdateHold } from "./update-safety";
 
@@ -106,6 +107,22 @@ export async function loadAccountAthletes(
     userId,
     await preferencesWithSwimCounts(data ?? []),
   );
+}
+
+/** Resolve shared Times selections without changing followed-athlete preferences. */
+export async function loadAccountAthlete(
+  id: string,
+  signal?: AbortSignal,
+): Promise<AccountAthlete | null> {
+  const request = browserClient()
+    .from("public_athletes")
+    .select("id, data")
+    .eq("id", id);
+  const { data, error } = await (
+    signal ? request.abortSignal(signal) : request
+  ).maybeSingle();
+  if (error) throw error;
+  return data ? { id: data.id, name: athleteName(data), teamName: null } : null;
 }
 
 export async function searchAccountAthletes(

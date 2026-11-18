@@ -12,6 +12,8 @@ import {
 import { useAuth } from "@/features/workshare/contexts/auth";
 import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
 import {
+  loadAccountAthlete,
+  type AccountAthlete,
   loadAccountAthletes,
   cachedAccountAthletes,
   accountAthletesChangedEvent,
@@ -191,7 +193,32 @@ function MyTimesResults({
       (athlete) => athlete.id !== preferences.primaryAthlete?.id,
     ),
   ];
-  const athlete = athletes.find((item) => item.id === athleteId) ?? athletes[0];
+  const followed = athletes.find((item) => item.id === athleteId);
+  const [sharedAthlete, setSharedAthlete] = useState<{
+    id: string;
+    athlete: AccountAthlete | null;
+    failed: boolean;
+  } | null>(null);
+  const [lookupAttempt, setLookupAttempt] = useState(0);
+  const needsLookup = Boolean(athleteId && !followed);
+  useEffect(() => {
+    if (!needsLookup) return;
+    const controller = new AbortController();
+    void loadAccountAthlete(athleteId, controller.signal).then(
+      (athlete) => {
+        if (!controller.signal.aborted)
+          setSharedAthlete({ id: athleteId, athlete, failed: false });
+      },
+      () => {
+        if (!controller.signal.aborted)
+          setSharedAthlete({ id: athleteId, athlete: null, failed: true });
+      },
+    );
+    return () => controller.abort();
+  }, [athleteId, needsLookup, lookupAttempt]);
+  const resolved = sharedAthlete?.id === athleteId ? sharedAthlete : null;
+  const athlete = athleteId ? (followed ?? resolved?.athlete) : athletes[0];
+  if (needsLookup && resolved?.athlete) athletes.push(resolved.athlete);
   const course = ["SCY", "LCM", "SCM"].includes(filters.course)
     ? filters.course
     : "SCY";
@@ -226,7 +253,12 @@ function MyTimesResults({
   const invalidYears = mode === "years" && startYear > endYear;
   const unavailableFilter = mode === "years" && !years.length;
   const filteredUrl =
-    !baseUrl || !details || mode === "all" || invalidYears || unavailableFilter
+    !athlete ||
+    !baseUrl ||
+    !details ||
+    mode === "all" ||
+    invalidYears ||
+    unavailableFilter
       ? null
       : timesUrl("my_times", {
           athleteId: athlete.id,
@@ -291,6 +323,28 @@ function MyTimesResults({
         "",
     });
   }
+
+  if (needsLookup && !resolved) return <MyTimesLoading />;
+  if (needsLookup && !athlete)
+    return (
+      <p className={s.notice} role={resolved?.failed ? "alert" : "status"}>
+        {resolved?.failed
+          ? "This swimmer’s profile couldn’t be loaded."
+          : "This swimmer’s profile is unavailable."}{" "}
+        {resolved?.failed && (
+          <button
+            type="button"
+            className={times.link}
+            onClick={() => {
+              setSharedAthlete(null);
+              setLookupAttempt((value) => value + 1);
+            }}
+          >
+            Try again
+          </button>
+        )}
+      </p>
+    );
 
   if (!athlete)
     return (

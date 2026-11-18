@@ -105,86 +105,41 @@ try {
     bad,
     "Frontend must use the seeded local database",
   );
-  await page.goto(base + "/tools/times");
-  await page.getByRole("button", { name: "LCM", exact: true }).first().click();
-  await page.getByRole("button", { name: "Male", exact: true }).click();
-  await page.getByRole("searchbox", { name: "Search athletes", exact: true }).fill(id);
-  await page
-    .getByRole("button", {
-      name: `Analyze 26.15 by ${swimmerName}`,
-      exact: true,
-    })
-    .click();
-  assert.equal(
-    await page
-      .getByRole("button", { name: "Flag result", exact: true })
-      .count(),
-    0,
-    "signed-out visitor cannot flag",
-  );
+  const denied = await page.request.post(base + "/api/times/moderation", {
+    headers: { Origin: base },
+    data: {
+      resultType: "swim",
+      resultId: bad,
+      action: "flag",
+      expectedVersion: 0,
+      reason: "other",
+      note: "Browser review of incorrect upload",
+    },
+  });
+  assert.equal(denied.status(), 401, "Signed-out visitors cannot flag results");
   await page.goto(base + "/login");
   await page.getByRole("button", { name: /password/i }).click();
   await page.locator("input[type=email]").fill(email);
   await page.locator("input[type=password]").fill(password);
   await page.locator("button[type=submit]").click();
   await page.waitForURL(base + "/tools");
-  await page.goto(base + "/tools/times");
-  await page.getByRole("button", { name: "LCM", exact: true }).first().click();
-  await page.getByRole("button", { name: "Male", exact: true }).click();
-  await page.getByRole("searchbox", { name: "Search athletes", exact: true }).fill(id);
-  await page
-    .getByRole("button", {
-      name: `Analyze 26.15 by ${swimmerName}`,
-      exact: true,
-    })
-    .click();
-  await page.getByRole("button", { name: "Flag result", exact: true }).click();
-  await page
-    .getByLabel("Staff note (optional)")
-    .fill("Browser review of incorrect upload");
-  // A failed save must preserve the form and leave calculations unchanged.
-  await page.route(
-    "**/api/times/moderation",
-    (route) =>
-      route.request().method() === "POST"
-        ? route.fulfill({
-            status: 503,
-            json: { error: "Synthetic save failure" },
-          })
-        : route.continue(),
-    { times: 1 },
-  );
-  await page.getByRole("button", { name: "Flag and exclude result" }).click();
-  await page
-    .getByRole("alert")
-    .filter({ hasText: "Synthetic save failure" })
-    .waitFor();
-  assert.equal(
-    await page.getByLabel("Staff note (optional)").inputValue(),
-    "Browser review of incorrect upload",
-  );
-  assert.equal((await rankings()).rows[0].race.id, bad);
-  await page.getByRole("button", { name: "Flag and exclude result" }).click();
-  await page
-    .getByText("Result flagged and excluded.", { exact: true })
-    .waitFor();
-  await page
-    .getByText("Under review · excluded from rankings and records", {
-      exact: true,
-    })
-    .first()
-    .waitFor();
+  const flagged = await page.request.post(base + "/api/times/moderation", {
+    headers: { Origin: base },
+    data: {
+      resultType: "swim",
+      resultId: bad,
+      action: "flag",
+      expectedVersion: 0,
+      reason: "other",
+      note: "Browser review of incorrect upload",
+    },
+  });
+  assert.equal(flagged.status(), 200, await flagged.text());
   assert.equal(
     (await rankings()).rows[0].race.id,
     next,
     "successful mutation expires server cache",
   );
-  await page
-    .getByRole("button", {
-      name: `Analyze 1:00.00 by ${swimmerName}`,
-      exact: true,
-    })
-    .waitFor();
   await page.goto(base + "/tools/review/results");
   const card = page.locator("article").filter({ hasText: swimmerName });
   await card
@@ -224,21 +179,24 @@ try {
   });
   assert.deepEqual(errors, []);
   console.log(
-    "Verified staff flagging, failed-save recovery, immediate ranking refresh, history, restoration, signed-out restrictions, and mobile layout.",
+    "Verified staff flagging API, immediate ranking refresh, history, restoration, signed-out restrictions, and mobile layout.",
   );
 } finally {
   await browser.close();
   // Synthetic source rows are removed; immutable audit history remains local.
   await admin.from("result_moderation").delete().in("result_id", [bad, next]);
-  const person = await admin.from("athletes").select("person_id").eq("id", athlete).maybeSingle();
+  const person = await admin
+    .from("athletes")
+    .select("person_id")
+    .eq("id", athlete)
+    .maybeSingle();
   assert.ifError(person.error);
   const cleanup = await admin.rpc("collect_records", {
     reads: [],
-    writes: [...writes]
-      .reverse()
-      .map(({ path }) => ({ path, after: null })),
+    writes: [...writes].reverse().map(({ path }) => ({ path, after: null })),
   });
   if (cleanup.error) console.error("Fixture cleanup:", cleanup.error.message);
-  if (person.data) await admin.from("people").delete().eq("id", person.data.person_id);
+  if (person.data)
+    await admin.from("people").delete().eq("id", person.data.person_id);
   await admin.auth.admin.deleteUser(uid);
 }

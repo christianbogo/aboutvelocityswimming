@@ -5,8 +5,6 @@ import {
   rankedTimes,
   initialFilters,
   matches,
-  bestTimes,
-  percentile,
   teamRecords,
 } from "../../src/components/collection/times-data.ts";
 const base = process.env.VELOCITY_TEST_URL ?? "http://127.0.0.1:3001";
@@ -210,6 +208,19 @@ async function setup({ failure = false, expiry = false } = {}) {
       json: [{ id: "ranking-standard", data: standard }],
     }),
   );
+  await page.route("**/rest/v1/rpc/get_account_athletes", (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.route("**/rest/v1/public_athletes?*", (route) => {
+    const id = new URL(route.request().url()).searchParams
+      .get("id")
+      ?.replace(/^eq\./, "");
+    assert.ok(id, "Profile lookup must use an exact swimmer ID");
+    const name = names.get(id);
+    return route.fulfill({
+      json: name ? { id, data: { name: { first: name, last: "" } } } : null,
+    });
+  });
   const bookmarks = [];
   await page.route("**/rest/v1/times_ranking_bookmarks?*", (route) => {
     if (route.request().method() === "GET")
@@ -224,8 +235,14 @@ async function setup({ failure = false, expiry = false } = {}) {
   const calls = [];
   let expiryDeadline;
   page.on("request", (r) => {
-    if (r.url().includes("/rest/v1/public_"))
-      throw new Error("Unexpected bulk public download");
+    if (r.url().includes("/rest/v1/public_")) {
+      const url = new URL(r.url());
+      assert.ok(
+        url.pathname.endsWith("/public_athletes") &&
+          url.searchParams.get("id")?.startsWith("eq."),
+        "Unexpected bulk public download",
+      );
+    }
   });
   await page.route("**/api/times?*", async (route) => {
     const q = new URL(route.request().url()).searchParams,
@@ -272,19 +289,31 @@ async function setup({ failure = false, expiry = false } = {}) {
       if (q.get("course") === "LCM")
         await new Promise((resolve) => setTimeout(resolve, 500));
     }
-    if (view === "analysis") {
-      const chosen = races.find((r) => r.id === q.get("raceId"));
-      const eligible = races.filter((r) =>
-        matches(r, { ...filters, event: chosen.event, course: chosen.course }),
-      );
+    if (view === "my_times") {
+      const athleteId = q.get("athleteId");
       data = {
-        count: eligible.length,
-        stats: chosen.relay
-          ? null
-          : percentile(
-              chosen.time,
-              q.get("basis") === "swims" ? eligible : bestTimes(eligible),
-            ),
+        myTimes: {
+          period: "all",
+          athleteId,
+          ages: [12],
+          years: [today.slice(0, 4)],
+          latestAge: 12,
+          latestAgeGroup: "11-12",
+          events: races
+            .filter(
+              (race) =>
+                race.athleteId === athleteId && race.course === q.get("course"),
+            )
+            .map((race) => ({
+              event: race.event,
+              race,
+              rankRace: race,
+              allTimeRank: 27,
+              allTimeCount: 29,
+              rankAgeGroup: "11-12",
+              rankGender: "F",
+            })),
+        },
       };
     }
     if (view === "race") {
@@ -427,14 +456,6 @@ try {
       .getByRole("navigation", { name: "Main navigation", exact: true })
       .count(),
     0,
-  );
-  const analysisPanel = page.getByRole("complementary", {
-    name: "Performance analysis",
-  });
-  assert.equal(
-    await analysisPanel.count(),
-    0,
-    "Rankings start without an analysis sidebar",
   );
   const timesNav = page.getByRole("navigation", { name: "Tools navigation" });
   assert.equal(
@@ -692,8 +713,37 @@ try {
     ).startsWith("27"),
     true,
   );
-  await page.getByRole("button", { name: /Analyze .*Swimmer 26/ }).click();
-  await page.getByText("Performance percentile", { exact: true }).waitFor();
+  await page
+    .getByRole("table")
+    .locator("tbody tr")
+    .filter({ hasText: "Swimmer 26 Fixture" })
+    .locator("td")
+    .last()
+    .click();
+  await page.waitForURL(
+    (url) =>
+      url.pathname === "/tools/my-times" &&
+      url.searchParams.get("myAthlete") === "athlete26",
+  );
+  await page
+    .getByRole("region", { name: "Athlete times", exact: true })
+    .waitFor();
+  await page
+    .getByRole("button", { name: /Athlete.*Swimmer 26 Fixture/ })
+    .waitFor();
+  assert.ok(
+    calls.some(
+      (q) => q.get("view") === "my_times" && q.get("athleteId") === "athlete26",
+    ),
+  );
+  await page.reload();
+  await page
+    .getByRole("region", { name: "Athlete times", exact: true })
+    .waitFor();
+  await page.goBack();
+  await page
+    .getByRole("link", { name: "View Times profile for Swimmer 26 Fixture" })
+    .waitFor();
   await page.getByRole("link", { name: "Records", exact: true }).click();
   const recordsPanel = page.getByRole("region", {
     name: "Records",
@@ -931,12 +981,7 @@ try {
     })
     .first()
     .click();
-  await page
-    .getByRole("button", {
-      name: "Analyze 2:10.00 by Girls fixture relay",
-      exact: true,
-    })
-    .waitFor();
+  await page.getByText("2:10.00", { exact: true }).waitFor();
   assert.equal(
     await page.getByRole("button", { name: "← Records", exact: true }).count(),
     0,
@@ -1002,12 +1047,7 @@ try {
     .getByText("200 Freestyle relay", { exact: true })
     .waitFor();
   await page.getByRole("button", { name: "Mixed", exact: true }).click();
-  await page
-    .getByRole("button", {
-      name: "Analyze 2:00.00 by Mixed fixture relay",
-      exact: true,
-    })
-    .waitFor();
+  await page.getByText("2:00.00", { exact: true }).waitFor();
   assert.equal(
     await page
       .getByRole("table")
@@ -1032,39 +1072,15 @@ try {
     ),
     2,
   );
-  await page
-    .getByRole("button", {
-      name: "Analyze 2:00.00 by Mixed fixture relay",
-      exact: true,
-    })
-    .click();
-  const detail = page.getByRole("complementary", {
-    name: "Performance analysis",
-  });
-  await detail
-    .getByRole("heading", { name: "Relay lineup", exact: true })
-    .waitFor();
-  await detail
-    .getByText(
-      "All four members are reported; some athlete identities are unverified.",
-      { exact: true },
-    )
-    .waitFor();
-  assert.equal(await detail.getByRole("listitem").count(), 4);
+  assert.equal(await rankedLineup.getByRole("link").count(), 3);
   assert.equal(
-    await detail
-      .getByRole("button", { name: "Unlinked Fixture", exact: true })
-      .count(),
-    0,
+    await rankedLineup
+      .getByRole("link")
+      .first()
+      .getAttribute("href")
+      .then((href) => new URL(href, base).searchParams.get("myAthlete")),
+    "athlete0",
   );
-  await detail.getByText("Unlinked Fixture", { exact: true }).waitFor();
-  await detail.getByRole("table").getByText("50 yd", { exact: true }).waitFor();
-  await detail
-    .getByText(
-      "Partial validated split coverage; some distances are unavailable.",
-      { exact: true },
-    )
-    .waitFor();
   await page.getByRole("button", { name: "LCM", exact: true }).click();
   assert.equal(
     await eventSelector
@@ -1095,26 +1111,17 @@ try {
       .count(),
     0,
   );
-  await page
-    .getByRole("button", {
-      name: "Analyze 28.00 by Swimmer 00 Fixture",
-      exact: true,
-    })
-    .click();
-  await detail.getByText("Verified relay lead-off", { exact: true }).waitFor();
-  await detail
-    .getByRole("button", { name: "Load parent relay", exact: true })
-    .click();
-  await detail
-    .getByRole("button", {
-      name: "View parent relay · 200 Freestyle relay",
-      exact: true,
-    })
-    .click();
-  await detail
-    .getByText("Disqualified fixture relay · 11-12", { exact: true })
-    .waitFor();
-  await detail.getByText("DQ", { exact: true }).waitFor();
+  const leadProfile = page.getByRole("link", {
+    name: "View Times profile for Swimmer 00 Fixture",
+    exact: true,
+  });
+  await leadProfile.click();
+  await page.waitForURL(
+    (url) =>
+      url.pathname === "/tools/my-times" &&
+      url.searchParams.get("myAthlete") === "athlete0",
+  );
+  await page.goBack();
   await page
     .getByRole("button", { name: "Reset filters", exact: true })
     .click();

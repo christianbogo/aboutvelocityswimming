@@ -894,8 +894,8 @@ try {
   );
   const row = page.getByRole("row").filter({ hasText: athletes[0].name });
   await row
-    .getByRole("button", {
-      name: `Analyze 45.00 by ${athletes[0].name}`,
+    .getByRole("link", {
+      name: `View Times profile for ${athletes[0].name}`,
       exact: true,
     })
     .waitFor();
@@ -909,8 +909,8 @@ try {
   assert.match(await trigger("Best times from").innerText(), /Age Range/);
   await page.goForward();
   await row
-    .getByRole("button", {
-      name: `Analyze 45.00 by ${athletes[0].name}`,
+    .getByRole("link", {
+      name: `View Times profile for ${athletes[0].name}`,
       exact: true,
     })
     .waitFor();

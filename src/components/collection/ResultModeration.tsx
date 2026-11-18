@@ -1,8 +1,6 @@
 "use client";
 import { holdUpdates } from "@/lib/update-safety";
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { useAuth } from "@/features/workshare/contexts/auth";
 import type { Race } from "./times-data";
 import { clearTimesCache } from "./times-cache";
 import {
@@ -264,51 +262,5 @@ export function ModerationEditor({
         </>
       )}
     </div>
-  );
-}
-export default function ResultModeration({
-  race,
-  onRace,
-}: {
-  race: Race;
-  onRace: (race: Race) => void;
-}) {
-  const { isAdmin, loading } = useAuth();
-  const [open, setOpen] = useState(false);
-  return (
-    <section aria-label="Result review">
-      <ModerationNotice race={race} />
-      {!loading && isAdmin && (
-        <>
-          <div className={s.actions}>
-            <button
-              className={s.button}
-              type="button"
-              aria-expanded={open}
-              onClick={() => setOpen((value) => !value)}
-            >
-              {open
-                ? "Close review"
-                : race.moderationStatus === "flagged"
-                  ? "Review flagged result"
-                  : "Flag result"}
-            </button>
-            <Link href="/tools/review/results">Flagged results</Link>
-          </div>
-          {open && (
-            <ModerationEditor
-              resultType={
-                race.resultType ??
-                (race.relay && !race.athleteId ? "relay" : "swim")
-              }
-              resultId={race.id}
-              onChanged={(detail) => {
-                if (detail.race) onRace(detail.race);
-              }}
-            />
-          )}
-        </>
-      )}
-    </section>
   );
 }

@@ -79,7 +79,6 @@ test("flag excludes incorrect 26.15 from all calculations, retains flagged race 
   SELECT 1 FROM jsonb_array_elements(public.ies_my_times_all_time('{"athleteId":"mod-fixture-athlete","course":"LCM"}')#>'{myTimes,events}') e
   WHERE e->>'event'='100_FR' AND e#>>'{race,id}'='mod-fixture-next'
  ),'PB fallback');
- SELECT pg_temp.check_ok(pg_temp.query('analysis','{"raceId":"mod-fixture-bad"}')->'stats'='null','no percentile');
  SELECT pg_temp.check_ok((SELECT data->>'swimId'='mod-fixture-next' FROM public.athlete_bests WHERE athlete_id='mod-fixture-athlete' AND event_code='100_FR_LCM'),'stored PB fallback');
  SELECT pg_temp.check_ok(public.ies_times_json_id('mod-fixture-bad')->>'status'='OK','race status preserved');
  SELECT pg_temp.check_ok(public.ies_times_json_id('mod-fixture-bad')->>'moderationStatus'='flagged','public label');

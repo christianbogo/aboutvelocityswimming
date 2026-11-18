@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Check, Download, Link2, Plus, Search } from "lucide-react";
+import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Check, Link2, Plus, Search } from "lucide-react";
 import { Input } from "@/components/shared/Input";
 import { Button } from "@/components/shared/Button";
 import { useUpdateBlocker } from "@/hooks/useUpdateBlocker";
@@ -12,7 +12,6 @@ import {
 } from "@/lib/account-athletes";
 import {
   emptyAccount,
-  exportWorkshareAccounts,
   loadWorkshareAccounts,
   type RosterAthlete,
   type WorkshareAccount,
@@ -296,6 +295,42 @@ function AccountRow({
       setClosing(false);
     }
   };
+  const closeFromInteraction = useEffectEvent(() => {
+    void close();
+  });
+  useEffect(() => {
+    if (!editing) return;
+    const dismiss = (event: MouseEvent | FocusEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest("[data-account-search]")) {
+        closeFromInteraction();
+        return;
+      }
+      if (event.type !== "click" || !form.current || !target.isConnected)
+        return;
+      // Ticket dialogs render in a portal outside the account form.
+      if (target.closest('dialog, [role="dialog"]')) return;
+      if (!form.current.contains(target)) {
+        closeFromInteraction();
+        return;
+      }
+      // Labels and controls must keep their normal focus and click behavior.
+      if (
+        target.closest(
+          'input, textarea, select, button, a, label, [role="button"], [role="dialog"]',
+        )
+      )
+        return;
+      closeFromInteraction();
+    };
+    document.addEventListener("click", dismiss, true);
+    document.addEventListener("focusin", dismiss);
+    return () => {
+      document.removeEventListener("click", dismiss, true);
+      document.removeEventListener("focusin", dismiss);
+    };
+  }, [editing]);
   const cell = "align-top px-4 py-4";
   if (!editing)
     return (
@@ -731,7 +766,6 @@ export function FamiliesAdmin() {
     accountId?: string;
     template?: WorkshareTicket;
   } | null>(null);
-  const router = useRouter();
   const params = useSearchParams();
   const tab = params.get("tab") === "tickets" ? "tickets" : "accounts";
   const season =
@@ -746,11 +780,11 @@ export function FamiliesAdmin() {
     summaryResult?.seasonId === season?.id ? (summaryResult?.data ?? {}) : {};
   const tabId = useId();
   function selectView(next: { tab?: string; season?: string }) {
-    const query = new URLSearchParams(params.toString());
+    const query = new URLSearchParams(window.location.search);
     if (next.tab) query.set("tab", next.tab);
     if (next.season) query.set("season", next.season);
     else if (season) query.set("season", season.id);
-    router.replace(`/tools/admin?${query}`, { scroll: false });
+    window.history.replaceState(null, "", `?${query}`);
   }
   const ticketsChanged = () => setTicketRevision((value) => value + 1);
   const addTicket = (accountId?: string) => {
@@ -849,12 +883,30 @@ export function FamiliesAdmin() {
   }, [season, ticketRevision]);
   useEffect(() => {
     if (!season || params.get("season") === season.id) return;
-    const query = new URLSearchParams(params.toString());
+    const query = new URLSearchParams(window.location.search);
     query.set("season", season.id);
-    router.replace(`/tools/admin?${query}`, { scroll: false });
-  }, [season, params, router]);
+    window.history.replaceState(null, "", `?${query}`);
+  }, [season, params]);
   const locked =
     activeEditor !== null || ticketEditing || composer !== null || seasonDialog;
+  const seasonSelector = (
+    <label className="relative grid gap-1 text-xs font-semibold leading-4">
+      <span className="sr-only">Workshare season</span>
+      <select
+        value={season?.id ?? ""}
+        disabled={locked || loading || !seasons.length}
+        className="h-11 max-w-64 rounded-lg border border-border bg-surface px-3 text-sm"
+        onChange={(event) => selectView({ season: event.target.value })}
+      >
+        {!seasons.length && <option value="">No seasons yet</option>}
+        {seasons.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
   const rowProps = {
     season,
     summaryLoading,
@@ -925,15 +977,6 @@ export function FamiliesAdmin() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={loading || !!error}
-            onClick={() => exportWorkshareAccounts(accounts)}
-          >
-            <Download className="mr-1.5 size-4" aria-hidden="true" />
-            Export JSON
-          </Button>
           {tab === "accounts" ? (
             <Button
               size="sm"
@@ -1002,31 +1045,18 @@ export function FamiliesAdmin() {
           ))}
         </div>
         <div className="flex flex-wrap items-end gap-2">
-          <label className="grid gap-1 text-xs font-semibold leading-4">
-            <span>Workshare season</span>
-            <select
-              value={season?.id ?? ""}
-              disabled={locked || loading || !seasons.length}
-              className="h-11 max-w-64 rounded-lg border border-border bg-surface px-3 text-sm"
-              onChange={(event) => selectView({ season: event.target.value })}
+          {tab === "tickets" && seasonSelector}
+          {!seasons.length && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={locked || loading || !!error}
+              onClick={() => setSeasonDialog(true)}
             >
-              {!seasons.length && <option value="">No seasons yet</option>}
-              {seasons.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={locked || loading || !!error}
-            onClick={() => setSeasonDialog(true)}
-          >
-            {seasons.length ? "New season" : "Create first season"}
-          </Button>
+              Create first season
+            </Button>
+          )}
         </div>
       </div>
       {!loading && !seasons.length && !error && (
@@ -1066,7 +1096,7 @@ export function FamiliesAdmin() {
                   aria-hidden="true"
                 />
                 <Input
-                  disabled={activeEditor !== null}
+                  data-account-search
                   aria-label="Search accounts and athletes"
                   type="search"
                   className="pl-9"
@@ -1075,6 +1105,7 @@ export function FamiliesAdmin() {
                   placeholder="Search names, emails, or athletes…"
                 />
               </div>
+              {seasonSelector}
               <select
                 disabled={activeEditor !== null}
                 aria-label="Account archive filter"

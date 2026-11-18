@@ -4,7 +4,6 @@ export const timesKinds = [
   "facets",
   "rankings",
   "ranking_years",
-  "analysis",
   "race",
   "records",
   "records_board",
@@ -68,14 +67,6 @@ export interface TimesResponse {
   races?: Race[];
   records?: Record<string, string[]>;
   recordsUpdatedAt?: string | null;
-  stats?: {
-    value: number;
-    faster: number;
-    tied: number;
-    slower: number;
-    count: number;
-    rank: number;
-  } | null;
 }
 export type TimesInput = Record<
   string,
@@ -111,7 +102,6 @@ export function parseTimesQuery(params: URLSearchParams): {
     "search",
     "athleteId",
     "raceId",
-    "basis",
     "startDate",
     "endDate",
     "startYear",
@@ -130,7 +120,6 @@ export function parseTimesQuery(params: URLSearchParams): {
     course: ["", "SCY", "LCM", "SCM"],
     official: ["", "official", "unofficial"],
     mode: ["bests", "performances", "recent"],
-    basis: ["bests", "swims"],
     round: ["", "F", "P", "S", "TT"],
     rankPeriod: ["all", "season"],
   })) {
@@ -229,7 +218,6 @@ export function parseTimesQuery(params: URLSearchParams): {
     input.mode ??= "bests";
   }
   const required: Partial<Record<TimesKind, string[]>> = {
-    analysis: ["raceId"],
     my_times: ["athleteId"],
     my_times_bests: ["athleteId"],
     race: ["raceId"],

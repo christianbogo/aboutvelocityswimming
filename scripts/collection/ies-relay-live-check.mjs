@@ -2,11 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
-import {
-  eventLabel,
-  resultName,
-} from "../../src/components/collection/times-data.ts";
-import { formatSwimTime } from "../../src/features/swim-resources/lib/domain/swim-time.ts";
+import { eventLabel } from "../../src/components/collection/times-data.ts";
 
 const base = process.env.VELOCITY_LIVE_TEST_URL;
 assert.ok(
@@ -144,9 +140,6 @@ async function fullScreenshot(file) {
   );
   await page.screenshot({ path: resolve(output, file), fullPage: true });
 }
-const detail = page.getByRole("complementary", {
-  name: "Performance analysis",
-});
 try {
   const facets = await times("facets");
   assert.ok(
@@ -222,27 +215,10 @@ try {
   await page.getByRole("button", { name: "Mixed", exact: true }).click();
   await page.getByRole("button", { name: "Female", exact: true }).click();
   await chooseEvent("Event", "200_MED-R");
-  await page
-    .getByRole("button", {
-      name: `Analyze ${formatSwimTime(selectedMixed.time)} by ${resultName(selectedMixed, new Map())}`,
-      exact: true,
-    })
-    .first()
-    .click();
-  await detail
-    .getByRole("heading", { name: "Relay lineup", exact: true })
-    .waitFor();
-  assert.equal(await detail.getByRole("listitem").count(), 4);
-  await detail
-    .getByRole("region", { name: "Race splits" })
-    .getByRole("table")
-    .waitFor();
-  for (const member of selectedMixed.members)
-    await detail.getByText(member.name, { exact: true }).waitFor();
-  await detail
-    .getByText(/eligible relay performances in this comparison group/)
-    .waitFor();
-  await fullScreenshot("mixed-relay-lineup-splits.png");
+  const lineup = page.getByRole("list", { name: "Relay swimmers" }).first();
+  await lineup.waitFor();
+  assert.equal(await lineup.getByRole("listitem").count(), 4);
+  await fullScreenshot("mixed-relay-lineup.png");
 
   await page.getByRole("link", { name: "Records", exact: true }).click();
   await page.getByRole("region", { name: "Records" }).waitFor();
@@ -265,9 +241,7 @@ try {
     fullPage: false,
   });
 
-  await page
-    .getByRole("button", { name: "Rankings", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Rankings", exact: true }).click();
   await page
     .getByRole("button", { name: individual.course, exact: true })
     .click();
@@ -281,63 +255,18 @@ try {
     .getByLabel("Search athletes", { exact: true })
     .fill(individual.athleteName);
   await page
-    .getByRole("button", {
-      name: `Analyze ${formatSwimTime(individual.time)} by ${individual.athleteName}`,
+    .getByRole("link", {
+      name: `View Times profile for ${individual.athleteName}`,
       exact: true,
     })
     .first()
     .click();
-  const individualSplits = detail.getByRole("region", { name: "Race splits" });
-  await individualSplits.getByRole("table").waitFor();
-  assert.equal(
-    await individualSplits.locator("tbody tr").count(),
-    individual.splits.length,
+  await page.waitForURL(
+    (url) =>
+      url.pathname === "/tools/my-times" &&
+      url.searchParams.get("myAthlete") === individual.athleteId,
   );
-  for (const split of individual.splits)
-    await individualSplits
-      .getByRole("rowheader", {
-        name: `${split.distance} ${individual.course === "SCY" ? "yd" : "m"}`,
-        exact: true,
-      })
-      .waitFor();
-  await detail.getByText("Performance percentile", { exact: true }).waitFor();
-  await fullScreenshot("individual-validated-splits.png");
-
-  await page
-    .getByRole("button", { name: "Rankings", exact: true })
-    .click();
-  await chooseEvent("Event", eligible.event);
-  if (eligible.gender === "M") {
-    await page.getByRole("button", { name: "Male", exact: true }).click();
-    await page.getByRole("button", { name: "Female", exact: true }).click();
-  }
-  await page.getByLabel("Search athletes", { exact: true }).fill(eligible.athleteName);
-  const leadButton = page.getByRole("button", {
-    name: `Analyze ${formatSwimTime(eligible.time)} by ${eligible.athleteName}`,
-    exact: true,
-  });
-  await leadButton.click();
-  await detail.getByText("Verified relay lead-off", { exact: true }).waitFor();
-  await detail
-    .getByRole("button", { name: "Load parent relay", exact: true })
-    .click();
-  const parentResult = await times("race", {
-    raceId: lead.parentRelayResultId,
-  });
-  const parent = parentResult.rows?.[0]?.race;
-  publicRace(parent);
-  assert.equal(parent.relay, true);
-  await detail
-    .getByRole("button", {
-      name: "View parent relay · " + eventLabel(parent.event),
-      exact: true,
-    })
-    .click();
-  await detail
-    .getByRole("heading", { name: "Relay lineup", exact: true })
-    .waitFor();
-  await detail.getByText(eligible.athleteName, { exact: true }).waitFor();
-  await fullScreenshot("verified-leadoff-parent-relay.png");
+  await fullScreenshot("individual-times-profile.png");
   assert.deepEqual(errors, [], "Unexpected browser errors.");
   assert.deepEqual(apiFailures, [], "Unexpected API failures.");
   const result = {

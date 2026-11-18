@@ -124,3 +124,17 @@ export function timesViewHref(view: TimesView, search = "", hash = "") {
   const query = params.toString();
   return `${timesViewPaths[view]}${query ? `?${query}` : ""}${hash}`;
 }
+
+export function athleteTimesHref(athleteId: string, course = "SCY") {
+  const params = new URLSearchParams({
+    myAthlete: athleteId,
+    myFilters: JSON.stringify({
+      course,
+      mode: "all",
+      age: "",
+      startYear: "",
+      endYear: "",
+    }),
+  });
+  return `${timesViewPaths["my-times"]}?${params}`;
+}

@@ -14,6 +14,11 @@ import {
   type Race,
 } from "@/components/collection/times-data";
 describe("Velocity times requests", () => {
+  it("rejects the retired performance-analysis endpoint", () => {
+    expect(() =>
+      parseTimesQuery(new URLSearchParams("view=analysis&raceId=a")),
+    ).toThrow("Choose a valid times view.");
+  });
   it("opts into all-time ranks while preserving legacy requests", () => {
     const legacy = parseTimesQuery(
       new URLSearchParams("view=my_times&athleteId=a"),

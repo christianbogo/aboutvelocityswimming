@@ -7,8 +7,6 @@ import {
   normalizeRace,
   rankedTimes,
   matches,
-  percentile,
-  bestTimes,
   teamRecords,
   recordKey,
   initialFilters,
@@ -351,25 +349,7 @@ try {
       ).find((r) => r.race.athleteId === prefix + "2").rank,
     );
   });
-  await test("complete percentiles and record ties match domain helpers", async () => {
-    for (const basis of ["bests", "swims"]) {
-      const filters = {
-        ...initialFilters,
-        team,
-        genders: ["F", "M"],
-        ageGroups: ["11-12"],
-      };
-      const eligible = ies.filter(
-        (r) => matches(r, filters) && r.status === "OK" && r.time > 0,
-      );
-      const cohort = basis === "bests" ? bestTimes(eligible) : eligible;
-      const result = await query("analysis", {
-        ...filters,
-        raceId: prefix + "b",
-        basis,
-      });
-      assert.deepEqual(result.stats, percentile(59000, cohort));
-    }
+  await test("record ties match domain helpers", async () => {
     const result = await query("records", { team });
     const actual = new Map(Object.entries(result.records).map(([key, ids]) => [key, ids.map((id) => result.races.find((race) => race.id === id))])),
       expected = teamRecords(ies, team);
@@ -409,19 +389,13 @@ try {
     assert.ok(data.rows.every((row) => !("rank" in row)));
   });
 
-  await test("enclosing age categories agree across rankings, analysis and records", async () => {
+  await test("enclosing age categories agree across rankings and records", async () => {
     const filters = { ...initialFilters, team, ageGroups: ["13&O"] };
     const rankings = await query("rankings", filters);
     assert.deepEqual(
       rankings.rows.map(({ race }) => race.id),
       [prefix + "old"],
     );
-    const analysis = await query("analysis", {
-      ...filters,
-      raceId: prefix + "old",
-      basis: "bests",
-    });
-    assert.equal(analysis.stats.count, 1);
     const relayFilters = {
       ...filters,
       relay: true,

@@ -383,21 +383,6 @@ export function bestTimes(races: Race[]) {
     (a, b) => a.time - b.time || a.athleteId.localeCompare(b.athleteId),
   );
 }
-export function percentile(time: number, races: Race[]) {
-  const valid = races.filter(validTime);
-  if (!valid.length || !Number.isFinite(time) || time <= 0) return null;
-  const faster = valid.filter((r) => r.time < time).length,
-    tied = valid.filter((r) => r.time === time).length,
-    slower = valid.length - faster - tied;
-  return {
-    value: ((slower + tied / 2) / valid.length) * 100,
-    faster,
-    tied,
-    slower,
-    count: valid.length,
-    rank: faster + 1,
-  };
-}
 export function rankedTimes(
   races: Race[],
   mode: Exclude<Filters["mode"], "recent"> = "bests",

@@ -699,7 +699,9 @@ try {
             25,
           );
           assert.equal(
-            await table.getByRole("button", { name: /^Analyze / }).count(),
+            await table
+              .getByRole("link", { name: /^View Times profile for / })
+              .count(),
             0,
           );
           const before = await table.boundingBox();
@@ -708,7 +710,9 @@ try {
           controls.rankings.release();
           await ready(region, view);
           assert.equal(
-            await table.getByRole("button", { name: /^Analyze / }).count(),
+            await table
+              .getByRole("link", { name: /^View Times profile for / })
+              .count(),
             25,
           );
           assert.equal(
