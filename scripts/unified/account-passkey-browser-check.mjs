@@ -39,6 +39,7 @@ try {
   await page.locator("button[type=submit]").click();
   await page.waitForURL(base + "/tools");
   const account = page.getByRole("region", { name: "Account management", exact: true });
+  await account.getByRole("button", { name: "Account Sign-in Settings", exact: true }).click();
   const verification = page.waitForResponse(response => response.url().endsWith("/auth/v1/passkeys/registration/verify") && response.request().method() === "POST");
   await account.getByRole("button", { name: "Create passkey", exact: true }).click();
   const registered = await verification;

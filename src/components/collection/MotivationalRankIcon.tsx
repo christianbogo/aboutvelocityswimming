@@ -5,6 +5,7 @@ import {
   motivationalRanks,
 } from "./motivational-ranks";
 import s from "./MotivationalRankIcon.module.css";
+import { SkeletonText } from "./LoadingSkeleton";
 
 export function MotivationalRankIcon({
   tier,
@@ -38,14 +39,16 @@ export function RankLegend({
   counts,
   cutoffs,
   description,
+  loading = false,
 }: {
   counts?: Partial<Record<string, number>>;
   cutoffs?: Partial<Record<string, number>>;
   description?: string;
+  loading?: boolean;
 }) {
   return (
     <aside className={s.legend} aria-label="USA Swimming motivational ranks">
-      <ul className={s.ranks}>
+      <ul className={cutoffs ? `${s.ranks} ${s.cutoffs}` : s.ranks}>
         {motivationalRanks.map((rank) => {
           const count = counts ? (counts[rank.tier] ?? 0) : undefined;
           const cutoff = cutoffs?.[rank.tier];
@@ -57,24 +60,40 @@ export function RankLegend({
                   ? formatSwimTime(cutoff)
                   : "—"
                 : undefined;
-          const metricLabel =
-            count !== undefined
+          const metricLabel = loading
+            ? `Loading ${rank.name} rank count`
+            : count !== undefined
               ? `${count} ${rank.name} ranks collected`
               : `${rank.name} cutoff: ${metric === "—" ? "unavailable" : metric}`;
+          const value = (loading || metric !== undefined) && (
+            <span className={s.value} aria-label={metricLabel}>
+              {loading ? <SkeletonText width="1.5ch" /> : metric}
+            </span>
+          );
+          const label = (
+            <span className={s.label}>
+              {rank.name} <strong>{rank.tier}</strong>
+            </span>
+          );
           return (
             <li
               key={rank.tier}
               title={`USA Swimming ${rank.tier} motivational standard${metric !== undefined ? ` · ${metricLabel}` : ""}`}
             >
-              {metric !== undefined && (
-                <span className={s.value} aria-label={metricLabel}>
-                  {metric}
-                </span>
+              {!cutoffs && value}
+              <MotivationalRankIcon
+                tier={rank.tier}
+                size={cutoffs ? 26 : 20}
+                decorative
+              />
+              {cutoffs ? (
+                <div className={s.cutoffText}>
+                  {value}
+                  {label}
+                </div>
+              ) : (
+                label
               )}
-              <MotivationalRankIcon tier={rank.tier} size={20} decorative />
-              <span className={s.label}>
-                {rank.name} <strong>{rank.tier}</strong>
-              </span>
             </li>
           );
         })}

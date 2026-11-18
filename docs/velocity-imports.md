@@ -88,3 +88,22 @@ Rollback-only runs of the same 80 candidates against an isolated database gave t
 The browser smoke test used synthetic rows and verified frozen selection, linked-record approval, and retry after a lost response. A production pilot still needs browser acquisition and end-to-end model token measurements before the production workflow changes.
 
 For rollout, apply the import queue migration before deploying the new review page. Legacy proposals and receipts remain available in Batch review and history. If the app is rolled back, retain the private queue tables so staged rows and approval receipts are available after redeployment.
+
+## GoMotion held observations
+
+Use the retained audit and original GoMotion exports to load the private archive. The loader verifies the receipts, source rows, and workbook checksums. Use the same audit to resume or verify a replay after loading.
+
+```sh
+node scripts/collection/load-held-observations.mjs backups/imports/gomotion-resume-preparation/final-backfill-audit-complete.json --dry-run
+node --env-file-if-exists=.env.collection.local scripts/collection/load-held-observations.mjs backups/imports/gomotion-resume-preparation/final-backfill-audit-complete.json --project YOUR_SUPABASE_PROJECT_REF
+```
+
+Open **Velocity Imports → Held Observations**, select an observation or swimmer group, and choose a profile under **Link swimmer**. **Link swimmer and approve eligible swims** checks the full source swimmer ID across meets and publishes every result that passes. The receipt shows approvals, previously recorded results, and observations that still need review. Keep the page open until the receipt shows the whole group has been checked. If the request is interrupted, resume with the same profile.
+
+Use **Review meet export** to confirm a workbook at the event or round level. Keep the original GoMotion affiliation and confirm historical Barracuda eligibility when it applies. The audit records who made the decision and uses the source already on file.
+
+Use **Review one result** to compare the source, proposed result, and any published result. Approve individually staged times in **Import**. A newly confirmed age or relay lineup is a correction to the existing result and goes through **Batch review and history**.
+
+When staff have verified that the GoMotion export is an official source, use **Accept all GoMotion observations** on **Held Observations**. It takes a snapshot of the archive across all filters and saves progress after each batch. Reopen the page and use **Resume archive acceptance** after an interruption.
+
+The receipt distinguishes newly published Times results, observations already represented by a published result, and **Accepted source only**. Every observation is accepted with its original workbook, row, round, and outcome intact. When the export omitted the official flag, the approval can supply that trust. A canonical result still needs a resolved swimmer or relay, meet, date, event, and race occurrence. A nonfinish, a conflict, or incomplete race information stays in the accepted archive and can be reviewed later. The bulk action does not rewrite existing results.

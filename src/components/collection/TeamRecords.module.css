@@ -4,17 +4,10 @@
 }
 .controls {
   scroll-margin-top: calc(var(--tool-toolbar-height, 0px) + 12px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
   width: 100%;
   max-width: 960px;
   margin: 0 auto 24px;
-}
-.title {
-  font-size: clamp(18px, 3vw, 24px);
-  font-weight: 700;
+  text-align: center;
 }
 .jumpLinks {
   display: grid;
@@ -32,31 +25,49 @@
 .jumpRow + .jumpRow {
   border-top: 1px solid var(--border);
 }
-.jumpLinks a {
+.jumpLinks button {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 38px;
   padding: 6px;
+  border: 0;
   border-radius: 6px;
+  background: none;
   color: var(--text-main);
+  font: inherit;
   font-size: 12px;
   font-weight: 650;
   text-align: center;
-  text-decoration: none;
 }
-.jumpLinks a:hover,
-.jumpLinks a:focus-visible {
+.jumpLinks button:hover,
+.jumpLinks button:focus-visible {
   background: var(--background-alt);
   color: var(--accent);
   text-decoration: underline;
   text-underline-offset: 0.2em;
+}
+.jumpLinks button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--accent);
 }
 .jumpLinks .courseLink {
   justify-content: flex-start;
   padding-inline: 10px;
   color: var(--accent);
   font-weight: 750;
+}
+.renderAll {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 4px;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
 }
 .course,
 .ageSection {
@@ -66,29 +77,6 @@
   width: 100%;
   max-width: 960px;
   margin: 0 auto 36px;
-}
-.courseHeading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 2px solid var(--primary-dark);
-  margin-bottom: 16px;
-}
-.courseHeading h2 {
-  font-size: 22px;
-}
-.courseHeading h2 span {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-muted);
-  margin-left: 8px;
-}
-.courseHeading a {
-  font-size: 12px;
-  color: var(--accent);
-  white-space: nowrap;
 }
 .ageSection {
   margin-bottom: 20px;
@@ -105,11 +93,16 @@
   font-size: 22px;
   margin: 0;
 }
-.tableTitle time {
+.tableTitle time,
+.tableTitle > span {
   display: block;
+  min-height: 18px;
   margin-bottom: 2px;
   font-size: 12px;
   color: var(--text-muted);
+}
+.updatedLine {
+  line-height: 18px;
 }
 .genderLabel {
   font-size: 13px;
@@ -138,7 +131,8 @@ col.boysColumn {
   width: 40%;
 }
 .genderToggle,
-.mobileEvent {
+.mobileEvent,
+.mobileName {
   display: none;
 }
 .table th,
@@ -155,7 +149,7 @@ col.boysColumn {
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 42px;
+  min-height: 48px;
   padding: 10px 12px;
   border: 1px solid var(--record-board-background);
   border-radius: 7px;
@@ -167,15 +161,40 @@ col.boysColumn {
 .recordBoard + .recordBoard {
   margin-top: 6px;
 }
+.recordCell[data-relay="true"] .recordBoard {
+  min-height: 66px;
+}
 .table button.recordBoard:hover {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--record-board-background) 85%, black);
 }
 .recordName {
   min-width: 0;
+  min-height: 20px;
   font-size: 13px;
   font-weight: 650;
   overflow-wrap: anywhere;
+}
+.loadingBoard .recordName,
+.loadingBoard .time,
+.loadingBoard .recordYear {
+  display: flex;
+  align-items: center;
+}
+.loadingBoard .time,
+.loadingBoard .recordYear {
+  justify-content: flex-end;
+}
+.relayNameSkeleton {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 12px;
+  width: 100%;
+}
+.relayNameSkeleton > span {
+  display: flex;
+  align-items: center;
+  min-height: 19.5px;
 }
 .recordName ul {
   color: inherit;
@@ -197,6 +216,7 @@ col.boysColumn {
   color: white;
   font: inherit;
   font-size: 15px;
+  min-height: 23px;
   font-weight: 750;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -206,6 +226,7 @@ col.boysColumn {
   text-decoration: underline;
 }
 .recordYear {
+  min-height: 17px;
   font-size: 11px;
   color: #ffffffc4;
   font-variant-numeric: tabular-nums;
@@ -301,9 +322,59 @@ col.boysColumn {
   .event {
     text-align: left;
   }
+  .mobileEvent {
+    position: relative;
+  }
+  .mobileEvent > span {
+    position: absolute;
+    inset: var(--cell-padding-block) var(--cell-padding-inline);
+  }
   .event > span {
     justify-content: flex-start;
-    padding-inline: 10px;
+    padding-inline: 14px;
+  }
+  .fullName {
+    display: none;
+  }
+  .mobileName {
+    display: inline;
+  }
+  .table .recordBoard {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 3px 8px;
+    min-height: 62px;
+  }
+  .recordCell[data-relay="true"] .recordBoard {
+    min-height: 85px;
+  }
+  .recordName {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .recordYear {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: right;
+  }
+  .recordBoard .time,
+  .table .recordBoard button.time {
+    grid-column: 3;
+    grid-row: 1;
+    text-align: right;
+  }
+  .recordCell[data-relay="true"] .recordBoard {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .recordCell[data-relay="true"] .recordName {
+    grid-row: 1 / 3;
+  }
+  .recordCell[data-relay="true"] .recordYear {
+    align-self: end;
+  }
+  .recordCell[data-relay="true"] .recordBoard .time {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: start;
   }
 }
 @container times-workspace (max-width: 540px) {
@@ -316,12 +387,6 @@ col.boysColumn {
   .jumpLinks .courseLink {
     grid-column: 1 / -1;
   }
-  .courseHeading {
-    flex-wrap: wrap;
-  }
-  .courseHeading h2 {
-    font-size: 20px;
-  }
   .table {
     --cell-padding-block: 4px;
     --cell-padding-inline: 3px;
@@ -330,28 +395,10 @@ col.boysColumn {
     font-size: 18px;
   }
   .table .recordBoard {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 4px 10px;
     padding: 8px 10px;
   }
-  .recordBoard > :first-child {
-    grid-column: 1 / -1;
-  }
-  .recordBoard .time,
-  .table .recordBoard button.time {
-    text-align: left;
-  }
   .event > span {
-    padding-inline: 6px;
+    padding-inline: 12px;
     overflow-wrap: anywhere;
   }
-}
-
-.lineup {
-  display: block;
-  white-space: normal;
-  font-size: 10px;
-  line-height: 1.5;
-  color: #ffffffc4;
-  margin-top: 4px;
 }

@@ -4,11 +4,12 @@ import { BookmarkPlus, ChevronDown, Pencil } from "lucide-react";
 import { useAuth } from "@/features/workshare/contexts/auth";
 import { browserClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
-import { initialFilters, type Filters } from "./times-data";
+import { eventLabel, initialFilters, rounds, type Filters } from "./times-data";
 import { timesUrl } from "./times-api";
 import { readTimesSelection } from "./times-url-state";
 import s from "./RankingFilters.module.css";
 import times from "./TimesDatabase.module.css";
+import { SkeletonText } from "./LoadingSkeleton";
 
 type Bookmark = Pick<
   Database["public"]["Tables"]["times_ranking_bookmarks"]["Row"],
@@ -21,6 +22,7 @@ interface Props {
   search: string;
   onApply: (filters: Filters, search: string) => void;
   children: ReactNode;
+  initialOpen?: boolean;
 }
 
 function filterKey(filters: Filters, search: string) {
@@ -28,6 +30,26 @@ function filterKey(filters: Filters, search: string) {
     ...filters,
     search: search.trim().toLowerCase(),
   });
+}
+
+function selectionName(filters: Filters, search: string) {
+  return [
+    filters.event ? eventLabel(filters.event) : "All events",
+    filters.course || "All courses",
+    filters.genders
+      .map((gender) => ({ F: "Girls", M: "Boys", X: "Mixed" })[gender])
+      .join(" / "),
+    filters.ageGroups.length ? filters.ageGroups.join(", ") : "All ages",
+    filters.year ||
+      (filters.startDate || filters.endDate
+        ? `${filters.startDate || "All dates"}–${filters.endDate || "Present"}`
+        : "All-time"),
+    filters.round ? rounds[filters.round] || filters.round : "",
+    search.trim(),
+  ]
+    .filter(Boolean)
+    .join(" · ")
+    .slice(0, 60);
 }
 
 export default function RankingFilters(props: Props) {
@@ -42,15 +64,29 @@ export default function RankingFilters(props: Props) {
   );
 }
 
+export function RankingFiltersSkeleton() {
+  return (
+    <div className={s.heading} aria-hidden="true">
+      <span className={s.toggle}>
+        <SkeletonText width={100} height={13} />
+      </span>
+      <span className={s.save}>
+        <SkeletonText width={152} height={13} />
+      </span>
+    </div>
+  );
+}
+
 function RankingFilterPanel({
   filters,
   search,
   onApply,
   children,
+  initialOpen = true,
   userId,
   authLoading,
 }: Props & { userId?: string; authLoading: boolean }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(initialOpen);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [listStatus, setListStatus] = useState<"loading" | "ready" | "error">(
     "loading",
@@ -92,7 +128,7 @@ function RankingFilterPanel({
 
   function openEditor(bookmark: Bookmark | null) {
     setEditing(bookmark);
-    setName(bookmark?.name ?? "");
+    setName(bookmark?.name ?? selectionName(filters, search));
     setError("");
     dialog.current?.showModal();
     nameInput.current?.focus();
@@ -149,34 +185,6 @@ function RankingFilterPanel({
   const active = filterKey(filters, search);
   return (
     <section aria-label="Event ranking filters">
-      {bookmarks.length > 0 && (
-        <ul className={s.bookmarks} aria-label="Bookmarked filters">
-          {bookmarks.map((bookmark) => {
-            const saved = readTimesSelection(
-              JSON.stringify(bookmark.filters),
-              initialFilters,
-            );
-            return (
-              <li className={s.chip} key={bookmark.id}>
-                <button
-                  type="button"
-                  aria-pressed={active === filterKey(saved, bookmark.search)}
-                  onClick={() => onApply(saved, bookmark.search)}
-                >
-                  {bookmark.name}
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Edit bookmark ${bookmark.name}`}
-                  onClick={() => openEditor(bookmark)}
-                >
-                  <Pencil size={14} aria-hidden="true" />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
       {userId && listStatus === "error" && (
         <p className={times.notice} role="alert">
           Couldn’t load your bookmarks.{" "}
@@ -204,23 +212,53 @@ function RankingFilterPanel({
           <ChevronDown size={17} aria-hidden="true" />
           Event filters
         </button>
-        {open &&
-          !authLoading &&
-          (userId ? (
+        <div className={s.bookmarkActions}>
+          {bookmarks.length > 0 && (
+            <ul className={s.bookmarks} aria-label="Bookmarked selections">
+              {bookmarks.map((bookmark) => {
+                const saved = readTimesSelection(
+                  JSON.stringify(bookmark.filters),
+                  initialFilters,
+                );
+                return (
+                  <li className={s.chip} key={bookmark.id}>
+                    <button
+                      type="button"
+                      aria-pressed={
+                        active === filterKey(saved, bookmark.search)
+                      }
+                      onClick={() => onApply(saved, bookmark.search)}
+                    >
+                      {bookmark.name}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Edit bookmark ${bookmark.name}`}
+                      onClick={() => openEditor(bookmark)}
+                    >
+                      <Pencil size={14} aria-hidden="true" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {authLoading || userId ? (
             <button
               type="button"
               className={s.save}
-              disabled={listStatus !== "ready"}
+              disabled={authLoading || listStatus !== "ready"}
               onClick={() => openEditor(null)}
             >
               <BookmarkPlus size={16} aria-hidden="true" />
-              Bookmark filters
+              Bookmark Selection
             </button>
           ) : (
             <Link className={times.link} href="/login">
-              Sign in to bookmark filters
+              Sign in to bookmark selection
             </Link>
-          ))}
+          )}
+        </div>
       </div>
       <div id={`${id}-controls`} hidden={!open}>
         {children}
@@ -243,7 +281,7 @@ function RankingFilterPanel({
           }}
         >
           <h2 id={`${id}-title`}>
-            {editing ? "Rename bookmark" : "Bookmark filters"}
+            {editing ? "Rename bookmark" : "Bookmark Selection"}
           </h2>
           <label className={times.field}>
             Bookmark name

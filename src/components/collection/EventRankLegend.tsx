@@ -39,10 +39,8 @@ export default function EventRankLegend({
   );
   const description = filters.relay
     ? "Motivational cutoffs are unavailable for relay events."
-    : !singleCohort
-      ? "Select one age group and gender to see rank cutoffs."
-      : !cuts?.length
-        ? "No current motivational cutoffs are available for this selection."
-        : undefined;
+    : singleCohort && !cuts?.length
+      ? "No current motivational cutoffs are available for this selection."
+      : undefined;
   return <RankLegend cutoffs={cutoffs} description={description} />;
 }

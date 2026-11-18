@@ -1,8 +1,24 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import type { TimesResponse } from "./times-api";
 import { timesCache as cache, timesGeneration } from "./times-cache";
 import { loadTimes } from "./load-times";
+const cacheChangedEvent = "ies-times-cache";
+function subscribeCache(onChange: () => void) {
+  window.addEventListener(cacheChangedEvent, onChange);
+  window.addEventListener("ies-times-changed", onChange);
+  return () => {
+    window.removeEventListener(cacheChangedEvent, onChange);
+    window.removeEventListener("ies-times-changed", onChange);
+  };
+}
+function readFreshCache(key: string) {
+  const cached = cache.get(key);
+  return cached && cached.expiresAt > Date.now() ? cached : null;
+}
+function serverCache() {
+  return null;
+}
 export function useDebouncedSearch(value: string) {
   const [search, setSearch] = useState(value);
   useEffect(() => {
@@ -13,6 +29,11 @@ export function useDebouncedSearch(value: string) {
 }
 export function useTimes(url: string | null, enabled = true) {
   const cacheKey = `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}|${url}`;
+  const cached = useSyncExternalStore(
+    subscribeCache,
+    () => (url ? readFreshCache(cacheKey) : null),
+    serverCache,
+  );
   const [state, setState] = useState<{
     url: string | null;
     data: TimesResponse | null;
@@ -38,6 +59,7 @@ export function useTimes(url: string | null, enabled = true) {
             return;
           cache.set(cacheKey, data);
           if (cache.size > 128) cache.delete(cache.keys().next().value!);
+          window.dispatchEvent(new Event(cacheChangedEvent));
         }
         if (!controller.signal.aborted) {
           setState({ url, data, error: "" });
@@ -62,10 +84,15 @@ export function useTimes(url: string | null, enabled = true) {
       window.removeEventListener("ies-times-changed", changed);
     };
   }, [url, cacheKey, attempt, enabled]);
-  const data = url && state.url === url ? state.data : null;
-  const error = url && state.url === url ? state.error : "";
+  // A return visit can paint a fresh cache entry immediately, rather than
+  // flashing a skeleton until the effect runs. Never reuse another query's data.
+  const data = cached ?? (url && state.url === url ? state.data : null);
+  const error = url && state.url === url && !data ? state.error : "";
   return {
     data,
+    // Previous results describe placeholder geometry only, not current results.
+    placeholderData: state.data,
+    placeholderUrl: state.url,
     placeholderRowCount: state.data?.rows?.length,
     error,
     loading: Boolean(enabled && url && !data && !error),

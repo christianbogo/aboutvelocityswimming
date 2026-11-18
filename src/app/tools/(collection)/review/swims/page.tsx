@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   InventoryField,
   InventoryFilters,
@@ -10,6 +11,7 @@ import {
 import styles from "@/components/collection/ImportsInventory.module.css";
 import { eventLabel, rounds } from "@/components/collection/times-data";
 import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
+import { heldObservationsHref } from "@/lib/collection/held-observations";
 import { getInventoryStaffClient } from "@/lib/collection/inventory-staff";
 import {
   readSwimInventory,
@@ -150,7 +152,12 @@ export default async function SwimsPage({ searchParams }: { searchParams: Promis
                   <td className={splits === "Complete" || row.status !== "OK" ? undefined : styles.missing}>{splits}</td>
                   {relays && <td className={lineup === "Complete" ? undefined : styles.missing}>{lineup}</td>}
                   <td><Source url={row.source_url} method={row.source_method} /></td>
-                  <td><code className={styles.cellText} title={row.id}>{row.id}</code></td>
+                  <td>
+                    <code className={styles.cellText} title={row.id}>{row.id}</code>
+                    {row.status === "OK" && official === "Yes" && <Link prefetch={false}
+                      href={`${heldObservationsHref}?correct=${relays ? "relay" : "swim"}&recordId=${encodeURIComponent(row.id)}`}
+                      aria-label={`Correct details for ${swimmer}, ${event}`}>Correct details</Link>}
+                  </td>
                 </tr>
               );
             })}

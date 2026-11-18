@@ -314,6 +314,9 @@ export function Login() {
               <Button type="submit" variant="primary" size="lg" className="w-full mt-2" disabled={loading || providerLoading !== null || passkeyLoading}>
                 {loading ? "Signing in..." : "Sign In with Password"}
               </Button>
+              <p className="text-xs leading-relaxed text-text-secondary">
+                To set or reset your password, sign in with an email code or Google, then open Account Sign-in Settings on your Account page.
+              </p>
             </form>
           )}
 

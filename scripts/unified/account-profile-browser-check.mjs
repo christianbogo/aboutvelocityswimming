@@ -70,15 +70,22 @@ try {
   assert.equal(await navigation.locator(":scope > ul").evaluate(element => getComputedStyle(element).borderTopWidth), "0px");
   assert.equal(await account.getByLabel("Username", { exact: true }).count(), 0);
   assert.equal(await account.getByLabel("Choose profile picture", { exact: true }).count(), 0);
-  for (const provider of ["Google", "Apple", "Microsoft"]) {
-    await account.getByRole("button", { name: `Link ${provider}`, exact: true }).waitFor();
+  const signInSettings = account.getByRole("button", { name: "Account Sign-in Settings", exact: true });
+  assert.equal(await signInSettings.getAttribute("aria-expanded"), "false");
+  await signInSettings.click();
+  await account.getByRole("button", { name: "Link Google", exact: true }).waitFor();
+  for (const provider of ["Apple", "Microsoft"]) {
+    assert.equal(await account.getByRole("button", { name: `Link ${provider}`, exact: true }).count(), 0);
   }
   await account.getByRole("button", { name: "Create passkey", exact: true }).waitFor();
 
   const main = page.getByRole("main");
   const about = main.getByRole("region", { name: "About the tools", exact: true });
   for (const [name, description] of [
-    ["Velocity Times", /approved results and time standards/],
+    ["Times", /primary and favorite athletes/],
+    ["Rankings", /Compare swimmers by event/],
+    ["Records", /Browse team records/],
+    ["Standards", /Look up qualifying times/],
     ["Velocity Workshare", /volunteer opportunities/],
     ["Velocity Imports", /review proposed changes/],
   ]) {
@@ -118,14 +125,10 @@ try {
   await following.getByRole("button", { name: "Retry search", exact: true }).click();
   await following.getByRole("button", { name: `Select ${athletes[0].name} as primary athlete`, exact: true }).waitFor();
   await choosePrimary(athletes[0]);
-  assert.ok(await save.isVisible());
-  await following.getByRole("button", { name: "Discard changes", exact: true }).click();
-  assert.equal(await primaryRemove(athletes[0]).count(), 0);
-  assert.equal(await save.count(), 0, "Discard returns to the stored selection");
-  await choosePrimary(athletes[0]);
+  await saved.waitFor();
+  assert.equal(await save.count(), 0, "Athlete changes save automatically");
   await addFavorite(athletes[1]);
   await addFavorite(athletes[2]);
-  await save.click();
   await saved.waitFor();
   assert.deepEqual(await readSelections(), athletes.map((athlete, index) => ({ athlete_id: athlete.id, is_primary: index === 0 })));
   await page.reload();
@@ -140,29 +143,28 @@ try {
   await choosePrimary(athletes[1]);
   assert.equal(await favoriteRemove(athletes[1]).count(), 0, "Promoting a favorite keeps primary and favorites distinct");
   assert.equal(await primaryRemove(athletes[0]).count(), 0, "Only one primary athlete can be selected");
-  await following.getByRole("button", { name: "Discard changes", exact: true }).click();
-  await primaryRemove(athletes[0]).waitFor();
-  await favoriteRemove(athletes[1]).waitFor();
+  await saved.waitFor();
+  await choosePrimary(athletes[0]);
+  await addFavorite(athletes[1]);
+  await saved.waitFor();
 
   const saveRequests = "**/rest/v1/rpc/save_account_athletes";
   await page.route(saveRequests, (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ message: "Synthetic save failure" }) }));
   await favoriteRemove(athletes[2]).click();
-  await save.click();
   await following.getByRole("alert").filter({ hasText: /couldn.t save/i }).waitFor();
   assert.equal(await favoriteRemove(athletes[2]).count(), 0, "Failed saves preserve the draft");
   assert.equal((await readSelections()).length, 3, "Failed saves preserve stored selections");
   await page.unroute(saveRequests);
-  await save.click();
+  await following.getByRole("button", { name: "Retry saving athletes", exact: true }).click();
   await saved.waitFor();
   assert.equal((await readSelections()).length, 2);
   await addFavorite(athletes[2]);
-  await save.click();
   await saved.waitFor();
 
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: "/tmp/velocity-account-desktop.png", fullPage: true, animations: "disabled" });
-  await navigation.getByRole("link", { name: "Velocity Times", exact: true }).click();
-  await page.waitForURL(base + "/tools/times/overview");
+  await navigation.getByRole("link", { name: "Times", exact: true }).click();
+  await page.waitForURL(base + "/tools/my-times");
   await accountLink.click();
   await page.waitForURL(base + "/tools");
   await primaryRemove(athletes[0]).waitFor();
@@ -177,7 +179,6 @@ try {
   await primaryRemove(athletes[0]).click();
   await favoriteRemove(athletes[1]).click();
   await favoriteRemove(athletes[2]).click();
-  await save.click();
   await saved.waitFor();
   assert.deepEqual(await readSelections(), [], "Primary and favorites can all be cleared");
   await page.reload();
@@ -191,7 +192,7 @@ try {
   await page.getByText("Tools are temporarily locked", { exact: true }).waitFor();
   assert.equal(await account.count(), 0);
   assert.deepEqual(errors, []);
-  console.log("Verified account sign-in controls, conditional sample family, primary and multiple favorite athletes, save/reload, discard, failed-save retry, removal, responsive/dark layouts, navigation, and sign-out.");
+  console.log("Verified account sign-in controls, conditional sample family, primary and multiple favorite athletes, autosave/reload, failed-save retry, removal, responsive/dark layouts, navigation, and sign-out.");
 } finally {
   await browser.close();
   assert.ifError((await admin.from("account_followed_athletes").delete().eq("user_id", user.id)).error);

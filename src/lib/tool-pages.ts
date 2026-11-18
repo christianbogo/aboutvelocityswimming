@@ -1,4 +1,5 @@
 import {
+  Archive,
   Briefcase,
   ClipboardList,
   Home,
@@ -7,12 +8,9 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { timesViewHref } from "@/components/collection/times-url-state";
 import { worksharePath } from "@/features/workshare/lib/routes";
 import {
-  timesViews,
   toolDirectory,
-  type TimesView,
   type ToolId,
 } from "./tool-directory";
 
@@ -26,30 +24,17 @@ export type ToolPage = {
   activePaths?: readonly string[];
 };
 
-const timesDescriptions: Record<TimesView, string> = {
-  "my-times":
-    "Follow your primary and favorite athletes’ best times, motivational ranks, and all-time team rankings.",
-  rankings:
-    "Compare swimmers by event, age, and course, and explore performance rankings.",
-  records: "Browse team records and the swimmers behind the fastest times.",
-  standards:
-    "Look up qualifying times and see how swims compare with time standards.",
-};
-
 // Keep landing-page summaries and sidebar destinations in sync.
 export function getToolPages(
   tool: ToolId,
   workshareAdmin: boolean,
 ): ToolPage[] {
   switch (tool) {
-    case "times":
-      return timesViews.map(([id, label, icon]) => ({
-        id,
-        label,
-        icon,
-        description: timesDescriptions[id],
-        href: timesViewHref(id),
-      }));
+    case "my-times":
+    case "rankings":
+    case "records":
+    case "standards":
+      return [];
     case "workshare":
       return [
         {
@@ -123,6 +108,13 @@ export function getToolPages(
           activePaths: [`${href}/batches`],
           description:
             "Resolve import issues and review meets and results before publishing them.",
+        },
+        {
+          id: "held-observations",
+          label: "Held Observations",
+          icon: Archive,
+          href: `${href}/held-observations`,
+          description: "Review historical source results and send verified times for approval.",
         },
         {
           id: "viewer",

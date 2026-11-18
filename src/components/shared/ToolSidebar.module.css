@@ -26,12 +26,6 @@
   overflow: hidden;
 }
 
-.sidebar[data-collapsed="true"] {
-  width: 0;
-  visibility: hidden;
-  border-right: 0;
-}
-
 .sidebar[data-dragging="true"] {
   transition: none;
 }
@@ -62,6 +56,14 @@
   object-position: left center;
 }
 
+.fullLogo {
+  display: block;
+}
+
+.railLogo {
+  display: none;
+}
+
 .navigation {
   flex: 1;
   min-height: 0;
@@ -71,7 +73,6 @@
 }
 
 .frame .item,
-.frame .expand,
 .frame .mobileToggle {
   display: flex;
   align-items: center;
@@ -113,13 +114,12 @@
   box-shadow: var(--shadow-sm);
 }
 
-.frame .expand:hover,
 .frame .mobileToggle:hover {
   border-color: var(--accent);
   color: var(--accent);
 }
 
-.frame :is(.item, .expand, .mobileToggle) svg {
+.frame :is(.item, .mobileToggle) svg {
   flex: none;
   width: 1.125rem;
   height: 1.125rem;
@@ -189,18 +189,6 @@
   border-top: 1px solid var(--border);
 }
 
-.frame .expand {
-  position: fixed;
-  z-index: 40;
-  bottom: 1rem;
-  left: 1rem;
-  border: 1px solid var(--border);
-  border-radius: .75rem;
-  padding: .55rem .75rem;
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-}
-
 .resize {
   position: absolute;
   inset: 0 0 0 auto;
@@ -232,6 +220,61 @@
 
 .frame :is(.mobileHeader, .backdrop) {
   display: none;
+}
+
+@media (width >= 768px) {
+  .sidebar[data-collapsed="true"] {
+    width: 4.5rem;
+  }
+
+  .sidebar[data-collapsed="true"] .sidebarInner {
+    width: 4.5rem;
+  }
+
+  .sidebar[data-collapsed="true"] .brand {
+    display: flex;
+    justify-content: center;
+    padding: 1.25rem .625rem .5rem;
+  }
+
+  .sidebar[data-collapsed="true"] .brand > :not(.logo),
+  .sidebar[data-collapsed="true"] .fullLogo,
+  .sidebar[data-collapsed="true"] .item > span {
+    display: none;
+  }
+
+  .sidebar[data-collapsed="true"] .logo {
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: .75rem;
+    color: var(--accent);
+  }
+
+  .sidebar[data-collapsed="true"] .railLogo {
+    display: block;
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  .sidebar[data-collapsed="true"] :is(.navigation, .footer) {
+    padding: .625rem;
+  }
+
+  .sidebar[data-collapsed="true"] .item {
+    justify-content: center;
+    gap: 0;
+    min-height: 2.75rem;
+    padding: .625rem;
+  }
+
+  .sidebar[data-collapsed="true"] .subpages {
+    margin: .375rem 0 .5rem;
+    padding: .375rem 0 0;
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
 }
 
 @media (width < 768px) {
@@ -311,7 +354,7 @@
     width: 100%;
   }
 
-  .frame :is(.expand, .resize) {
+  .frame .resize {
     display: none;
   }
 

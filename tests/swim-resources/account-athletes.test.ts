@@ -11,6 +11,7 @@ import {
   loadAccountAthletes,
   saveAccountAthletes,
   searchAccountAthletes,
+  cachedAccountAthletes,
 } from "@/lib/account-athletes";
 
 const swimmer = {
@@ -41,6 +42,24 @@ it("loads account-specific primary and favorite athletes", async () => {
   });
   expect(mocks.rpc).toHaveBeenCalledWith("get_account_athletes", {
     account_user_id: "owner",
+  });
+});
+
+it("keeps return-visit snapshots account-scoped and replaces them after a successful save", async () => {
+  const saved = await loadAccountAthletes("loading-owner");
+  expect(cachedAccountAthletes("loading-owner")).toEqual(saved);
+  expect(cachedAccountAthletes("another-loading-owner")).toBeUndefined();
+  mocks.rpc.mockResolvedValueOnce({ data: null, error: new Error("offline") });
+  await expect(loadAccountAthletes("loading-owner")).rejects.toThrow("offline");
+  expect(cachedAccountAthletes("loading-owner")).toEqual(saved);
+  mocks.rpc.mockResolvedValueOnce({ data: [], error: null });
+  await saveAccountAthletes("loading-owner", {
+    primaryAthlete: null,
+    favoriteAthletes: [],
+  });
+  expect(cachedAccountAthletes("loading-owner")).toEqual({
+    primaryAthlete: null,
+    favoriteAthletes: [],
   });
 });
 

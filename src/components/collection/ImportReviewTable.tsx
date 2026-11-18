@@ -109,8 +109,9 @@ export function importSelectionCount(selection: ImportTableSelection) {
   return (selection.snapshot?.count ?? 0) + selection.ids.size - selection.excluded.size;
 }
 
-export function ImportReviewTable({ kind, selection, revision, busy, onSelection, onMatch, onDetails }: {
+export function ImportReviewTable({ kind, initialBatchId, selection, revision, busy, onSelection, onMatch, onDetails }: {
   kind: ImportTableKind;
+  initialBatchId?: string;
   selection: ImportTableSelection;
   revision: number;
   busy: boolean;
@@ -118,7 +119,7 @@ export function ImportReviewTable({ kind, selection, revision, busy, onSelection
   onMatch: (match: ImportMatch) => void;
   onDetails: (row: ImportQueueRow) => void;
 }) {
-  const [query, setQuery] = useState<Query>(initialQuery);
+  const [query, setQuery] = useState<Query>(() => initialBatchId ? { ...initialQuery, batchId: initialBatchId } : initialQuery);
   const [retry, setRetry] = useState(0);
   const [loaded, setLoaded] = useState<QueueLoad>();
   const hasFilters = Boolean(query.search || query.batchId);

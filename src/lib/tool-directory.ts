@@ -2,7 +2,6 @@ import {
   BarChart3,
   Briefcase,
   ClipboardList,
-  CircleUserRound,
   Timer,
   Trophy,
   type LucideIcon,
@@ -17,13 +16,44 @@ type Tool = {
   adminOnly?: boolean;
 };
 
+export const timesViewPaths = {
+  "my-times": "/tools/my-times",
+  rankings: "/tools/rankings",
+  records: "/tools/records",
+  standards: "/tools/standards",
+} as const;
+
 export const toolDirectory = {
-  times: {
-    title: "Velocity Times",
+  "my-times": {
+    title: "Times",
     description:
-      "Explore approved results and time standards for Velocity Swimming athletes wherever they compete.",
-    href: "/tools/times",
-    homeHref: "/tools/times/overview",
+      "Follow your primary and favorite athletes’ best times, motivational ranks, and all-time team rankings.",
+    href: timesViewPaths["my-times"],
+    homeHref: timesViewPaths["my-times"],
+    icon: Timer,
+  },
+  rankings: {
+    title: "Rankings",
+    description:
+      "Compare swimmers by event, age, and course, and explore performance rankings.",
+    href: timesViewPaths.rankings,
+    homeHref: timesViewPaths.rankings,
+    icon: BarChart3,
+  },
+  records: {
+    title: "Records",
+    description:
+      "Browse team records and the swimmers behind the fastest times.",
+    href: timesViewPaths.records,
+    homeHref: timesViewPaths.records,
+    icon: Trophy,
+  },
+  standards: {
+    title: "Standards",
+    description:
+      "Look up qualifying times and see how swims compare with time standards.",
+    href: timesViewPaths.standards,
+    homeHref: timesViewPaths.standards,
     icon: Timer,
   },
   workshare: {
@@ -53,7 +83,7 @@ export function getAvailableTools(isAdmin: boolean) {
 }
 
 export const timesViews = [
-  ["my-times", "Times", CircleUserRound],
+  ["my-times", "Times", Timer],
   ["rankings", "Rankings", BarChart3],
   ["records", "Records", Trophy],
   ["standards", "Standards", Timer],

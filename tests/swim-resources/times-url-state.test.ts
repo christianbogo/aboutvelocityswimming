@@ -7,6 +7,30 @@ import {
 } from "@/components/collection/times-url-state";
 
 describe("shared times selections", () => {
+  it("uses separate tool pages and clears ranking state when changing tools", () => {
+    for (const [view, path] of [
+      ["my-times", "/tools/my-times"],
+      ["rankings", "/tools/rankings"],
+      ["records", "/tools/records"],
+      ["standards", "/tools/standards"],
+    ] as const) {
+      const url = new URL(
+        timesViewHref(
+          view,
+          "view=records&page=4&search=Avery&source=shared&standardCourse=LCM&eventFilters=closed",
+          "#results",
+        ),
+        "https://example.com",
+      );
+      expect(url.pathname).toBe(path);
+      for (const key of ["view", "page", "search", "eventFilters"]) {
+        expect(url.searchParams.has(key)).toBe(false);
+      }
+      expect(url.searchParams.get("standardCourse")).toBe("LCM");
+      expect(url.searchParams.get("source")).toBe("shared");
+      expect(url.hash).toBe("#results");
+    }
+  });
   it("upgrades older bookmarks and preserves season ranges through sharing", () => {
     const legacy = { ...initialFilters, year: "2025", ageGroups: ["11-12"] };
     delete legacy.startDate;

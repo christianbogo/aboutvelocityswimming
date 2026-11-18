@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Waves } from "lucide-react";
 import {
   useEffect,
   useId,
@@ -80,7 +80,6 @@ export default function ToolSidebar({
   const sidebarId = useId();
   const sidebar = useRef<HTMLElement>(null);
   const mobileToggle = useRef<HTMLButtonElement>(null);
-  const desktopExpand = useRef<HTMLButtonElement>(null);
   const collapseButton = useRef<HTMLButtonElement>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsedOverride, setCollapsedOverride] = useState<boolean>();
@@ -103,7 +102,7 @@ export default function ToolSidebar({
         setCollapsedOverride(true);
         savePreference(collapseStorageKey, "true");
         stop();
-        requestAnimationFrame(() => desktopExpand.current?.focus());
+        requestAnimationFrame(() => collapseButton.current?.focus());
         return;
       }
       const limit = Math.min(maxWidth, Math.floor(window.innerWidth / 2));
@@ -151,8 +150,8 @@ export default function ToolSidebar({
       event.preventDefault();
       setCollapsedOverride(!collapsed);
       savePreference(collapseStorageKey, String(!collapsed));
-      if (sidebar.current?.contains(document.activeElement) || document.activeElement === desktopExpand.current) {
-        requestAnimationFrame(() => (collapsed ? collapseButton : desktopExpand).current?.focus());
+      if (sidebar.current?.contains(document.activeElement)) {
+        requestAnimationFrame(() => collapseButton.current?.focus());
       }
     }
     breakpoint.addEventListener("change", resetDrawer);
@@ -166,7 +165,7 @@ export default function ToolSidebar({
   function setDesktopCollapsed(next: boolean) {
     setCollapsedOverride(next);
     savePreference(collapseStorageKey, String(next));
-    requestAnimationFrame(() => (next ? desktopExpand : collapseButton).current?.focus());
+    requestAnimationFrame(() => collapseButton.current?.focus());
   }
 
   function closeMobile() {
@@ -190,7 +189,7 @@ export default function ToolSidebar({
 
   function collapseSidebar() {
     if (window.matchMedia(mobileQuery).matches) closeMobile();
-    else setDesktopCollapsed(true);
+    else setDesktopCollapsed(!collapsed);
   }
 
   function resizeWithKeyboard(event: KeyboardEvent<HTMLDivElement>) {
@@ -229,19 +228,6 @@ export default function ToolSidebar({
         <span className={styles.mobileTitle}>{title}</span>
       </header>
       {mobileOpen && <button type="button" className={styles.backdrop} tabIndex={-1} aria-label="Dismiss navigation sidebar" onClick={closeMobile} />}
-      {collapsed && (
-        <button
-          type="button"
-          className={styles.expand}
-          ref={desktopExpand}
-          aria-controls={sidebarId}
-          aria-expanded={false}
-          aria-label="Open navigation sidebar"
-          onClick={() => setDesktopCollapsed(false)}
-        >
-          <PanelLeftOpen aria-hidden="true" />Expand
-        </button>
-      )}
       <aside
         id={sidebarId}
         ref={sidebar}
@@ -258,7 +244,10 @@ export default function ToolSidebar({
       >
         <div className={styles.sidebarInner}>
           <div className={styles.brand}>
-            <Link href="/tools" className={styles.logo} aria-label="Velocity Tools">{logo}</Link>
+            <Link href="/tools" className={styles.logo} aria-label="Velocity Tools" title="Velocity Tools">
+              <span className={styles.fullLogo}>{logo}</span>
+              <Waves className={styles.railLogo} aria-hidden="true" />
+            </Link>
             {badge}
           </div>
           <nav className={styles.navigation} aria-label="Tools navigation">
@@ -271,11 +260,13 @@ export default function ToolSidebar({
                 className={`${styles.item} ${styles.footerAction}`}
                 ref={collapseButton}
                 aria-controls={sidebarId}
-                aria-expanded={true}
-                aria-label="Collapse navigation sidebar"
+                aria-expanded={!collapsed || mobileOpen}
+                aria-label={collapsed && !mobileOpen ? "Open navigation sidebar" : "Collapse navigation sidebar"}
+                title={collapsed && !mobileOpen ? "Expand navigation sidebar" : "Collapse navigation sidebar"}
                 onClick={collapseSidebar}
               >
-                <PanelLeftClose aria-hidden="true" />Collapse
+                {collapsed && !mobileOpen ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
+                <span>{collapsed && !mobileOpen ? "Expand" : "Collapse"}</span>
               </button>,
             )}
           </div>

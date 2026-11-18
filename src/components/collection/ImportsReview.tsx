@@ -341,7 +341,7 @@ function ApprovalPreview({ selection, linkedMeet, onClose, onApprove }: {
   );
 }
 
-export default function ImportsReview() {
+export default function ImportsReview({ initialSwimsBatchId }: { initialSwimsBatchId?: string }) {
   const [selection, setSelection] = useState(emptySelections);
   const [revision, setRevision] = useState(0);
   const [working, setWorking] = useState<"selection" | "preview" | "approval" | null>(null);
@@ -568,6 +568,7 @@ export default function ImportsReview() {
         <ImportReviewTable
           key={kind}
           kind={kind}
+          initialBatchId={kind === "swims" ? initialSwimsBatchId : undefined}
           selection={selection[kind]}
           revision={revision}
           busy={busy}

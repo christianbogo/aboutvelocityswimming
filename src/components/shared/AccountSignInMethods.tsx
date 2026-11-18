@@ -22,6 +22,7 @@ import {
   type AccountProvider,
 } from "@/lib/account-security";
 import { Button } from "./Button";
+import AccountPassword from "./AccountPassword";
 
 export default function AccountSignInMethods({
   userId,
@@ -134,7 +135,7 @@ export default function AccountSignInMethods({
       <p className="mt-1 text-sm text-text-secondary">
         Link another way to sign in to the same Velocity account.
       </p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+      <div className="mt-4 grid max-w-sm gap-3">
         {accountProviders.map((provider) => {
           const linked = identities?.find(
             (identity) => identity.provider === provider.id,
@@ -179,6 +180,7 @@ export default function AccountSignInMethods({
           {identityError}
         </p>
       )}
+      <AccountPassword emailVerified={emailVerified} />
       <div className="mt-5 rounded-xl border border-border bg-bg/50 p-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-start gap-3">

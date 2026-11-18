@@ -391,7 +391,7 @@ function BatchDetails({ id, showCounts = false }: { id: string; showCounts?: boo
     </div>}
   </details>;
 }
-export default function ReviewQueue() {
+export default function ReviewQueue({ initialBatchSearch = "" }: { initialBatchSearch?: string }) {
   const { isAdmin, loading: authLoading } = useAuth();
   const [snapshot, setSnapshot] = useState<ReviewQueueSnapshot | null>(null);
   const [historyPage, setHistoryPage] = useState<ReviewHistoryPage | null>(null);
@@ -399,7 +399,7 @@ export default function ReviewQueue() {
   const loadController = useRef<AbortController | null>(null);
   const [status, setStatus] = useState("pending");
   const [offset, setOffset] = useState(0);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialBatchSearch);
   const activeQueue = ["pending", "held"].includes(status);
   const historySearch = activeQueue ? "" : query;
   const historyOffset = activeQueue ? 0 : offset;
@@ -444,7 +444,7 @@ export default function ReviewQueue() {
   }, []);
   const searchableBatches = useMemo(() => (snapshot?.batches ?? []).map(batch => ({
     batch,
-    text: `${divisions[batch.division]} ${batch.scope} ${batch.source_url} ${JSON.stringify(batch.writes)}`.toLowerCase(),
+    text: `${batch.id} ${divisions[batch.division]} ${batch.scope} ${batch.source_url} ${JSON.stringify(batch.writes)}`.toLowerCase(),
   })), [snapshot]);
   const filteredBatches = useMemo(() => {
     if (!activeQueue) return historyPage?.batches ?? [];

@@ -1,7 +1,7 @@
 "use client";
 
-import { ArrowUpRight, ChevronDown } from "lucide-react";
-import { useId, useState } from "react";
+import { ArrowUpRight, ChevronDown, X } from "lucide-react";
+import { useId, useRef, type CSSProperties } from "react";
 import { hasBackendConfiguration } from "@/lib/supabase/client";
 import type { StandardSet } from "@/features/swim-resources/types/schema";
 import { useTimesSelection } from "./use-times-selection";
@@ -17,18 +17,24 @@ import {
   type StandardSelection,
 } from "./standards-data";
 import { eventLabel } from "./times-data";
-import { FilterChips, FilterSummary, PopupPicker } from "./TimesFilters";
+import { FilterChips, FilterSummary } from "./TimesFilters";
 import DiscreteSlider from "./DiscreteSlider";
 import { MotivationalRankIcon } from "./MotivationalRankIcon";
+import { motivationalRankForTier } from "./motivational-ranks";
+import { SkeletonStatus, SkeletonText } from "./LoadingSkeleton";
+import loadingStyles from "./TimesLoading.module.css";
 import s from "./TimeStandards.module.css";
 import timesStyles from "./TimesDatabase.module.css";
-import rankingFilters from "./RankingFilters.module.css";
 
 const genderLabels: Record<string, string> = {
   F: "Female",
   M: "Male",
   Mixed: "Mixed",
 };
+const skeletonChoices = [
+  ["Course", 3],
+  ["Gender", 2],
+] as const;
 
 export function useTimeStandardsSelection(
   sets: StandardSet[],
@@ -52,6 +58,222 @@ export function useTimeStandardsSelection(
 }
 
 type TimeStandardsSelection = ReturnType<typeof useTimeStandardsSelection>;
+
+export function TimeStandardsSummarySkeleton() {
+  return (
+    <div
+      className={`${timesStyles.filterSummary} ${s.summarySkeleton}`}
+      aria-hidden="true"
+    >
+      <div className={s.summarySkeletonTitle}>
+        <SkeletonText width="100%" />
+      </div>
+      {["2rem", "2.5rem", "3rem", "1.5rem"].map((width, index) => (
+        <div key={index}>
+          <SkeletonText width={width} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function TimeStandardsSkeleton() {
+  return (
+    <section className={s.page} aria-label="Standards" aria-busy="true">
+      <SkeletonStatus>Loading approved standards…</SkeletonStatus>
+      <div
+        className={`${s.skeletonContent} ${loadingStyles.pulse}`}
+        data-loading-skeleton="standards"
+        aria-hidden="true"
+      >
+        <div className={s.filterPanel}>
+          <div className={`${timesStyles.filters} ${s.filters}`}>
+            <div className={s.topFilters}>
+              <div className={timesStyles.field}>
+                <span>Standard</span>
+                <div className={s.skeletonInput}>
+                  <SkeletonText width="82%" />
+                </div>
+              </div>
+              {skeletonChoices.map(([label, count]) => (
+                <div key={label} className={s.skeletonChoices}>
+                  <span>{label}</span>
+                  <div className={s.skeletonPills}>
+                    {Array.from({ length: count }, (_, index) => (
+                      <div key={index}>
+                        <SkeletonText
+                          width={label === "Course" ? "1.5rem" : "2rem"}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {["Age group", "Tier"].map((label) => (
+              <div key={label} className={s.skeletonSlider}>
+                <div>
+                  <span>{label}</span>
+                  <SkeletonText width="2.5rem" />
+                </div>
+                <div className={s.skeletonTrack}>
+                  <SkeletonText width="100%" height="2px" />
+                  <span />
+                </div>
+                <div className={s.skeletonStops}>
+                  {Array.from({ length: 6 }, (_, index) => (
+                    <SkeletonText key={index} width="1rem" height="0.65em" />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className={s.grid}>
+          {strokeColumns.map(([stroke, heading]) => (
+            <div key={stroke} className={s.column}>
+              <h2>{heading}</h2>
+              {Array.from({ length: 4 }, (_, index) => (
+                <div key={index} className={`${s.chip} ${s.skeletonCard}`}>
+                  <span className={s.distance}>
+                    <SkeletonText width="3rem" />
+                  </span>
+                  <strong>
+                    <SkeletonText width="3.5rem" />
+                  </strong>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+        <div className={`${s.sourceButton} ${s.skeletonSource}`}>
+          <SkeletonText width="7rem" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function StandardPicker({
+  sets,
+  day,
+  selected,
+  onChange,
+}: {
+  sets: StandardSet[];
+  day: string;
+  selected: StandardSet;
+  onChange: (value: string) => void;
+}) {
+  const id = useId();
+  const dialog = useRef<HTMLDialogElement>(null);
+  const ordered = orderedStandards(sets, day);
+  const active = ordered.filter(
+    (set) => standardStatus(set, day) !== "Expired",
+  );
+  const expired = ordered.filter(
+    (set) => standardStatus(set, day) === "Expired",
+  );
+
+  function options(items: StandardSet[]) {
+    return items.map((set) => {
+      const status = standardStatus(set, day);
+      const recommended =
+        status === "Current" &&
+        set.governingBody === "USA_Swimming" &&
+        set.category === "motivational" &&
+        (!set.standardType || set.standardType === "age-group");
+      return (
+        <button
+          key={set.id}
+          type="button"
+          className={recommended ? s.recommendedStandard : undefined}
+          aria-label={`${set.name} · ${status}`}
+          aria-pressed={selected.id === set.id}
+          onClick={() => {
+            onChange(set.id);
+            dialog.current?.close();
+          }}
+        >
+          <strong>{set.name}</strong>
+          <span className={s.standardStatus} aria-hidden="true">
+            {status}
+            {recommended && <span>USA Swimming age group motivational</span>}
+          </span>
+        </button>
+      );
+    });
+  }
+
+  return (
+    <div className={timesStyles.field}>
+      <label htmlFor={id}>Standard</label>
+      <button
+        id={id}
+        type="button"
+        className={timesStyles.eventTrigger}
+        aria-haspopup="dialog"
+        onClick={() => {
+          dialog.current?.showModal();
+          dialog.current
+            ?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')
+            ?.focus();
+        }}
+      >
+        <span>
+          {selected.name} · {standardStatus(selected, day)}
+        </span>
+        <ChevronDown size={16} aria-hidden="true" />
+      </button>
+      <dialog
+        ref={dialog}
+        className={s.standardDialog}
+        aria-labelledby={`${id}-title`}
+        onClick={(event) => {
+          if (event.target !== event.currentTarget) return;
+          const bounds = event.currentTarget.getBoundingClientRect();
+          if (
+            event.clientX < bounds.left ||
+            event.clientX > bounds.right ||
+            event.clientY < bounds.top ||
+            event.clientY > bounds.bottom
+          )
+            dialog.current?.close();
+        }}
+      >
+        <div className={s.standardDialogHeader}>
+          <h2 id={`${id}-title`}>Standard</h2>
+          <button
+            type="button"
+            className={timesStyles.button}
+            aria-label="Close standard picker"
+            onClick={() => dialog.current?.close()}
+          >
+            <X size={20} aria-hidden="true" />
+          </button>
+        </div>
+        {active.length > 0 && (
+          <section
+            className={s.standardSection}
+            aria-label="Current and upcoming standards"
+          >
+            <h3>Current &amp; upcoming standards</h3>
+            <div className={s.standardOptions}>{options(active)}</div>
+          </section>
+        )}
+        {expired.length > 0 && (
+          <section
+            className={`${s.standardSection} ${s.expiredStandards}`}
+            aria-label="Expired standards"
+          >
+            <h3>Expired standards</h3>
+            <div className={s.standardOptions}>{options(expired)}</div>
+          </section>
+        )}
+      </dialog>
+    </div>
+  );
+}
 
 export function TimeStandardsSummary({
   state,
@@ -82,21 +304,25 @@ export default function TimeStandards({
   query: ReturnType<typeof useStandards>;
   state: TimeStandardsSelection;
 }) {
-  const filtersId = useId();
-  const [filtersOpen, setFiltersOpen] = useState(true);
   const { sets, loading, error, retry } = query;
   const { day, set, filters, setSelected, setSelection } = state;
   const eventKeys =
     set && filters ? standardEventKeys(set, filters.selection.course) : [];
   const sourceUrl =
     set?.sourceUrl && /^https?:\/\//.test(set.sourceUrl) ? set.sourceUrl : null;
+  const rank =
+    filters &&
+    set?.governingBody === "USA_Swimming" &&
+    set.category === "motivational"
+      ? motivationalRankForTier(filters.selection.tier)
+      : undefined;
   function updateFilter(key: keyof StandardSelection, value: string) {
     if (filters) setSelection({ ...filters.selection, [key]: value });
   }
+  if (loading && !error && (!set || !filters)) return <TimeStandardsSkeleton />;
   return (
-    <section className={s.page} aria-label="Standards">
-      <h1 className="text-2xl font-bold">Standards</h1>
-      {loading && <p role="status">Loading approved standards…</p>}
+    <section className={s.page} aria-label="Standards" aria-busy={loading}>
+      {loading && <SkeletonStatus>Updating approved standards…</SkeletonStatus>}
       {error && (
         <p role="alert">
           {error} <button onClick={retry}>Try again</button>
@@ -114,72 +340,64 @@ export default function TimeStandards({
             className={s.filterPanel}
             aria-label="Time standards filters"
           >
-            <div className={rankingFilters.heading}>
-              <button
-                type="button"
-                className={rankingFilters.toggle}
-                aria-expanded={filtersOpen}
-                aria-controls={filtersId}
-                onClick={() => setFiltersOpen((open) => !open)}
-              >
-                <ChevronDown size={17} aria-hidden="true" />
-                Standard filters
-              </button>
-            </div>
-            <div id={filtersId} hidden={!filtersOpen}>
+            <div>
               <div className={`${timesStyles.filters} ${s.filters}`}>
-                <PopupPicker
-                  label="Standard"
-                  value={set.id}
-                  onChange={(value) => {
-                    setSelected(value);
-                    setSelection(filters.selection);
-                  }}
-                  options={orderedStandards(sets, day).map((item) => [
-                    item.id,
-                    `${item.name} · ${standardStatus(item, day)}`,
-                  ])}
-                />
-                <FilterChips
-                  label="Course"
-                  value={filters.selection.course}
-                  onChange={(value) => updateFilter("course", value)}
-                  options={filters.courses.map((course) => [course, course])}
-                />
-                <FilterChips
-                  label="Gender"
-                  value={filters.selection.gender}
-                  onChange={(value) => updateFilter("gender", value)}
-                  options={filters.genders.map((gender) => [
-                    gender,
-                    genderLabels[gender] ?? gender,
-                  ])}
-                />
+                <div className={s.topFilters}>
+                  <StandardPicker
+                    sets={sets}
+                    day={day}
+                    selected={set}
+                    onChange={(value) => {
+                      setSelected(value);
+                      setSelection(filters.selection);
+                    }}
+                  />
+                  <FilterChips
+                    label="Course"
+                    value={filters.selection.course}
+                    onChange={(value) => updateFilter("course", value)}
+                    options={filters.courses.map((course) => [course, course])}
+                  />
+                  <FilterChips
+                    label="Gender"
+                    value={filters.selection.gender}
+                    onChange={(value) => updateFilter("gender", value)}
+                    options={filters.genders.map((gender) => [
+                      gender,
+                      genderLabels[gender] ?? gender,
+                    ])}
+                  />
+                </div>
                 <DiscreteSlider
+                  showStops
                   label="Age group"
                   value={filters.selection.age}
                   onChange={(value) => updateFilter("age", value)}
                   options={filters.ages.map((age) => [age, age])}
                 />
                 <DiscreteSlider
+                  showStops
                   label="Tier"
                   value={filters.selection.tier}
                   onChange={(value) => updateFilter("tier", value)}
                   options={filters.tiers.map((tier) => [tier, tier])}
                   valueAdornment={
-                    set.governingBody === "USA_Swimming" &&
-                    set.category === "motivational" ? (
-                      <MotivationalRankIcon
-                        tier={filters.selection.tier}
-                        size={24}
-                      />
+                    rank ? (
+                      <MotivationalRankIcon tier={rank.tier} size={24} />
                     ) : undefined
                   }
                 />
               </div>
             </div>
           </section>
-          <div className={s.grid}>
+          <div
+            className={s.grid}
+            style={
+              rank
+                ? ({ "--rank-color": rank.color } as CSSProperties)
+                : undefined
+            }
+          >
             {strokeColumns.map(([stroke, heading, title]) => (
               <section key={stroke} className={s.column} aria-label={title}>
                 <h2 title={title}>{heading}</h2>

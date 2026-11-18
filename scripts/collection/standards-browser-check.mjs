@@ -85,6 +85,17 @@ try {
     }
     await standards.getByRole("button", { name: label, exact: true }).click();
     const picker = standards.getByRole("dialog", { name: label, exact: true });
+    if (label === "Standard") {
+      const bounds = await picker.boundingBox();
+      const viewport = page.viewportSize();
+      assert.ok(bounds.width >= viewport.width * 0.9);
+      assert.ok(bounds.height >= viewport.height * 0.9);
+      assert.ok(
+        await picker
+          .getByRole("region", { name: "Current and upcoming standards" })
+          .isVisible(),
+      );
+    }
     await picker.getByRole("button", { name: option, exact: true }).click();
   }
   const errors = [];
@@ -181,23 +192,25 @@ try {
   assert.ok(
     await page.getByLabel("50 Freestyle: 23.99", { exact: true }).isVisible(),
   );
-  const filterToggle = standards.getByRole("button", {
-    name: "Standard filters",
-    exact: true,
-  });
   const selectionUrl = page.url();
-  assert.equal(await filterToggle.getAttribute("aria-expanded"), "true");
-  await filterToggle.focus();
-  await filterToggle.press("Enter");
-  assert.equal(await filterToggle.getAttribute("aria-expanded"), "false");
-  assert.equal(await longCourse.isVisible(), false);
+  assert.equal(
+    await standards
+      .getByRole("heading", { name: "Standards", exact: true })
+      .count(),
+    0,
+  );
+  assert.equal(
+    await standards
+      .getByRole("button", { name: "Standard filters", exact: true })
+      .count(),
+    0,
+  );
+  assert.ok(await longCourse.isVisible());
   assert.ok(await summary.isVisible());
   assert.ok(
     await page.getByLabel("50 Freestyle: 23.99", { exact: true }).isVisible(),
   );
   assert.equal(page.url(), selectionUrl);
-  await filterToggle.press("Space");
-  assert.equal(await filterToggle.getAttribute("aria-expanded"), "true");
   assert.equal(
     await standards
       .getByRole("slider", { name: "Age group", exact: true })
@@ -221,11 +234,7 @@ try {
     false,
   );
   await page.screenshot({ path: "/tmp/standards-mobile.png", fullPage: true });
-  for (const name of [
-    "Rankings",
-    "Records",
-    "Times",
-  ]) {
+  for (const name of ["Rankings", "Records", "Times"]) {
     await page.getByRole("button", { name: "Open navigation sidebar" }).click();
     await page
       .getByRole("navigation", { name: "Tools navigation" })
@@ -234,7 +243,7 @@ try {
   }
   assert.deepEqual(errors, []);
   console.log(
-    "Browser: private staging → review preview → approval → exact cuts, collapsible filters with retained selection, and mobile sidebar passed.",
+    "Browser: private staging → review preview → approval → exact cuts, always-open filters, full-screen standard picker, and mobile sidebar passed.",
   );
 } finally {
   await browser.close();

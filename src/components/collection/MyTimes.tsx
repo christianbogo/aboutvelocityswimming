@@ -2,11 +2,19 @@
 
 import Link from "next/link";
 import { ArrowUpRight, ChevronDown, UserRound } from "lucide-react";
-import { useEffect, useId, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useId,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { useAuth } from "@/features/workshare/contexts/auth";
 import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
 import {
   loadAccountAthletes,
+  cachedAccountAthletes,
+  accountAthletesChangedEvent,
   type AccountAthletePreferences,
 } from "@/lib/account-athletes";
 import { hasBackendConfiguration } from "@/lib/supabase/client";
@@ -16,14 +24,13 @@ import { useTimes, useDebouncedSearch } from "./use-times";
 import type { useStandards } from "./use-standards";
 import { useTimesSelection } from "./use-times-selection";
 import { strokeColumns, eventColumn, compareEvents } from "./event-layout";
-import { FilterChips } from "./TimesFilters";
-import DiscreteSlider from "./DiscreteSlider";
 import { MotivationalRankIcon, RankLegend } from "./MotivationalRankIcon";
 import { motivationalRankForRace } from "./motivational-ranks";
 import grid from "./TimeStandards.module.css";
 import times from "./TimesDatabase.module.css";
-import filterStyles from "./RankingFilters.module.css";
 import s from "./MyTimes.module.css";
+import MyTimesSkeleton from "./MyTimesSkeleton";
+import { SkeletonText } from "./LoadingSkeleton";
 
 export type MyTimesRankingSelection = {
   event: string;
@@ -68,6 +75,76 @@ function cohortLabel(ageGroup: string | null, gender?: string | null) {
     .join(" · ");
 }
 
+function SelectionDropdown({
+  label,
+  selection,
+  children,
+}: {
+  label: string;
+  selection: string;
+  children: (close: () => void) => ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  return (
+    <div
+      className={s.dropdown}
+      onPointerEnter={(event) => {
+        if (event.pointerType === "mouse") setOpen(true);
+      }}
+      onPointerLeave={(event) => {
+        if (
+          event.pointerType === "mouse" &&
+          !event.currentTarget
+            .querySelector('[role="group"]')
+            ?.contains(document.activeElement)
+        )
+          setOpen(false);
+      }}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          setOpen(false);
+          event.currentTarget.querySelector("button")?.focus();
+        }
+      }}
+    >
+      <button
+        type="button"
+        className={s.selection}
+        aria-label={`${label}: ${selection}`}
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={(event) => setOpen(event.detail === 0 ? !open : true)}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setOpen(true);
+          }
+        }}
+      >
+        <span className={s.selectionLabel}>{label}</span>
+        <span className={s.selectionValue}>
+          {selection}
+          <ChevronDown size={16} aria-hidden="true" />
+        </span>
+      </button>
+      {open && (
+        <div
+          id={id}
+          className={s.dropdownOptions}
+          role="group"
+          aria-label={`${label} options`}
+        >
+          {children(() => setOpen(false))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MyTimesResults({
   preferences,
   standards,
@@ -78,7 +155,6 @@ function MyTimesResults({
   onRankings: (selection: MyTimesRankingSelection) => void;
 }) {
   const cardId = useId();
-  const [filtersOpen, setFiltersOpen] = useState(true);
   const [athleteId, setAthleteId] = useTimesSelection("myAthlete", "");
   const [filters, setFilters] = useTimesSelection("myFilters", defaultFilters);
   const athletes = [
@@ -105,9 +181,14 @@ function MyTimesResults({
       : undefined;
   const ages = details?.ages ?? [];
   const years = [...(details?.years ?? [])].sort();
-  const age = ages.some((value) => String(value) === filters.age)
+  const fallbackAge = /^\d{1,3}$/.test(filters.age)
+    ? Number(filters.age)
+    : (details?.latestAge ?? ages.at(-1) ?? -1);
+  const age = ageGroups.some(([key]) => key === filters.age)
     ? filters.age
-    : String(ages.at(-1) ?? "");
+    : (ageGroups.find(
+        ([, , min, max]) => fallbackAge >= min && fallbackAge <= max,
+      )?.[0] ?? "11-12");
   const startYear = years.includes(filters.startYear)
     ? filters.startYear
     : (years[0] ?? "");
@@ -115,17 +196,15 @@ function MyTimesResults({
     ? filters.endYear
     : (years.at(-1) ?? "");
   const invalidYears = mode === "years" && startYear > endYear;
-  const unavailableFilter =
-    (mode === "age" && !age) || (mode === "years" && !years.length);
+  const unavailableFilter = mode === "years" && !years.length;
   const filteredUrl =
     !baseUrl || !details || mode === "all" || invalidYears || unavailableFilter
       ? null
-      : timesUrl("my_times_bests", {
+      : timesUrl("my_times", {
           athleteId: athlete.id,
           course,
-          ...(mode === "age"
-            ? { ageAtSwim: Number(age) }
-            : { startYear, endYear }),
+          rankPeriod: "all",
+          ...(mode === "age" ? { ageGroup: age } : { startYear, endYear }),
         });
   const debouncedUrl = useDebouncedSearch(filteredUrl ?? "");
   const filtered = useTimes(
@@ -136,24 +215,17 @@ function MyTimesResults({
     overview.loading ||
     (Boolean(filteredUrl) &&
       (debouncedUrl !== filteredUrl || filtered.loading));
-  const personalBests = filtered.data?.personalBests;
-  const filteredRaces = new Map(
-    personalBests?.map(({ event, race }) => [event, race]),
-  );
-  const events =
+  const filteredDetails = filtered.data?.myTimes;
+  const selectedEvents =
     mode === "all"
       ? details?.events
-      : personalBests &&
-        details?.events.map((event) => {
-          const race = filteredRaces.get(event.event);
-          return {
-            ...event,
-            race:
-              race?.athleteId === athlete?.id && race?.course === course
-                ? race
-                : null,
-          };
-        });
+      : filteredDetails?.period === "all"
+        ? filteredDetails.events
+        : undefined;
+  const hide25s = details?.latestAge != null && details.latestAge > 10;
+  const events = selectedEvents?.filter(
+    (event) => !hide25s || !event.event.startsWith("25_"),
+  );
   const bestCount = events?.filter((event) => event.race !== null).length ?? 0;
   const eventRanks = new Map(
     events?.map((event) => [
@@ -170,14 +242,14 @@ function MyTimesResults({
   }
   const bestDescription =
     mode === "age"
-      ? `Best at age ${age}`
+      ? `Best at ages ${ageGroups.find(([key]) => key === age)?.[1] ?? age}`
       : mode === "years"
         ? `Best in ${startYear === endYear ? startYear : `${startYear}–${endYear}`}`
         : "All-time best";
 
   function openRankings(event: MyTimesEvent) {
     if (!details) return;
-    const race = event.rankRace ?? event.race;
+    const race = event.race;
     const fallbackAge = race?.ageAtSwim;
     onRankings({
       event: event.event,
@@ -185,7 +257,6 @@ function MyTimesResults({
       gender: event.rankGender || race?.gender || "",
       ageGroup:
         event.rankAgeGroup ||
-        details.latestAgeGroup ||
         ageGroups.find(
           ([, , min, max]) =>
             fallbackAge != null && fallbackAge >= min && fallbackAge <= max,
@@ -210,142 +281,180 @@ function MyTimesResults({
     );
 
   return (
-    <>
-      <RankLegend counts={rankCounts} />
+    <section
+      className={s.results}
+      aria-label="Athlete times"
+      aria-busy={loading}
+    >
       <section className={s.filterPanel} aria-label="Times filters">
-        <div
-          className={`${filterStyles.heading} ${!filtersOpen ? s.collapsedHeading : ""}`}
+        <SelectionDropdown label="Athlete" selection={athlete.name}>
+          {(close) => (
+            <>
+              {athletes.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-pressed={athlete.id === item.id}
+                  onClick={() => {
+                    setAthleteId(item.id);
+                    setFilters({ ...defaultFilters, course });
+                    close();
+                  }}
+                >
+                  {item.name}
+                </button>
+              ))}
+              <Link href="/tools" className={s.manage}>
+                Manage athletes <ArrowUpRight size={15} aria-hidden="true" />
+              </Link>
+            </>
+          )}
+        </SelectionDropdown>
+        <SelectionDropdown
+          label="Course"
+          selection={
+            {
+              SCY: "Short Course Yards",
+              LCM: "Long Course Meters",
+              SCM: "Short Course Meters",
+            }[course]!
+          }
         >
-          <button
-            type="button"
-            className={filterStyles.toggle}
-            aria-expanded={filtersOpen}
-            aria-controls={`${cardId}-filters`}
-            onClick={() => setFiltersOpen((open) => !open)}
+          {(close) =>
+            [
+              ["SCY", "Short Course Yards"],
+              ["LCM", "Long Course Meters"],
+              ["SCM", "Short Course Meters"],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={course === key}
+                onClick={() => {
+                  setFilters((current) => ({ ...current, course: key }));
+                  close();
+                }}
+              >
+                {label}
+              </button>
+            ))
+          }
+        </SelectionDropdown>
+        <SelectionDropdown
+          label="Best times from"
+          selection={
+            { all: "All-Time", age: "Age Range", years: "Year Range" }[mode]!
+          }
+        >
+          {(close) =>
+            [
+              ["all", "All-Time"],
+              ["age", "Age Range"],
+              ["years", "Year Range"],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={mode === key}
+                onClick={() => {
+                  setFilters({
+                    ...filters,
+                    mode: key,
+                    age,
+                    startYear,
+                    endYear,
+                  });
+                  close();
+                }}
+              >
+                {label}
+              </button>
+            ))
+          }
+        </SelectionDropdown>
+        {mode === "age" && (
+          <SelectionDropdown
+            label="Age Range"
+            selection={ageGroups.find(([key]) => key === age)?.[1] ?? age}
           >
-            <ChevronDown size={17} aria-hidden="true" />
-            Time filters
-          </button>
-        </div>
-        <div id={`${cardId}-filters`} hidden={!filtersOpen}>
-          <div className={`${times.filters} ${s.filters}`}>
-            <fieldset className={`${times.courseField} ${s.athletes}`}>
-              <legend>Athlete</legend>
-              <div className={`${times.chips} ${s.athleteChips}`}>
-                {athletes.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    aria-pressed={athlete.id === item.id}
-                    title={`${item.name} · ${item.id === preferences.primaryAthlete?.id ? "Primary" : "Favorite"} Athlete`}
-                    onClick={() => {
-                      setAthleteId(item.id);
-                      setFilters({ ...defaultFilters, course });
-                    }}
-                  >
-                    {item.name}
-                  </button>
-                ))}
-                <Link href="/tools" className={s.manage}>
-                  Manage athletes <ArrowUpRight size={15} aria-hidden="true" />
-                </Link>
-              </div>
-            </fieldset>
-            <FilterChips
-              label="Course"
-              value={course}
-              options={[
-                ["SCY", "SCY"],
-                ["LCM", "LCM"],
-                ["SCM", "SCM"],
-              ]}
-              onChange={(value) => setFilters({ ...filters, course: value })}
-            />
-            <FilterChips
-              label="Best times from"
-              value={mode}
-              options={[
-                ["all", "All time"],
-                ["age", "Age"],
-                ["years", "Year range"],
-              ]}
-              onChange={(value) =>
-                setFilters({
-                  ...filters,
-                  mode: value,
-                  age,
-                  startYear,
-                  endYear,
-                })
-              }
-            />
-            {mode === "age" && (
-              <DiscreteSlider
-                label="Age at swim"
-                value={age}
-                options={ages.map((value) => [String(value), String(value)])}
-                onChange={(value) => setFilters({ ...filters, age: value })}
-              />
-            )}
-            {mode === "years" && (
+            {(close) =>
+              ageGroups.map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={age === key}
+                  onClick={() => {
+                    setFilters((current) => ({ ...current, age: key }));
+                    close();
+                  }}
+                >
+                  {label}
+                </button>
+              ))
+            }
+          </SelectionDropdown>
+        )}
+        {mode === "years" && (
+          <SelectionDropdown
+            label="Year Range"
+            selection={
+              startYear === endYear
+                ? startYear || "No recorded years"
+                : `${startYear}–${endYear}`
+            }
+          >
+            {() => (
               <div className={s.yearRange}>
-                <div className={times.field}>
-                  <label htmlFor={`${cardId}-start-year`}>Start year</label>
-                  <select
-                    id={`${cardId}-start-year`}
-                    value={startYear}
-                    disabled={!years.length}
-                    onChange={(event) =>
-                      setFilters({ ...filters, startYear: event.target.value })
-                    }
-                  >
-                    {!years.length && (
-                      <option value="">No recorded years</option>
-                    )}
-                    {years.map((year) => (
-                      <option key={year}>{year}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className={times.field}>
-                  <label htmlFor={`${cardId}-end-year`}>End year</label>
-                  <select
-                    id={`${cardId}-end-year`}
-                    value={endYear}
-                    disabled={!years.length}
-                    onChange={(event) =>
-                      setFilters({ ...filters, endYear: event.target.value })
-                    }
-                  >
-                    {!years.length && (
-                      <option value="">No recorded years</option>
-                    )}
-                    {years.map((year) => (
-                      <option key={year}>{year}</option>
-                    ))}
-                  </select>
-                </div>
+                {[
+                  ["startYear", "Start year", startYear],
+                  ["endYear", "End year", endYear],
+                ].map(([key, label, value]) => (
+                  <div key={key} className={times.field}>
+                    <label htmlFor={`${cardId}-${key}`}>{label}</label>
+                    <select
+                      id={`${cardId}-${key}`}
+                      value={value}
+                      disabled={!years.length}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setFilters((current) => ({ ...current, [key]: value }));
+                      }}
+                    >
+                      {!years.length && (
+                        <option value="">No recorded years</option>
+                      )}
+                      {years.map((year) => (
+                        <option key={year}>{year}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
               </div>
             )}
-            {invalidYears && (
-              <p className={s.filterNotice} role="alert">
-                Start year must be earlier than or equal to end year.
-              </p>
-            )}
-          </div>
-        </div>
+          </SelectionDropdown>
+        )}
+        {invalidYears && (
+          <p className={s.filterNotice} role="alert">
+            Start year must be earlier than or equal to end year.
+          </p>
+        )}
       </section>
-      {details && (
+      <RankLegend
+        counts={rankCounts}
+        loading={loading || (standards.loading && !standards.sets.length)}
+      />
+      {(details || loading) && (
         <div className={s.summary}>
           <span>
-            {bestDescription} · {course}
+            {details ? (
+              <>
+                {bestDescription} · {course}
+              </>
+            ) : (
+              <SkeletonText width="20ch" />
+            )}
           </span>
-          <span>
-            All-time team ranks
-            {details.latestAgeGroup
-              ? ` · ${cohortLabel(details.latestAgeGroup)}`
-              : ""}
-          </span>
+          <span>All-time team ranks · each swim’s age group</span>
         </div>
       )}
       {failedQuery.error && (
@@ -361,17 +470,25 @@ function MyTimesResults({
         </p>
       )}
       {loading && (
-        <p role="status" className={s.notice}>
-          Loading athlete times…
-        </p>
+        <MyTimesSkeleton
+          course={course}
+          events={
+            details?.events ??
+            (overview.placeholderData?.myTimes?.period === "all" &&
+            overview.placeholderData.myTimes.athleteId === athlete.id
+              ? overview.placeholderData.myTimes.events
+              : undefined)
+          }
+          full={false}
+          hide25s={details?.latestAge != null ? details.latestAge > 10 : true}
+        />
       )}
       {!loading &&
         !failedQuery.error &&
         !invalidYears &&
         (unavailableFilter ? (
           <p role="status" className={s.notice}>
-            No recorded {mode === "age" ? "ages" : "years"} are available for
-            this athlete and course.
+            No recorded years are available for this athlete and course.
           </p>
         ) : events?.length === 0 ? (
           <p role="status" className={s.notice}>
@@ -383,8 +500,7 @@ function MyTimesResults({
             <>
               {bestCount === 0 && (
                 <p role="status" className={s.notice}>
-                  No times match these filters. All-time team ranks are still
-                  shown where available.
+                  No times match these filters.
                 </p>
               )}
               <div className={grid.grid}>
@@ -426,28 +542,7 @@ function MyTimesResults({
                                 {event.event.split("_")[0]}{" "}
                                 {stroke === "DST" ? "Free" : heading}
                               </span>
-                              {rank && (
-                                <>
-                                  <MotivationalRankIcon
-                                    tier={rank.rank.tier}
-                                    size={24}
-                                  />
-                                  <span
-                                    className="sr-only"
-                                    id={`${cardId}-${event.event}-motivational`}
-                                  >
-                                    {rank.rank.name} rank: {rank.rank.tier}{" "}
-                                    motivational standard
-                                  </span>
-                                </>
-                              )}
                             </span>
-                            <strong id={`${cardId}-${event.event}-time`}>
-                              <span className="sr-only">Best time: </span>
-                              {event.race
-                                ? formatSwimTime(event.race.time)
-                                : "—"}
-                            </strong>
                             <span
                               className={s.raceDate}
                               id={`${cardId}-${event.event}-date`}
@@ -465,6 +560,33 @@ function MyTimesResults({
                                 "No time in this selection"
                               )}
                             </span>
+                            <span className={s.rankIcon}>
+                              {standards.loading && !standards.sets.length ? (
+                                <SkeletonText width={22} height={22} />
+                              ) : (
+                                rank && (
+                                  <>
+                                    <MotivationalRankIcon
+                                      tier={rank.rank.tier}
+                                      size={28}
+                                    />
+                                    <span
+                                      className="sr-only"
+                                      id={`${cardId}-${event.event}-motivational`}
+                                    >
+                                      {rank.rank.name} rank: {rank.rank.tier}{" "}
+                                      motivational standard
+                                    </span>
+                                  </>
+                                )
+                              )}
+                            </span>
+                            <strong id={`${cardId}-${event.event}-time`}>
+                              <span className="sr-only">Best time: </span>
+                              {event.race
+                                ? formatSwimTime(event.race.time)
+                                : "—"}
+                            </strong>
                             <span
                               className={s.teamRank}
                               id={`${cardId}-${event.event}-rank`}
@@ -482,7 +604,7 @@ function MyTimesResults({
                                 </>
                               ) : (
                                 <>
-                                  {details?.latestAgeGroup
+                                  {event.race?.ageAtSwim != null
                                     ? "No all-time rank"
                                     : "Age unavailable"}
                                 </>
@@ -511,12 +633,12 @@ function MyTimesResults({
         </p>
       )}
       <p className={s.explainer}>
-        Team ranks compare all recorded times within the selected athlete’s
-        latest recorded age group. Select a card for all-time rankings of
+        Team ranks compare the displayed time with each swimmer’s all-time best
+        in that swim’s age group. Select a card for all-time rankings of
         swimmers in the same age group, gender, event, and course. Icons use the
         USA Swimming standard in effect on the displayed swim’s date.
       </p>
-    </>
+    </section>
   );
 }
 
@@ -527,7 +649,9 @@ function FollowedAthletes({
   Parameters<typeof MyTimesResults>[0],
   "preferences"
 >) {
-  const [preferences, setPreferences] = useState<AccountAthletePreferences>();
+  const [preferences, setPreferences] = useState<
+    AccountAthletePreferences | undefined
+  >(() => cachedAccountAthletes(userId));
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
@@ -548,9 +672,11 @@ function FollowedAthletes({
     };
     refresh();
     window.addEventListener("focus", refresh);
+    window.addEventListener(accountAthletesChangedEvent, refresh);
     return () => {
       active = false;
       window.removeEventListener("focus", refresh);
+      window.removeEventListener(accountAthletesChangedEvent, refresh);
     };
   }, [userId, attempt]);
   if (failed)
@@ -571,9 +697,9 @@ function FollowedAthletes({
     );
   if (!preferences)
     return (
-      <p role="status" className={s.notice}>
-        Loading your athletes…
-      </p>
+      <div aria-busy="true">
+        <MyTimesSkeleton />
+      </div>
     );
   return <MyTimesResults preferences={preferences} {...props} />;
 }
@@ -583,9 +709,13 @@ export default function MyTimes(
 ) {
   const { user, loading } = useAuth();
   return (
-    <section className={`${grid.page} ${s.page}`} aria-label="Times">
+    <section
+      className={`${grid.page} ${s.page}`}
+      aria-label="Times"
+      aria-busy={loading || undefined}
+    >
       {loading ? (
-        <p role="status">Loading your account…</p>
+        <MyTimesSkeleton />
       ) : !user ? (
         <p className={s.notice}>
           <Link href="/login">Sign in</Link> to see the athletes you follow.

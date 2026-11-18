@@ -74,6 +74,15 @@ export interface LeadOffVerification {
   leadOffStatus: 'OK';
   sourceUrl: string;
 }
+export interface OfficialGoMotionLeadOffVerification extends LeadOffVerification {
+  method: 'Official GoMotion lead-off';
+  observationId: string;
+  decisionId: string;
+  sourceMeetId: string;
+  workbookSha256: string;
+  sourceRow: number;
+  memberIdHash: string;
+}
 export interface RelayMember {
   leg: 1 | 2 | 3 | 4;
   athleteId?: string;
@@ -113,7 +122,7 @@ export interface Swim {
   externalResult?: { namespace: string; id: string }; // Stable source race identity, including repeated swim-offs.
   resultOrigin?: 'relay_leadoff';
   parentRelayResultId?: string;
-  leadOffVerification?: LeadOffVerification;
+  leadOffVerification?: LeadOffVerification | OfficialGoMotionLeadOffVerification;
   splitCoverage?: SplitCoverage;
   athleteName: {
     first: string;

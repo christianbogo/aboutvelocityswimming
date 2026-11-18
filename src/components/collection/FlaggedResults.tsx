@@ -76,7 +76,7 @@ export default function FlaggedResults() {
     <div className={s.queue}>
       <div className={s.actions}>
         <Link href="/tools/review">Back to Import</Link>
-        <Link href="/tools/times">Browse results to flag</Link>
+        <Link href="/tools/rankings">Browse results to flag</Link>
         <label>
           <input
             type="checkbox"

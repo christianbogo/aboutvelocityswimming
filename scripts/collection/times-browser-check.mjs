@@ -26,13 +26,24 @@ const events = [
 ];
 const standard = {
   name: "Browser verified standards",
+  governingBody: "USA_Swimming",
+  category: "motivational",
+  standardType: "age-group",
+  seasonYears: "2026",
+  effectiveDate: "2026-01-01",
+  expirationDate: "2026-12-31",
   cuts: {
     SCY: {
       F: {
         "11-12": Object.fromEntries(
           events.map(([event, time]) => [
             event + "_SCY",
-            { cutsByTier: [{ tierName: "A", timeMs: time }] },
+            {
+              cutsByTier: [
+                { tierName: "A", timeMs: Math.round(time * 1.24) },
+                { tierName: "AAA", timeMs: time },
+              ],
+            },
           ]),
         ),
       },
@@ -176,18 +187,40 @@ async function setup({ failure = false, expiry = false } = {}) {
   page.setDefaultTimeout(12000);
   page.on("pageerror", (e) => errors.push(e.message));
   await page.route("**/auth/v1/**", (route) => {
-    assert.ok(["127.0.0.1", "localhost"].includes(new URL(route.request().url()).hostname));
+    assert.ok(
+      ["127.0.0.1", "localhost"].includes(
+        new URL(route.request().url()).hostname,
+      ),
+    );
     return route.continue();
   });
   if (!storageState) {
     await page.goto(base + "/login");
     await page.getByRole("button", { name: /password/i }).click();
     await page.locator("input[type=email]").fill("christiancutter02@gmail.com");
-    await page.locator("input[type=password]").fill("Velocity-local-test-2026!");
+    await page
+      .locator("input[type=password]")
+      .fill("Velocity-local-test-2026!");
     await page.locator("button[type=submit]").click();
     await page.waitForURL(base + "/tools");
     storageState = await page.context().storageState();
   }
+  await page.route("**/rest/v1/standards?*", (route) =>
+    route.fulfill({
+      json: [{ id: "ranking-standard", data: standard }],
+    }),
+  );
+  const bookmarks = [];
+  await page.route("**/rest/v1/times_ranking_bookmarks?*", (route) => {
+    if (route.request().method() === "GET")
+      return route.fulfill({ json: bookmarks });
+    const bookmark = {
+      ...route.request().postDataJSON(),
+      id: `bookmark-${bookmarks.length + 1}`,
+    };
+    bookmarks.push(bookmark);
+    return route.fulfill({ status: 201, json: bookmark });
+  });
   const calls = [];
   let expiryDeadline;
   page.on("request", (r) => {
@@ -197,7 +230,11 @@ async function setup({ failure = false, expiry = false } = {}) {
   await page.route("**/api/times?*", async (route) => {
     const q = new URL(route.request().url()).searchParams,
       view = q.get("view");
-    assert.equal(q.has("team"), false, "Velocity reads do not send a selectable team");
+    assert.equal(
+      q.has("team"),
+      false,
+      "Velocity reads do not send a selectable team",
+    );
     calls.push(q);
     if (failure && view === "rankings") {
       failure = false;
@@ -205,7 +242,7 @@ async function setup({ failure = false, expiry = false } = {}) {
     }
     const input = Object.fromEntries(q);
     input.offset = Number(q.get("offset") ?? 0);
-    input.limit = 25;
+    input.limit = Number(q.get("limit") ?? 25);
     input.ageGroups = (q.get("ageGroups") ?? "").split(",").filter(Boolean);
     const filters = {
       ...initialFilters,
@@ -229,7 +266,7 @@ async function setup({ failure = false, expiry = false } = {}) {
             .includes(q.get("search").toLowerCase()),
       );
       data = {
-        rows: all.slice(input.offset, input.offset + 25),
+        rows: all.slice(input.offset, input.offset + input.limit),
         total: all.length,
       };
       if (q.get("course") === "LCM")
@@ -256,7 +293,12 @@ async function setup({ failure = false, expiry = false } = {}) {
     }
     if (view === "records_board")
       data = {
-        records: Object.fromEntries([...teamRecords(races, velocityTeam)].map(([key, holders]) => [key, holders.map((race) => race.id)])),
+        records: Object.fromEntries(
+          [...teamRecords(races, velocityTeam)].map(([key, holders]) => [
+            key,
+            holders.map((race) => race.id),
+          ]),
+        ),
         recordsUpdatedAt: "2026-11-15T18:00:00Z",
         races: [
           ...new Map(
@@ -268,9 +310,10 @@ async function setup({ failure = false, expiry = false } = {}) {
       };
     assert.ok(data, "Unhandled times view: " + view);
     if (expiry && view === "rankings") expiryDeadline ??= Date.now() + 900;
-    const expiresAt = expiryDeadline && Date.now() < expiryDeadline && view === "rankings"
-      ? expiryDeadline
-      : (Math.floor(Date.now() / 60000) + 1) * 60000;
+    const expiresAt =
+      expiryDeadline && Date.now() < expiryDeadline && view === "rankings"
+        ? expiryDeadline
+        : (Math.floor(Date.now() / 60000) + 1) * 60000;
     await route.fulfill({ json: { ...data, expiresAt } });
   });
   return { page, calls };
@@ -293,9 +336,7 @@ async function checkSharedSelections() {
     }),
   );
   await page.goto(base + "/tools/times?source=shared#results");
-  await page
-    .getByRole("link", { name: "Standards", exact: true })
-    .click();
+  await page.getByRole("link", { name: "Standards", exact: true }).click();
   const standards = page.getByRole("region", { name: "Standards" });
   const standardPicker = standards.getByRole("button", {
     name: "Standard",
@@ -334,7 +375,9 @@ async function checkSharedSelections() {
   await page.keyboard.press("Escape");
   await standardDialog.waitFor({ state: "hidden" });
   assert.equal(
-    await standardPicker.evaluate((button) => document.activeElement === button),
+    await standardPicker.evaluate(
+      (button) => document.activeElement === button,
+    ),
     true,
   );
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -394,19 +437,26 @@ try {
     "Rankings start without an analysis sidebar",
   );
   const timesNav = page.getByRole("navigation", { name: "Tools navigation" });
-  const timesSectionId = await timesNav
-    .getByRole("link", { name: "Velocity Times", exact: true })
-    .getAttribute("aria-controls");
-  assert.ok(timesSectionId);
-  const timesSection = page.locator(`[id="${timesSectionId}"]`);
-  assert.deepEqual(await timesSection.getByRole("link").allTextContents(), [
-    "Times",
-    "Rankings",
-    "Records",
-    "Standards",
-  ]);
   assert.equal(
-    await page.locator('a[href*="view=meets"], a[href*="view=athletes"]').count(),
+    await timesNav
+      .getByRole("link", { name: "Velocity Times", exact: true })
+      .count(),
+    0,
+  );
+  for (const [name, path] of [
+    ["Times", "my-times"],
+    ["Rankings", "rankings"],
+    ["Records", "records"],
+    ["Standards", "standards"],
+  ]) {
+    const link = timesNav.getByRole("link", { name, exact: true });
+    assert.equal(await link.getAttribute("href"), `/tools/${path}`);
+    assert.equal(await link.getAttribute("aria-controls"), null);
+  }
+  assert.equal(
+    await page
+      .locator('a[href*="view=meets"], a[href*="view=athletes"]')
+      .count(),
     0,
     "Removed Times pages have no navigation or result links",
   );
@@ -435,7 +485,9 @@ try {
     );
   }
   await checkCenteredSummary();
-  await page.getByRole("button", { name: "Collapse navigation sidebar" }).click();
+  await page
+    .getByRole("button", { name: "Collapse navigation sidebar" })
+    .click();
   await timesNav.waitFor({ state: "hidden" });
   await page.getByRole("button", { name: "Open navigation sidebar" }).click();
   await timesNav.waitFor();
@@ -464,6 +516,54 @@ try {
     "All ages",
     "Female",
   ]);
+  await page
+    .getByRole("button", { name: "Event filters", exact: true })
+    .click();
+  const bookmarkSelection = page.getByRole("button", {
+    name: "Bookmark Selection",
+    exact: true,
+  });
+  await bookmarkSelection.waitFor();
+  await bookmarkSelection.click();
+  const bookmarkDialog = page.getByRole("dialog", {
+    name: "Bookmark Selection",
+    exact: true,
+  });
+  const suggestedName = "100 Freestyle · SCY · Girls · All ages · All-time";
+  assert.equal(
+    await bookmarkDialog
+      .getByLabel("Bookmark name", { exact: true })
+      .inputValue(),
+    suggestedName,
+  );
+  await bookmarkDialog
+    .getByRole("button", { name: "Save bookmark", exact: true })
+    .click();
+  await bookmarkDialog.waitFor({ state: "hidden" });
+  const editBookmark = page.getByRole("button", {
+    name: `Edit bookmark ${suggestedName}`,
+    exact: true,
+  });
+  const iconSpace = await editBookmark.boundingBox();
+  assert.equal(
+    await editBookmark
+      .locator("svg")
+      .evaluate((node) => getComputedStyle(node).opacity),
+    "0",
+  );
+  await editBookmark.hover();
+  await page.waitForFunction(() => {
+    const icon = document.querySelector('[aria-label^="Edit bookmark"] svg');
+    return icon && getComputedStyle(icon).opacity === "1";
+  });
+  assert.equal(
+    (await editBookmark.boundingBox()).width,
+    iconSpace.width,
+    "Hovering edit preserves bookmark width",
+  );
+  await page
+    .getByRole("button", { name: "Event filters", exact: true })
+    .click();
   const rankedTable = page.getByRole("table").first();
   assert.deepEqual(
     await rankedTable.getByRole("columnheader").allTextContents(),
@@ -485,7 +585,10 @@ try {
       .evaluate((cell) => getComputedStyle(cell).textAlign),
     "center",
   );
-  assert.equal(await page.getByRole("button", { name: "Team", exact: true }).count(), 0);
+  assert.equal(
+    await page.getByRole("button", { name: "Team", exact: true }).count(),
+    0,
+  );
   await page.getByRole("button", { name: "Age group", exact: true }).click();
   assert.deepEqual(
     await page.getByRole("dialog").getByRole("button").allTextContents(),
@@ -508,11 +611,54 @@ try {
     .getByRole("button", { name: "11–12", exact: true })
     .click();
   await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Done", exact: true })
-    .click();
+    .getByRole("dialog", { name: "Age group", exact: true })
+    .waitFor({ state: "hidden" });
   await summary.getByText("11–12", { exact: true }).waitFor();
   await rankedTable.getByText("Swimmer 00 Fixture", { exact: true }).waitFor();
+  const diamondBoundary = rankedTable
+    .getByRole("row")
+    .filter({ hasText: "1:00.00 DIAMOND CUTOFF" });
+  await diamondBoundary.waitFor();
+  assert.match(
+    await diamondBoundary.locator("xpath=preceding-sibling::tr[1]").innerText(),
+    /1:00\.00/,
+  );
+  assert.match(
+    await diamondBoundary.locator("xpath=following-sibling::tr[1]").innerText(),
+    /1:00\.60/,
+  );
+  assert.equal(
+    await diamondBoundary
+      .locator("td:visible div")
+      .evaluate((node) => getComputedStyle(node).borderTopWidth),
+    "3px",
+  );
+  await page
+    .getByRole("navigation", { name: "Result pages" })
+    .getByRole("button", { name: "Next", exact: true })
+    .click();
+  const goldBoundary = rankedTable
+    .getByRole("row")
+    .filter({ hasText: "1:14.40 GOLD CUTOFF" });
+  await goldBoundary.waitFor();
+  assert.equal(
+    await rankedTable.locator("tbody tr").first().innerText(),
+    await goldBoundary.innerText(),
+    "A cutoff after the previous page's final swim appears before this page's first swim",
+  );
+  await page
+    .getByRole("navigation", { name: "Result pages" })
+    .getByRole("button", { name: "Previous", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Age group", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Age group", exact: true })
+    .getByRole("button", { name: "All ages", exact: true })
+    .click();
+  await page
+    .getByRole("dialog", { name: "Age group", exact: true })
+    .waitFor({ state: "hidden" });
+  await summary.getByText("All ages", { exact: true }).waitFor();
   await page
     .getByRole("button", { name: "Reset filters", exact: true })
     .click();
@@ -555,8 +701,28 @@ try {
     name: "Records",
     exact: true,
   });
-  await recordsPanel.getByRole("heading", { name: "Records", exact: true }).waitFor();
-  assert.equal(await recordsPanel.getByRole("button", { name: "Record team", exact: true }).count(), 0);
+  await recordsPanel
+    .getByRole("region", { name: "SCY 13–14 record table", exact: true })
+    .waitFor();
+  assert.equal(await recordsPanel.getByRole("table").count(), 1);
+  await recordsPanel
+    .getByRole("button", { name: "Render all records", exact: true })
+    .click();
+  await recordsPanel
+    .getByRole("navigation", { name: "Record sections" })
+    .waitFor();
+  assert.equal(
+    await recordsPanel
+      .getByRole("heading", { name: "Records", exact: true })
+      .count(),
+    0,
+  );
+  assert.equal(
+    await recordsPanel
+      .getByRole("button", { name: "Record team", exact: true })
+      .count(),
+    0,
+  );
   const recordTable = recordsPanel
     .getByRole("region", { name: "SCY 11–12 record table", exact: true })
     .getByRole("table");
@@ -774,6 +940,14 @@ try {
     })
     .waitFor();
   assert.equal(
+    await page.getByRole("button", { name: "← Records", exact: true }).count(),
+    0,
+  );
+  assert.equal(
+    await page.getByRole("button", { name: "← Times", exact: true }).count(),
+    0,
+  );
+  assert.equal(
     await page
       .getByRole("table")
       .getByText("Girls fixture relay", { exact: true })
@@ -916,10 +1090,13 @@ try {
   await eventSelector
     .getByRole("button", { name: "50 Freestyle", exact: true })
     .click();
-  await page
-    .getByRole("table")
-    .getByText("Verified lead-off", { exact: true })
-    .waitFor();
+  assert.equal(
+    await page
+      .getByRole("table")
+      .getByText("Verified lead-off", { exact: true })
+      .count(),
+    0,
+  );
   await page
     .getByRole("button", {
       name: "Analyze 28.00 by Swimmer 00 Fixture",
@@ -1008,18 +1185,22 @@ try {
     "The filter summary stays visible under the mobile toolbar while scrolling",
   );
   await page.getByRole("button", { name: "Open navigation sidebar" }).click();
-  await timesNav
-    .getByRole("link", { name: "Records", exact: true })
-    .click();
+  await timesNav.getByRole("link", { name: "Records", exact: true }).click();
   await timesNav.waitFor({ state: "hidden" });
   const mobileRecords = page.getByRole("region", {
     name: "Records",
     exact: true,
   });
+  await mobileRecords
+    .getByRole("button", { name: "Render all records", exact: true })
+    .click();
   const genderToggle = mobileRecords.getByRole("group", {
     name: "Record gender",
   });
-  const girls = genderToggle.getByRole("button", { name: "Girls", exact: true });
+  const girls = genderToggle.getByRole("button", {
+    name: "Girls",
+    exact: true,
+  });
   const boys = genderToggle.getByRole("button", { name: "Boys", exact: true });
   const mobileRecordTable = mobileRecords
     .getByRole("region", { name: "SCY 11–12 record table", exact: true })
@@ -1060,7 +1241,9 @@ try {
     mobileBoysRecord.boundingBox(),
   ]);
   assert.ok(
-    eventBounds && boysBounds && eventBounds.x + eventBounds.width <= boysBounds.x,
+    eventBounds &&
+      boysBounds &&
+      eventBounds.x + eventBounds.width <= boysBounds.x,
   );
   assert.ok(boysBounds.x + boysBounds.width <= 390);
   await girls.click();
@@ -1089,18 +1272,29 @@ try {
   const recovery = await setup({ failure: true });
   await recovery.page.goto(base + "/tools/times");
   await recovery.page.getByRole("table").waitFor();
-  assert.equal(recovery.calls.filter((q) => q.get("view") === "rankings").length, 2);
-  assert.equal(await recovery.page.getByRole("button", { name: "Try again", exact: true }).count(), 0,
-    "A temporary failure recovers without a manual retry or error popup");
+  assert.equal(
+    recovery.calls.filter((q) => q.get("view") === "rankings").length,
+    2,
+  );
+  assert.equal(
+    await recovery.page
+      .getByRole("button", { name: "Try again", exact: true })
+      .count(),
+    0,
+    "A temporary failure recovers without a manual retry or error popup",
+  );
   await recovery.page.close();
   const expiry = await setup({ expiry: true });
   await expiry.page.goto(base + "/tools/times");
   await expiry.page.locator('table[aria-busy="false"]').waitFor();
-  const initialRequests = expiry.calls.filter((q) => q.get("view") === "rankings").length;
+  const initialRequests = expiry.calls.filter(
+    (q) => q.get("view") === "rankings",
+  ).length;
   await expiry.page.waitForResponse(
     (r) =>
       r.url().includes("view=rankings") &&
-      expiry.calls.filter((q) => q.get("view") === "rankings").length > initialRequests,
+      expiry.calls.filter((q) => q.get("view") === "rankings").length >
+        initialRequests,
   );
   assert.equal(
     expiry.calls.filter((q) => q.get("view") === "rankings").length,

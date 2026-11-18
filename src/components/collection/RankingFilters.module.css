@@ -1,15 +1,31 @@
 .heading,
+.bookmarkActions,
 .bookmarks {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
-  padding: 12px clamp(14px, 2vw, 22px);
-  border-bottom: 1px solid var(--border);
 }
 
 .heading {
+  padding: 12px clamp(14px, 2vw, 22px);
+  border-bottom: 1px solid var(--border);
   justify-content: space-between;
+  min-height: 61px;
+}
+
+.bookmarkActions,
+.bookmarks {
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.bookmarkActions {
+  margin-inline-start: auto;
+}
+
+.bookmarkActions:empty {
+  display: none;
 }
 
 .toggle,
@@ -37,6 +53,8 @@
   color: var(--accent);
   background: var(--background-alt);
   border: 1px solid var(--border);
+  min-width: 176px;
+  justify-content: center;
 }
 
 .save:disabled,
@@ -68,6 +86,22 @@
   place-items: center;
   border-inline-start: 1px solid var(--border);
   color: var(--text-muted);
+}
+
+.chip button + button svg {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.chip:hover button + button svg,
+.chip:focus-within button + button svg {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .chip button + button svg {
+    opacity: 1;
+  }
 }
 
 .chip button[aria-pressed="true"] {

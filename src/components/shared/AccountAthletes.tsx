@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, LoaderCircle, Search, Star, UserRound, X } from "lucide-react";
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useUpdateBlocker } from "@/hooks/useUpdateBlocker";
 import {
   loadAccountAthletes,
@@ -225,11 +225,62 @@ function SelectedAthlete({
   );
 }
 
-function preferenceKey(preferences: AccountAthletePreferences) {
-  return JSON.stringify([
-    preferences.primaryAthlete?.id ?? null,
-    preferences.favoriteAthletes.map((athlete) => athlete.id).sort(),
-  ]);
+type AutosaveStatus = "idle" | "saving" | "saved" | "error";
+type AutosaveState = {
+  draft: AccountAthletePreferences;
+  status: AutosaveStatus;
+};
+
+export function createAthleteAutosave(
+  initial: AccountAthletePreferences,
+  persist: (
+    selection: AccountAthletePreferences,
+  ) => Promise<AccountAthletePreferences>,
+  onState: (state: AutosaveState) => void,
+) {
+  let draft = initial;
+  let revision = 0;
+  let savedRevision = 0;
+  let running = false;
+  const publish = (status: AutosaveStatus) => onState({ draft, status });
+
+  async function flush() {
+    if (running) return;
+    running = true;
+    publish("saving");
+    try {
+      while (savedRevision !== revision) {
+        const selection = draft;
+        const sendingRevision = revision;
+        try {
+          const result = await persist(selection);
+          savedRevision = sendingRevision;
+          // A response for an earlier edit must not replace a newer selection.
+          if (revision === sendingRevision) draft = result;
+        } catch {
+          // If another edit arrived, save that latest selection before stopping.
+          if (revision !== sendingRevision) continue;
+          publish("error");
+          return;
+        }
+      }
+      publish("saved");
+    } finally {
+      running = false;
+    }
+  }
+
+  return {
+    change(next: AccountAthletePreferences) {
+      draft = next;
+      revision += 1;
+      publish("saving");
+      void flush();
+    },
+    retry() {
+      if (savedRevision !== revision) void flush();
+    },
+  };
 }
 
 function AthleteEditor({
@@ -239,45 +290,24 @@ function AthleteEditor({
   userId: string;
   initial: AccountAthletePreferences;
 }) {
-  const [saved, setSaved] = useState(initial);
-  const [draft, setDraft] = useState(initial);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [searchVersion, setSearchVersion] = useState(0);
-  const busy = useRef(false);
-  const dirty = preferenceKey(saved) !== preferenceKey(draft);
-  useUpdateBlocker(dirty || saving);
-
-  function change(next: AccountAthletePreferences) {
-    setDraft(next);
-    setSuccess(false);
-    setError(false);
-  }
-
-  async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (busy.current || !dirty) return;
-    busy.current = true;
-    setSaving(true);
-    setError(false);
-    setSuccess(false);
-    try {
-      const result = await saveAccountAthletes(userId, draft);
-      setSaved(result);
-      setDraft(result);
-      setSuccess(true);
-    } catch {
-      setError(true);
-    } finally {
-      busy.current = false;
-      setSaving(false);
-    }
-  }
+  const [state, setState] = useState<AutosaveState>({
+    draft: initial,
+    status: "idle",
+  });
+  const [autosave] = useState(() =>
+    createAthleteAutosave(
+      initial,
+      (selection) => saveAccountAthletes(userId, selection),
+      setState,
+    ),
+  );
+  const { draft, status } = state;
+  const change = autosave.change;
+  useUpdateBlocker(status === "saving" || status === "error");
 
   return (
-    <form onSubmit={save} aria-label="Choose athletes to follow">
-      <fieldset disabled={saving} className="min-w-0">
+    <div role="group" aria-label="Choose athletes to follow">
+      <fieldset className="min-w-0">
         <legend className="sr-only">Athlete preferences</legend>
         <div className="space-y-7">
           <div>
@@ -295,7 +325,6 @@ function AthleteEditor({
               </div>
             )}
             <AthleteSearch
-              key={`primary-${searchVersion}`}
               kind="primary"
               excludedIds={
                 draft.primaryAthlete ? [draft.primaryAthlete.id] : []
@@ -347,7 +376,6 @@ function AthleteEditor({
             )}
             {draft.favoriteAthletes.length < maxFavoriteAthletes ? (
               <AthleteSearch
-                key={`favorite-${searchVersion}`}
                 kind="favorite"
                 excludedIds={[
                   ...(draft.primaryAthlete ? [draft.primaryAthlete.id] : []),
@@ -368,31 +396,17 @@ function AthleteEditor({
             )}
           </div>
         </div>
-        {dirty && (
-          <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-border pt-5">
-            <Button type="submit" disabled={saving}>
-              {saving && (
-                <LoaderCircle
-                  className="mr-2 size-4 animate-spin"
-                  aria-hidden="true"
-                />
-              )}
-              {saving ? "Saving…" : "Save athletes"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                change(saved);
-                setSearchVersion(searchVersion + 1);
-              }}
-            >
-              Discard changes
-            </Button>
-          </div>
-        )}
       </fieldset>
-      {success && (
+      {status === "saving" && (
+        <p
+          role="status"
+          className="mt-4 flex items-center gap-1.5 text-sm text-text-secondary"
+        >
+          <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+          Saving athletes…
+        </p>
+      )}
+      {status === "saved" && (
         <p
           role="status"
           className="mt-4 flex items-center gap-1.5 text-sm text-accent"
@@ -401,13 +415,22 @@ function AthleteEditor({
           Athletes saved
         </p>
       )}
-      {error && (
-        <p role="alert" className="mt-4 text-sm text-text-secondary">
-          We couldn’t save your athletes. Your selections are still here—please
-          try again.
-        </p>
+      {status === "error" && (
+        <div className="mt-4 space-y-3">
+          <p role="alert" className="text-sm text-text-secondary">
+            We couldn’t save your athletes. Your selections are still here.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={autosave.retry}
+          >
+            Retry saving athletes
+          </Button>
+        </div>
       )}
-    </form>
+    </div>
   );
 }
 
@@ -434,17 +457,11 @@ export default function AccountAthletes({ userId }: { userId: string }) {
       aria-labelledby="athlete-following-heading"
       className="rounded-2xl border border-border bg-surface p-5 sm:p-6"
     >
-      <div className="flex items-center gap-3">
-        <Star className="size-5 text-accent" aria-hidden="true" />
-        <h2 id="athlete-following-heading" className="text-xl font-semibold">
-          Athlete following
-        </h2>
-      </div>
-      <p className="mt-2 mb-6 text-sm leading-relaxed text-text-secondary">
-        Choose the athletes you want to see on the Times tab in Velocity Times.
-      </p>
+      <h2 id="athlete-following-heading" className="mb-6 text-xl font-semibold">
+        Athlete following
+      </h2>
       {preferences ? (
-        <AthleteEditor userId={userId} initial={preferences} />
+        <AthleteEditor key={userId} userId={userId} initial={preferences} />
       ) : failed ? (
         <div className="space-y-3">
           <p role="alert" className="text-sm text-text-secondary">

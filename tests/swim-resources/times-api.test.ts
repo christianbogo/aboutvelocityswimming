@@ -66,6 +66,52 @@ describe("Velocity times requests", () => {
       expect(() => parseTimesQuery(new URLSearchParams(query))).toThrow();
     }
   });
+  it("accepts record-board age ranges and rejects conflicting personal-best periods", () => {
+    for (const ageGroup of [
+      "8&U",
+      "9-10",
+      "11-12",
+      "13-14",
+      "15-16",
+      "17-18",
+      "19&O",
+      "Open",
+    ]) {
+      expect(
+        parseTimesQuery(
+          new URLSearchParams({
+            view: "my_times",
+            athleteId: "a",
+            rankPeriod: "all",
+            ageGroup,
+          }),
+        ).input.ageGroup,
+      ).toBe(ageGroup);
+    }
+    for (const suffix of [
+      "ageGroup=unknown",
+      "ageGroup=11-12&ageAtSwim=11",
+      "ageGroup=11-12&startYear=2024",
+      "ageGroup=11-12&endYear=2026",
+    ]) {
+      expect(() =>
+        parseTimesQuery(
+          new URLSearchParams(
+            `view=my_times&athleteId=a&rankPeriod=all&${suffix}`,
+          ),
+        ),
+      ).toThrow();
+    }
+  });
+  it("does not silently apply age ranges to legacy ranking reads", () => {
+    for (const view of ["my_times", "my_times_bests"]) {
+      expect(() =>
+        parseTimesQuery(
+          new URLSearchParams({ view, athleteId: "a", ageGroup: "11-12" }),
+        ),
+      ).toThrow("Age ranges require all-time personal bests.");
+    }
+  });
   it("requires an athlete and one bounded personal-best filter", () => {
     const base = "view=my_times_bests&athleteId=a";
     expect(

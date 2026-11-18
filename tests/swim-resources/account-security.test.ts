@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   linkIdentity: vi.fn(), signInWithOAuth: vi.fn(), registerPasskey: vi.fn(), signInWithPasskey: vi.fn(),
-  getUserIdentities: vi.fn(), list: vi.fn(), release: vi.fn(), addEventListener: vi.fn(),
+  getUserIdentities: vi.fn(), updateUser: vi.fn(), list: vi.fn(), release: vi.fn(), addEventListener: vi.fn(),
 }));
 vi.mock("@/lib/supabase/client", () => ({
   browserClient: () => ({ auth: { ...mocks, passkey: { list: mocks.list } } }),
@@ -12,7 +12,7 @@ vi.mock("@/lib/update-safety", () => ({
   withUpdateHold: (fn: () => Promise<unknown>) => fn(),
 }));
 import {
-  accountSecurityError, createAccountPasskey, linkAccountProvider,
+  accountProviders, accountSecurityError, createAccountPasskey, linkAccountProvider, saveAccountPassword,
   loadAccountIdentities, loadAccountPasskeys, signInWithAccountPasskey, signInWithAccountProvider,
 } from "@/lib/account-security";
 
@@ -29,23 +29,30 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("account sign-in linking", () => {
-  it.each(["google", "apple", "azure"] as const)("uses OAuth sign-in for a returning %s user", async (provider) => {
-    await signInWithAccountProvider(provider);
-    expect(mocks.signInWithOAuth).toHaveBeenCalledWith(expect.objectContaining({
-      provider, options: expect.objectContaining({
-        redirectTo: "https://velocity.example/auth/callback?next=%2Ftools",
-      }),
-    }));
-    expect(mocks.linkIdentity).not.toHaveBeenCalled();
+  it("offers only Google as a linked OAuth sign-in", () => {
+    expect(accountProviders).toEqual([{ id: "google", name: "Google" }]);
   });
-  it("links the provider to the current account and returns through the account callback", async () => {
-    await linkAccountProvider("azure");
-    expect(mocks.linkIdentity).toHaveBeenCalledWith({
-      provider: "azure", options: {
-        scopes: "email",
-        redirectTo: "https://velocity.example/auth/callback?next=%2Ftools&flow=link",
+  it("uses Google OAuth sign-in for a returning user without initiating a link", async () => {
+    await signInWithAccountProvider("google");
+    expect(mocks.signInWithOAuth).toHaveBeenCalledExactlyOnceWith({
+      provider: "google", options: {
+        redirectTo: "https://velocity.example/auth/callback?next=%2Ftools",
+        queryParams: { prompt: "select_account" },
       },
     });
+    expect(mocks.linkIdentity).not.toHaveBeenCalled();
+    expect(mocks.release).not.toHaveBeenCalled();
+    expect(mocks.addEventListener).toHaveBeenCalledWith("pageshow", mocks.release, { once: true });
+  });
+  it("links Google to the current account and returns through the account callback", async () => {
+    await linkAccountProvider("google");
+    expect(mocks.linkIdentity).toHaveBeenCalledExactlyOnceWith({
+      provider: "google", options: {
+        redirectTo: "https://velocity.example/auth/callback?next=%2Ftools&flow=link",
+        queryParams: { prompt: "select_account" },
+      },
+    });
+    expect(mocks.signInWithOAuth).not.toHaveBeenCalled();
     expect(mocks.release).not.toHaveBeenCalled();
     const onPageShow = mocks.addEventListener.mock.calls[0][1];
     onPageShow();
@@ -59,12 +66,43 @@ describe("account sign-in linking", () => {
   });
   it("does not report success when the provider returns no redirect", async () => {
     mocks.linkIdentity.mockResolvedValue({ data: { url: null }, error: null });
-    await expect(linkAccountProvider("apple")).rejects.toThrow("did not return a link");
+    await expect(linkAccountProvider("google")).rejects.toThrow("did not return a link");
+    expect(mocks.release).toHaveBeenCalledOnce();
+  });
+  it("releases the update hold when Google sign-in is rejected", async () => {
+    const error = { code: "provider_disabled" };
+    mocks.signInWithOAuth.mockResolvedValue({ data: {}, error });
+    await expect(signInWithAccountProvider("google")).rejects.toEqual(error);
+    expect(mocks.release).toHaveBeenCalledOnce();
+  });
+  it("requires a redirect before treating Google sign-in as started", async () => {
+    mocks.signInWithOAuth.mockResolvedValue({ data: { url: null }, error: null });
+    await expect(signInWithAccountProvider("google")).rejects.toThrow("did not return a link");
     expect(mocks.release).toHaveBeenCalledOnce();
   });
   it("does not interpret a failed identity lookup as an empty linked account list", async () => {
     mocks.getUserIdentities.mockResolvedValue({ data: null, error: new Error("offline") });
     await expect(loadAccountIdentities()).rejects.toThrow("offline");
+  });
+});
+
+describe("account password", () => {
+  it("sets a password on the authenticated account without changing profile or identity data", async () => {
+    mocks.updateUser.mockResolvedValue({ data: { user: { id: "current-account" } }, error: null });
+    await expect(saveAccountPassword("Test-only password 42!")).resolves.toBeUndefined();
+    expect(mocks.updateUser).toHaveBeenCalledExactlyOnceWith({ password: "Test-only password 42!" });
+  });
+  it("rejects short passwords before contacting the backend", async () => {
+    await expect(saveAccountPassword("short")).rejects.toThrow("at least 8 characters");
+    expect(mocks.updateUser).not.toHaveBeenCalled();
+  });
+  it("does not claim a password was saved after backend rejection or a missing user", async () => {
+    const error = { code: "reauthentication_needed" };
+    mocks.updateUser.mockResolvedValue({ data: { user: null }, error });
+    await expect(saveAccountPassword("Test-only password 42!")).rejects.toEqual(error);
+    expect(accountSecurityError(error, "fallback")).toContain("sign in again");
+    mocks.updateUser.mockResolvedValue({ data: { user: null }, error: null });
+    await expect(saveAccountPassword("Test-only password 42!")).rejects.toThrow("could not be saved");
   });
 });
 

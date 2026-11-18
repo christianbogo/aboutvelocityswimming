@@ -4,8 +4,6 @@ import { holdUpdates, withUpdateHold } from "./update-safety";
 
 export const accountProviders = [
   { id: "google", name: "Google" },
-  { id: "apple", name: "Apple" },
-  { id: "azure", name: "Microsoft" },
 ] as const;
 export type AccountProvider = (typeof accountProviders)[number]["id"];
 export type AccountPasskey = PasskeyListItem;
@@ -14,12 +12,7 @@ export type AccountIdentity = Pick<
   "id" | "provider" | "identity_data"
 >;
 export const configuredSignInProviders = accountProviders.filter(
-  (provider) =>
-    ({
-      google: process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true",
-      apple: process.env.NEXT_PUBLIC_APPLE_AUTH_ENABLED === "true",
-      azure: process.env.NEXT_PUBLIC_MICROSOFT_AUTH_ENABLED === "true",
-    })[provider.id],
+  () => process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true",
 );
 
 export function supportsPasskeys() {
@@ -51,10 +44,7 @@ async function redirectToProvider(provider: AccountProvider, link: boolean) {
       provider,
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/tools")}${link ? "&flow=link" : ""}`,
-        ...(provider === "azure" ? { scopes: "email" } : {}),
-        ...(provider === "google"
-          ? { queryParams: { prompt: "select_account" } }
-          : {}),
+        queryParams: { prompt: "select_account" },
       },
     };
     const { data, error } = await (link
@@ -77,6 +67,17 @@ export function linkAccountProvider(provider: AccountProvider) {
 
 export function signInWithAccountProvider(provider: AccountProvider) {
   return redirectToProvider(provider, false);
+}
+
+export async function saveAccountPassword(password: string) {
+  if (password.length < 8)
+    throw new Error("Use at least 8 characters for your password.");
+  return withUpdateHold(async () => {
+    const { data, error } = await browserClient().auth.updateUser({ password });
+    if (error) throw error;
+    if (!data.user)
+      throw new Error("Your password could not be saved. Please sign in again.");
+  });
 }
 
 export async function createAccountPasskey(
@@ -126,6 +127,12 @@ export function accountSecurityError(error: unknown, fallback: string): string {
   }
   if (code === "email_not_confirmed")
     return "Verify your email before creating a passkey.";
+  if (code === "weak_password")
+    return "Choose a stronger password with at least 8 characters, including uppercase and lowercase letters, numbers, and symbols.";
+  if (code === "same_password")
+    return "Choose a different password from your current password.";
+  if (code === "reauthentication_needed" || code === "reauthentication_not_valid")
+    return "Please sign out and sign in again with Google or an email code, then save your password.";
   if (code === "too_many_passkeys")
     return "You have reached the limit for passkeys on this account.";
   if (

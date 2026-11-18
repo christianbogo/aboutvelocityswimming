@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useId, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Fragment, Suspense, useId, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ChevronDown,
   X,
@@ -11,8 +11,7 @@ import {
   Timer,
 } from "lucide-react";
 import { hasBackendConfiguration } from "@/lib/supabase/client";
-import { getTimesView, type TimesView } from "@/lib/tool-directory";
-import { VELOCITY_TEAM } from "@/features/swim-resources/lib/domain/entities";
+import type { TimesView } from "@/lib/tool-directory";
 import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
 import {
   ageGroups,
@@ -29,23 +28,35 @@ import {
 } from "./times-data";
 import s from "./TimesDatabase.module.css";
 import loadingStyles from "./TimesLoading.module.css";
+import { SkeletonText, SkeletonStatus } from "./LoadingSkeleton";
 import TimeStandards, {
   TimeStandardsSummary,
+  TimeStandardsSummarySkeleton,
+  TimeStandardsSkeleton,
   useTimeStandardsSelection,
 } from "./TimeStandards";
 import { FilterChips, FilterSummary, PopupPicker } from "./TimesFilters";
-import RankingFilters from "./RankingFilters";
+import RankingFilters, { RankingFiltersSkeleton } from "./RankingFilters";
 import RaceDetails from "./RaceDetails";
 import { ModerationNotice } from "./ResultModeration";
 import RelayLineup from "./RelayLineup";
-import { timesUrl } from "./times-api";
+import { timesUrl, type TimesResponse } from "./times-api";
 import { useTimes, useDebouncedSearch } from "./use-times";
-import TeamRecords, { type RecordSelection } from "./TeamRecords";
+import TeamRecords, {
+  TeamRecordsSkeleton,
+  type RecordSelection,
+} from "./TeamRecords";
+import { strokeColumns, eventColumn } from "./event-layout";
 import MyTimes, { type MyTimesRankingSelection } from "./MyTimes";
-import EventRankLegend from "./EventRankLegend";
+import { MyTimesPageSkeleton } from "./MyTimesSkeleton";
+import {
+  crossedRankingCutoffs,
+  rankingCutoffs,
+  type RankingCutoff,
+} from "./ranking-cutoffs";
 
 import { useTimesSelection } from "./use-times-selection";
-import { timesViewHref } from "./times-url-state";
+import { timesViewHref, writeTimesSelection } from "./times-url-state";
 
 import CutChips from "./CutChips";
 import { useStandards } from "./use-standards";
@@ -123,6 +134,10 @@ function AgeGroupPicker({
 }) {
   const id = useId();
   const dialog = useRef<HTMLDialogElement>(null);
+  function selectGroups(groups: string[]) {
+    onChange(groups);
+    dialog.current?.close();
+  }
   return (
     <div className={s.field}>
       <label htmlFor={id}>Age group</label>
@@ -159,7 +174,7 @@ function AgeGroupPicker({
         </div>
         <p className={s.muted}>Select one or more recorded age groups.</p>
         <div className={s.eventGrid}>
-          <button aria-pressed={!value.length} onClick={() => onChange([])}>
+          <button aria-pressed={!value.length} onClick={() => selectGroups([])}>
             All ages
           </button>
           {options.map(([key, text]) => (
@@ -167,7 +182,7 @@ function AgeGroupPicker({
               key={key}
               aria-pressed={value.includes(key)}
               onClick={() =>
-                onChange(
+                selectGroups(
                   value.includes(key)
                     ? value.filter((age) => age !== key)
                     : [...value, key],
@@ -189,28 +204,36 @@ function Pager({
   page,
   total,
   onChange,
+  loading = false,
 }: {
   page: number;
   total: number;
   onChange: (page: number) => void;
+  loading?: boolean;
 }) {
   return (
     <nav className={s.pager} aria-label="Result pages">
       <button
         className={s.button}
-        disabled={page === 0}
+        disabled={loading || page === 0}
         onClick={() => onChange(page - 1)}
       >
         <ChevronLeft size={14} />
         Previous
       </button>
-      <span>
-        {total ? page * pageSize + 1 : 0}–
-        {Math.min((page + 1) * pageSize, total)} of {number(total)}
+      <span className={s.pageCount}>
+        {loading ? (
+          <SkeletonText width={100} height={14} />
+        ) : (
+          <>
+            {total ? page * pageSize + 1 : 0}–
+            {Math.min((page + 1) * pageSize, total)} of {number(total)}
+          </>
+        )}
       </span>
       <button
         className={s.button}
-        disabled={(page + 1) * pageSize >= total}
+        disabled={loading || (page + 1) * pageSize >= total}
         onClick={() => onChange(page + 1)}
       >
         Next
@@ -392,16 +415,294 @@ function Performance({
   );
 }
 
-export default function TimesDatabase() {
+function CutoffDivider({
+  cutoff,
+  columns,
+  loading = false,
+}: {
+  cutoff: RankingCutoff;
+  columns: number;
+  loading?: boolean;
+}) {
+  const label = `${formatSwimTime(cutoff.time)} ${cutoff.rank.name.toUpperCase()} CUTOFF · ${cutoff.seasonYears}`;
   return (
-    <Suspense fallback={<p role="status">Loading Velocity Times…</p>}>
-      <TimesDatabaseContent />
+    <tr className={s.cutoffRow} aria-hidden={loading || undefined}>
+      {[false, true].map((wide) => (
+        <td
+          key={String(wide)}
+          colSpan={wide ? columns : columns - 1}
+          className={wide ? s.cutoffWide : s.cutoffCompact}
+        >
+          {!loading && <span className="sr-only">{label}</span>}
+          <div
+            className={`${s.cutoffLine} ${loading ? s.cutoffLoading : ""}`}
+            style={loading ? undefined : { backgroundColor: cutoff.rank.color }}
+            aria-hidden="true"
+          >
+            {Array.from({ length: 8 }, (_, index) => (
+              <span key={index}>
+                {loading ? <SkeletonText width={200} height={9} /> : label}
+              </span>
+            ))}
+          </div>
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+function RankingTableHead({
+  showRank,
+  relay,
+}: {
+  showRank: boolean;
+  relay: boolean;
+}) {
+  return (
+    <thead>
+      <tr>
+        {showRank && (
+          <th scope="col" className={s.rank}>
+            <span className="sr-only">Rank</span>
+          </th>
+        )}
+        <th scope="col" className={s.rankingAthlete}>
+          {relay ? "Relay team" : "Athlete"}
+        </th>
+        <th scope="col">Time</th>
+        <th scope="col" className={s.rankingDate}>
+          Date
+        </th>
+        <th scope="col" className={s.rankingMeet}>
+          Meet
+        </th>
+      </tr>
+    </thead>
+  );
+}
+
+function RankingsLoadingRows({
+  rows = [],
+  previousTime,
+  cutoffs = [],
+  showRank = true,
+  relay = false,
+}: {
+  rows?: NonNullable<TimesResponse["rows"]>;
+  previousTime?: number;
+  cutoffs?: RankingCutoff[];
+  showRank?: boolean;
+  relay?: boolean;
+}) {
+  return (
+    <tbody
+      className={loadingStyles.pulse}
+      data-loading-skeleton="rankings"
+      aria-hidden="true"
+    >
+      {Array.from({ length: rows.length || pageSize }, (_, index) => (
+        <Fragment key={index}>
+          {rows[index] &&
+            crossedRankingCutoffs(
+              cutoffs,
+              index > 0 ? rows[index - 1].race.time : previousTime,
+              rows[index].race.time,
+            ).map((cutoff) => (
+              <CutoffDivider
+                key={cutoff.rank.tier}
+                cutoff={cutoff}
+                columns={showRank ? 5 : 4}
+                loading
+              />
+            ))}
+          <tr className={s.rankingLoadingRow}>
+            {showRank && (
+              <td className={s.rank}>
+                <SkeletonText width={16} height={13} />
+              </td>
+            )}
+            <td className={s.rankingAthlete}>
+              <div className={s.rankingAthleteContent}>
+                {relay ? (
+                  <div className={s.rankingRelaySkeleton}>
+                    {Array.from({ length: 4 }, (_, leg) => (
+                      <SkeletonText key={leg} width={72} height={13} />
+                    ))}
+                  </div>
+                ) : (
+                  <SkeletonText width={150} height={13} />
+                )}
+              </div>
+            </td>
+            <td>
+              <div className={s.rankingTimeContent}>
+                <span className={s.rankingTimeValue}>
+                  <SkeletonText width={62} height={18} />
+                </span>
+                <span className={s.rankingCutSlot}>
+                  <SkeletonText width={24} height={24} />
+                </span>
+              </div>
+            </td>
+            <td className={s.rankingDate}>
+              <SkeletonText width={85} height={13} />
+            </td>
+            <td className={s.rankingMeet}>
+              <SkeletonText width="70%" height={13} />
+            </td>
+          </tr>
+        </Fragment>
+      ))}
+    </tbody>
+  );
+}
+
+function RankingsFilterSkeleton() {
+  const events = [...timesEvents("SCY"), ...timesEvents("SCY", true)];
+  return (
+    <div aria-hidden="true" className={loadingStyles.pulse}>
+      <div className={s.filters}>
+        <div className={`${s.field} ${s.eventField}`}>
+          <div className={s.inlineEventSelector}>
+            <div className={s.strokeSelector}>
+              <div className={s.strokeColumns}>
+                {strokeColumns.map(([stroke]) => (
+                  <section key={stroke}>
+                    <h3>
+                      <SkeletonText width={24} height={10} />
+                    </h3>
+                    {events
+                      .filter((event) => eventColumn(event) === stroke)
+                      .map((event) => (
+                        <span key={event} className={s.strokeSkeletonChoice}>
+                          <SkeletonText width={22} height={12} />
+                        </span>
+                      ))}
+                    {["FL", "BK", "BR"].includes(stroke) && (
+                      <span className={s.strokeSkeletonChoice}>
+                        <SkeletonText width={22} height={12} />
+                      </span>
+                    )}
+                  </section>
+                ))}
+              </div>
+            </div>
+          </div>
+          <span className={s.eventTrigger}>
+            <SkeletonText width="70%" height={13} />
+          </span>
+        </div>
+        <div className={s.secondaryFilters}>
+          {["Gender", "Age group", "Results", "Year"].map((label) =>
+            label === "Gender" || label === "Results" ? (
+              <fieldset className={s.courseField} key={label}>
+                <legend>
+                  <SkeletonText width={56} height={10} />
+                </legend>
+                <div className={s.chips}>
+                  {Array.from(
+                    { length: label === "Gender" ? 2 : 3 },
+                    (_, index) => (
+                      <span className={s.filterControlSkeleton} key={index}>
+                        <SkeletonText width={44} height={12} />
+                      </span>
+                    ),
+                  )}
+                </div>
+              </fieldset>
+            ) : (
+              <div className={s.field} key={label}>
+                <span className={s.filterSkeletonLabel}>
+                  <SkeletonText width={56} height={10} />
+                </span>
+                <span className={s.eventTrigger}>
+                  <SkeletonText width="60%" height={13} />
+                </span>
+              </div>
+            ),
+          )}
+        </div>
+      </div>
+      <div className={`${s.toolbar} ${s.rankingToolbar}`}>
+        <span className={`${s.eventTrigger} ${s.searchSkeleton}`}>
+          <SkeletonText width={150} height={13} />
+        </span>
+        <SkeletonText width={76} height={13} />
+      </div>
+    </div>
+  );
+}
+
+export function RankingsSkeleton() {
+  return (
+    <main className={s.page} aria-busy="true">
+      <SkeletonStatus>Loading rankings…</SkeletonStatus>
+      <header className={s.toolHeader} aria-hidden="true">
+        <div className={`${s.filterSummary} ${s.summarySkeleton}`}>
+          {[28, 90, 50, 48].map((width, index) => (
+            <SkeletonText key={index} width={width} height={13} />
+          ))}
+        </div>
+      </header>
+      <div className={s.content}>
+        <div className={s.main}>
+          <section className={s.panel} aria-label="Rankings">
+            <RankingFiltersSkeleton />
+            <RankingsFilterSkeleton />
+            <div className={s.tableWrap}>
+              <table
+                className={`${s.table} ${s.rankingTable}`}
+                aria-busy="true"
+              >
+                <RankingTableHead showRank relay={false} />
+                <RankingsLoadingRows />
+              </table>
+            </div>
+            <Pager page={0} total={0} onChange={() => {}} loading />
+          </section>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+export function RecordsSkeleton() {
+  return (
+    <main className={s.page}>
+      <div className={`${s.content} ${s.recordsContent}`}>
+        <TeamRecordsSkeleton />
+      </div>
+    </main>
+  );
+}
+
+export function TimesPageSkeleton({ view }: { view: TimesView }) {
+  if (view === "rankings") return <RankingsSkeleton />;
+  if (view === "records") return <RecordsSkeleton />;
+  if (view === "my-times") return <MyTimesPageSkeleton />;
+  return (
+    <main className={s.page} aria-busy="true">
+      <header className={s.toolHeader}>
+        <TimeStandardsSummarySkeleton />
+      </header>
+      <div className={s.content}>
+        <TimeStandardsSkeleton />
+      </div>
+    </main>
+  );
+}
+
+export default function TimesDatabase({ view }: { view: TimesView }) {
+  return (
+    <Suspense fallback={<TimesPageSkeleton view={view} />}>
+      <TimesDatabaseContent key={view} view={view} />
     </Suspense>
   );
 }
 
-function TimesDatabaseContent() {
-  const view = getTimesView(useSearchParams().get("view"));
+function TimesDatabaseContent({ view }: { view: TimesView }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const standards = useStandards(view !== "records");
   const standardSelection = useTimeStandardsSelection(
     standards.sets,
@@ -411,24 +712,23 @@ function TimesDatabaseContent() {
     "filters",
     initialFilters,
   );
-  const [fromRecords, setFromRecords] = useState(false);
-  const [fromMyTimes, setFromMyTimes] = useTimesSelection("fromMyTimes", false);
   const [search, setSearch] = useTimesSelection("search", "");
   const searchTerm = useDebouncedSearch(search);
   const [page, setPage] = useTimesSelection("page", 0);
   const [selected, setSelected] = useState<Race | null>(null);
-  const [previousView, setPreviousView] = useState(view);
-  if (previousView !== view) {
-    setPreviousView(view);
-    setSelected(null);
-    if (view !== "rankings") setFromRecords(false);
-  }
   const detailRef = useRef<HTMLDivElement>(null);
   const enabled = hasBackendConfiguration;
   const rankingYears = useTimes(
     enabled && view === "rankings" ? timesUrl("ranking_years") : null,
   );
-  const years = rankingYears.data?.years ?? [];
+  const years = [
+    ...new Set([
+      ...(rankingYears.data?.years ??
+        rankingYears.placeholderData?.years ??
+        []),
+      ...(filters.year ? [filters.year] : []),
+    ]),
+  ].sort((a, b) => b.localeCompare(a));
   const queryFilters = {
     ...filters,
     genders: filters.genders.length ? filters.genders : undefined,
@@ -438,15 +738,37 @@ function TimesDatabaseContent() {
       ? timesUrl("rankings", {
           ...queryFilters,
           search: searchTerm,
-          offset: page * pageSize,
+          offset: Math.max(0, page * pageSize - (page > 0 ? 1 : 0)),
+          limit: pageSize + (page > 0 ? 1 : 0),
         })
       : null,
   );
   const recordsQuery = useTimes(
     enabled && view === "records" ? timesUrl("records_board") : null,
   );
-  const races = recordsQuery.data?.races ?? [];
-  const displayed = rankingsQuery.data?.rows ?? [];
+  const recordData =
+    recordsQuery.data ??
+    (recordsQuery.loading ? recordsQuery.placeholderData : null);
+  const races = recordData?.races ?? [];
+  const placeholderOffset = rankingsQuery.placeholderUrl
+    ? Number(
+        new URL(
+          rankingsQuery.placeholderUrl,
+          "https://local.test",
+        ).searchParams.get("offset"),
+      )
+    : 0;
+  const placeholderRows = (rankingsQuery.placeholderData?.rows ?? []).slice(
+    placeholderOffset > 0 ? 1 : 0,
+  );
+  const placeholderPreviousTime =
+    placeholderOffset > 0
+      ? rankingsQuery.placeholderData?.rows?.[0]?.race.time
+      : undefined;
+  const rankingRows = rankingsQuery.data?.rows ?? [];
+  const previousPageTime = page > 0 ? rankingRows[0]?.race.time : undefined;
+  const displayed = rankingRows.slice(page > 0 ? 1 : 0);
+  const cutoffs = rankingCutoffs(filters, standards.sets);
   const names = new Map(
     [
       ...displayed.map(({ race }) => race),
@@ -509,50 +831,36 @@ function TimesDatabaseContent() {
     setSelected(null);
     setSearch("");
   }
-  function changeView(next: TimesView) {
-    window.history.replaceState(
-      null,
-      "",
-      timesViewHref(next, window.location.search, window.location.hash),
+  function openRankings(next: Filters, collapseFilters = false) {
+    const url = new URL(
+      timesViewHref("rankings", window.location.search, "#times-rankings"),
+      window.location.origin,
     );
-    setFromRecords(false);
-    setSelected(null);
+    if (collapseFilters) url.searchParams.set("eventFilters", "closed");
+    router.push(writeTimesSelection(url, "filters", next, initialFilters));
   }
   function openRecord(selection: RecordSelection) {
-    changeView("rankings");
-    setFilters({
-      ...initialFilters,
-      course: selection.course,
-      event: selection.event,
-      genders: [selection.gender],
-      ageGroups: [selection.ageGroup],
-      mode: "performances",
-      relay: selection.relay ?? false,
-    });
-    setFromRecords(true);
-    requestAnimationFrame(() =>
-      document
-        .getElementById("times-rankings")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    openRankings(
+      {
+        ...initialFilters,
+        course: selection.course,
+        event: selection.event,
+        genders: [selection.gender],
+        ageGroups: [selection.ageGroup],
+        mode: selection.relay ? "performances" : "bests",
+        relay: selection.relay ?? false,
+      },
+      true,
     );
   }
   function openMyTimesRankings(selection: MyTimesRankingSelection) {
-    changeView("rankings");
-    setFilters({
+    openRankings({
       ...initialFilters,
       course: selection.course,
       event: selection.event,
       genders: selection.gender ? [selection.gender] : [],
       ageGroups: selection.ageGroup ? [selection.ageGroup] : [],
     });
-    setFromMyTimes(true);
-    setSearch("");
-    setPage(0);
-    requestAnimationFrame(() =>
-      document
-        .getElementById("times-rankings")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" }),
-    );
   }
   function selectRace(race: Race) {
     setSelected(race);
@@ -590,7 +898,7 @@ function TimesDatabaseContent() {
       <div className={s.tableWrap}>
         <table
           aria-busy={rankingsQuery.loading}
-          className={`${s.table} ${s.rankingTable}`}
+          className={`${s.table} ${s.rankingTable} ${tableRelay ? s.relayRankings : ""}`}
         >
           <caption className="sr-only">
             {filters.mode === "recent"
@@ -599,106 +907,79 @@ function TimesDatabaseContent() {
                 ? "Rankings, one best swim per athlete in the selected age groups"
                 : "Rankings, every matching performance"}
           </caption>
-          <thead>
-            <tr>
-              {showRank && (
-                <th scope="col" className={s.rank}>
-                  <span className="sr-only">Rank</span>
-                </th>
-              )}
-              <th scope="col">{tableRelay ? "Relay team" : "Athlete"}</th>
-              <th scope="col">Time</th>
-              <th scope="col">Date</th>
-              <th scope="col" className={s.rankingMeet}>
-                Meet
-              </th>
-            </tr>
-          </thead>
-          <tbody
-            className={rankingsQuery.loading ? loadingStyles.pulse : undefined}
-          >
-            {rankingsQuery.loading &&
-              Array.from(
-                { length: rankingsQuery.placeholderRowCount || pageSize },
-                (_, index) => (
-                  <tr key={`loading-${index}`} aria-hidden="true">
-                    {showRank && (
-                      <td className={s.rank}>
-                        <span
-                          className={loadingStyles.bar}
-                          style={{ width: 16 }}
-                        />
-                      </td>
-                    )}
-                    <td>
-                      <span
-                        className={loadingStyles.bar}
-                        style={{ width: 150 }}
-                      />
-                    </td>
-                    <td>
-                      <span
-                        className={loadingStyles.bar}
-                        style={{ width: 60, height: 24 }}
-                      />
-                    </td>
-                    <td>
-                      <span
-                        className={loadingStyles.bar}
-                        style={{ width: 85 }}
-                      />
-                    </td>
-                    <td className={s.rankingMeet}>
-                      <span
-                        className={loadingStyles.bar}
-                        style={{ width: "70%" }}
-                      />
-                    </td>
-                  </tr>
-                ),
-              )}
-            {displayed.map(({ race, rank }) => (
-              <tr
-                key={race.id}
-                className={selected?.id === race.id ? s.selected : undefined}
-                onClick={() => selectRace(race)}
-              >
-                {showRank && <td className={s.rank}>{rank}</td>}
-                <td>
-                  {race.relay ? (
-                    <RelayLineup race={race} />
-                  ) : (
-                    (names.get(race.athleteId) ?? race.athleteId)
-                  )}
-                  {race.resultOrigin === "relay_leadoff" && (
-                    <span className={s.resultTag}>Verified lead-off</span>
-                  )}
-                </td>
-                <td>
-                  <button
-                    className={s.time}
-                    aria-label={`Analyze ${race.status === "OK" ? formatSwimTime(race.time) : race.status} by ${resultName(race, names)}`}
+          <RankingTableHead showRank={showRank} relay={tableRelay} />
+          {rankingsQuery.loading ? (
+            <RankingsLoadingRows
+              rows={placeholderRows}
+              previousTime={placeholderPreviousTime}
+              cutoffs={cutoffs}
+              showRank={showRank}
+              relay={tableRelay}
+            />
+          ) : (
+            <tbody>
+              {displayed.map(({ race, rank }, index) => (
+                <Fragment key={race.id}>
+                  {crossedRankingCutoffs(
+                    cutoffs,
+                    index > 0
+                      ? displayed[index - 1].race.time
+                      : previousPageTime,
+                    race.time,
+                  ).map((cutoff) => (
+                    <CutoffDivider
+                      key={cutoff.rank.tier}
+                      cutoff={cutoff}
+                      columns={showRank ? 5 : 4}
+                    />
+                  ))}
+                  <tr
+                    className={
+                      selected?.id === race.id ? s.selected : undefined
+                    }
                     onClick={() => selectRace(race)}
                   >
-                    {race.status === "OK"
-                      ? formatSwimTime(race.time)
-                      : race.status || "—"}
-                  </button>
-                  <CutChips
-                    race={race}
-                    sets={standards.sets}
-                    inline
-                    motivationalIcons
-                  />
-                  <ModerationNotice race={race} />
-                </td>
-                <td>{date(race.date)}</td>
-                <td className={s.rankingMeet}>
-                  {race.meet || "Meet unavailable"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
+                    {showRank && <td className={s.rank}>{rank}</td>}
+                    <td className={s.rankingAthlete}>
+                      <div className={s.rankingAthleteContent}>
+                        {race.relay ? (
+                          <RelayLineup race={race} />
+                        ) : (
+                          (names.get(race.athleteId) ?? race.athleteId)
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <div className={s.rankingTimeContent}>
+                        <button
+                          className={`${s.time} ${s.rankingTimeValue}`}
+                          aria-label={`Analyze ${race.status === "OK" ? formatSwimTime(race.time) : race.status} by ${resultName(race, names)}`}
+                          onClick={() => selectRace(race)}
+                        >
+                          {race.status === "OK"
+                            ? formatSwimTime(race.time)
+                            : race.status || "—"}
+                        </button>
+                        <span className={s.rankingCutSlot}>
+                          <CutChips
+                            race={race}
+                            sets={standards.sets}
+                            inline
+                            motivationalIcons
+                          />
+                        </span>
+                      </div>
+                      <ModerationNotice race={race} />
+                    </td>
+                    <td className={s.rankingDate}>{date(race.date)}</td>
+                    <td className={s.rankingMeet}>
+                      {race.meet || "Meet unavailable"}
+                    </td>
+                  </tr>
+                </Fragment>
+              ))}
+            </tbody>
+          )}
         </table>
       </div>
       {!rankingsQuery.loading && !displayed.length && (
@@ -708,25 +989,14 @@ function TimesDatabaseContent() {
           <p>Try another event or broaden your filters.</p>
         </div>
       )}
-      {rankingsQuery.loading ? (
-        <div className={s.pager} aria-hidden="true">
-          <span
-            className={loadingStyles.bar}
-            style={{ width: 90, height: 36 }}
-          />
-          <span className={loadingStyles.bar} style={{ width: 100 }} />
-          <span
-            className={loadingStyles.bar}
-            style={{ width: 90, height: 36 }}
-          />
-        </div>
-      ) : (
-        <Pager
-          page={page}
-          total={rankingsQuery.data?.total ?? 0}
-          onChange={setPage}
-        />
-      )}
+      <Pager
+        page={page}
+        total={
+          rankingsQuery.data?.total ?? rankingsQuery.placeholderData?.total ?? 0
+        }
+        onChange={setPage}
+        loading={rankingsQuery.loading}
+      />
     </>
   );
   return (
@@ -734,7 +1004,11 @@ function TimesDatabaseContent() {
       {view !== "records" && view !== "my-times" && (
         <header className={s.toolHeader}>
           {view === "standards" ? (
-            <TimeStandardsSummary state={standardSelection} />
+            standards.loading && !standardSelection.set ? (
+              <TimeStandardsSummarySkeleton />
+            ) : (
+              <TimeStandardsSummary state={standardSelection} />
+            )
           ) : (
             <FilterSummary
               label="Selected times filters"
@@ -752,19 +1026,16 @@ function TimesDatabaseContent() {
           )}
         </header>
       )}
-      <div className={s.content}>
-        {view === "rankings" && (
-          <div className={s.ranksBar}>
-            <EventRankLegend filters={filters} sets={standards.sets} />
-          </div>
-        )}
+      <div
+        className={`${s.content} ${view === "records" ? s.recordsContent : ""}`}
+      >
         {!hasBackendConfiguration && (
           <div className={s.notice} role="status">
             The times database is not connected yet. Approved results will
             appear here once it is available.
           </div>
         )}
-        <QueryNotice query={rankingYears} />
+        {rankingYears.error && <QueryNotice query={rankingYears} />}
         <div
           className={`${s.workspace} ${view !== "rankings" || !selected ? s.recordsWorkspace : ""}`}
         >
@@ -775,11 +1046,11 @@ function TimesDatabaseContent() {
               <TimeStandards query={standards} state={standardSelection} />
             ) : view === "records" ? (
               <>
-                <QueryNotice query={recordsQuery} />
+                {recordsQuery.error && <QueryNotice query={recordsQuery} />}
                 <TeamRecords
                   races={races}
-                  recordBoard={recordsQuery.data?.records}
-                  updatedAt={recordsQuery.data?.recordsUpdatedAt}
+                  recordBoard={recordData?.records}
+                  updatedAt={recordData?.recordsUpdatedAt}
                   ready={Boolean(recordsQuery.data)}
                   loading={recordsQuery.loading}
                   names={names}
@@ -793,74 +1064,39 @@ function TimesDatabaseContent() {
                   className={s.panel}
                   aria-label="Rankings"
                 >
-                  {fromRecords && (
+                  {(filters.startDate || filters.endDate) && (
                     <div className={s.recordBreadcrumb}>
-                      <button
-                        className={s.link}
-                        onClick={() => changeView("records")}
-                      >
-                        ← Records
-                      </button>
-                      <span>
-                        {VELOCITY_TEAM.name} · {filters.course}{" "}
-                        {filters.event.replace("_", " ")} ·{" "}
-                        {filters.genders[0] === "F"
-                          ? "Girls"
-                          : filters.genders[0] === "M"
-                            ? "Boys"
-                            : "Mixed"}{" "}
-                        ·{" "}
-                        {ageOptions
-                          .filter(([key]) => filters.ageGroups.includes(key))
-                          .map(([, label]) => label)
-                          .join(", ") || "All ages"}
-                      </span>
-                    </div>
-                  )}
-                  {(fromMyTimes || filters.startDate || filters.endDate) && (
-                    <div className={s.recordBreadcrumb}>
-                      {fromMyTimes && (
+                      <>
+                        <span>
+                          Season rankings ·{" "}
+                          {filters.startDate
+                            ? date(filters.startDate)
+                            : "All dates"}{" "}
+                          –{" "}
+                          {filters.endDate ? date(filters.endDate) : "Present"}
+                        </span>
                         <button
                           className={s.link}
-                          onClick={() => changeView("my-times")}
+                          onClick={() => {
+                            setFilters((current) => ({
+                              ...current,
+                              startDate: "",
+                              endDate: "",
+                            }));
+                            setPage(0);
+                            setSelected(null);
+                          }}
                         >
-                          ← Times
+                          Clear date range
                         </button>
-                      )}
-                      {(filters.startDate || filters.endDate) && (
-                        <>
-                          <span>
-                            Season rankings ·{" "}
-                            {filters.startDate
-                              ? date(filters.startDate)
-                              : "All dates"}{" "}
-                            –{" "}
-                            {filters.endDate
-                              ? date(filters.endDate)
-                              : "Present"}
-                          </span>
-                          <button
-                            className={s.link}
-                            onClick={() => {
-                              setFilters((current) => ({
-                                ...current,
-                                startDate: "",
-                                endDate: "",
-                              }));
-                              setPage(0);
-                              setSelected(null);
-                            }}
-                          >
-                            Clear date range
-                          </button>
-                        </>
-                      )}
+                      </>
                     </div>
                   )}
                   <RankingFilters
                     filters={filters}
                     search={search}
                     onApply={applyRankingFilters}
+                    initialOpen={searchParams.get("eventFilters") !== "closed"}
                   >
                     <div className={s.filters}>
                       <PopupPicker

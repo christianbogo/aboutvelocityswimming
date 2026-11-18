@@ -1,5 +1,5 @@
 import { VELOCITY_TEAM_ID } from "@/features/swim-resources/lib/domain/entities";
-import type { Race } from "./times-data";
+import { timesAgeGroups, type Race } from "./times-data";
 export const timesKinds = [
   "facets",
   "rankings",
@@ -117,6 +117,7 @@ export function parseTimesQuery(params: URLSearchParams): {
     "startYear",
     "endYear",
     "rankPeriod",
+    "ageGroup",
   ]) {
     const value = params.get(key);
     if (value !== null) {
@@ -196,6 +197,18 @@ export function parseTimesQuery(params: URLSearchParams): {
     throw new Error("The start year must come before the end year.");
   if (kind === "my_times" || kind === "my_times_bests") {
     input.course ||= "SCY";
+    if (
+      input.ageGroup &&
+      !timesAgeGroups.some(([key]) => key === input.ageGroup)
+    )
+      throw new Error("Invalid age group.");
+    if (input.ageGroup && (kind !== "my_times" || input.rankPeriod !== "all"))
+      throw new Error("Age ranges require all-time personal bests.");
+    if (
+      input.ageGroup &&
+      (input.startYear || input.endYear || params.get("ageAtSwim"))
+    )
+      throw new Error("Choose an age range or a year range.");
     const rawAge = params.get("ageAtSwim");
     if (rawAge !== null && rawAge !== "") {
       if (!/^\d{1,3}$/.test(rawAge) || Number(rawAge) > 120)

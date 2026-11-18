@@ -1,7 +1,7 @@
 "use client";
 
-import { LogOut, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { LogOut, Settings2, ShieldCheck } from "lucide-react";
+import { useId, useState } from "react";
 import { useAuth } from "@/features/workshare/contexts/auth";
 import AccountAthletes from "./AccountAthletes";
 import AccountSignInMethods from "./AccountSignInMethods";
@@ -12,6 +12,8 @@ export default function AccountProfile() {
   const { user, accountFamilyId, logout, loading } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsId = useId();
   if (loading) return <p role="status">Loading your account…</p>;
   if (!user) return null;
 
@@ -50,29 +52,51 @@ export default function AccountProfile() {
               </p>
             )}
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={signingOut}
-            onClick={() => void signOut()}
-          >
-            <LogOut className="mr-2 size-4" aria-hidden="true" />
-            {signingOut ? "Signing out…" : "Sign out"}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={signingOut}
+              aria-expanded={settingsOpen}
+              aria-controls={settingsId}
+              onClick={() => setSettingsOpen((open) => !open)}
+            >
+              <Settings2 className="mr-2 size-4" aria-hidden="true" />
+              Account Sign-in Settings
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={signingOut}
+              onClick={() => void signOut()}
+            >
+              <LogOut className="mr-2 size-4" aria-hidden="true" />
+              {signingOut ? "Signing out…" : "Sign out"}
+            </Button>
+          </div>
           {signOutError && (
             <p role="alert" className="w-full text-sm text-text-secondary">
               Couldn’t sign out. Please try again.
             </p>
           )}
         </div>
-        <div className="mt-6 border-t border-border pt-6">
-          <AccountSignInMethods
-            key={user.uid}
-            userId={user.uid}
-            emailVerified={user.emailVerified}
-          />
-        </div>
+        <section
+          id={settingsId}
+          aria-label="Account Sign-in Settings"
+          hidden={!settingsOpen}
+        >
+          {settingsOpen && (
+            <div className="mt-6 border-t border-border pt-6">
+              <AccountSignInMethods
+                key={user.uid}
+                userId={user.uid}
+                emailVerified={user.emailVerified}
+              />
+            </div>
+          )}
+        </section>
       </div>
       <VelocityFamily family={familyPreview(accountFamilyId, user.email)} />
       <AccountAthletes key={user.uid} userId={user.uid} />

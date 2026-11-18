@@ -7,9 +7,6 @@
   margin: auto;
   padding: 24px 28px 80px;
 }
-.ranksBar {
-  margin-bottom: 1rem;
-}
 .toolHeader {
   position: sticky;
   top: var(--tool-toolbar-height, 0px);
@@ -40,6 +37,9 @@
 .filterSummary dd {
   font-size: 13px;
   font-weight: 650;
+}
+.summarySkeleton {
+  min-height: 44px;
 }
 .workspace {
   display: grid;
@@ -160,6 +160,16 @@
   gap: 12px;
   color: var(--text-muted);
   font-size: 12px;
+  min-height: 68px;
+}
+.pager > button {
+  min-height: 36px;
+}
+.pageCount {
+  min-width: 100px;
+  min-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 .button {
   padding: 9px 14px;
@@ -297,9 +307,17 @@
     max-width: 650px;
   }
 }
+@media (max-width: 820px) {
+  .recordsContent {
+    padding-inline: 12px;
+  }
+}
 @media (max-width: 600px) {
   .content {
     padding: 16px 16px 50px;
+  }
+  .recordsContent {
+    padding-inline: 8px;
   }
   .filterSummary {
     gap: 10px 20px;
@@ -616,7 +634,141 @@
 .rankingTable .rankingMeet {
   display: none;
 }
+.rankingTable tbody tr:not(.cutoffRow) {
+  height: 61px;
+}
+.rankingTable .rankingAthlete {
+  min-width: 150px;
+}
+.rankingTable .rankingDate {
+  min-width: 117px;
+}
+.rankingAthleteContent {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+}
+.rankingTimeContent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+}
+.rankingTimeValue {
+  display: inline-block;
+  min-width: 68px;
+  min-height: 24px;
+}
+.rankingCutSlot {
+  display: inline-flex;
+  align-items: center;
+  min-width: 28px;
+  min-height: 28px;
+}
+.rankingCutSlot > span {
+  margin-inline-start: 0;
+}
+.rankingTable .rankingLoadingRow,
+.rankingTable .rankingLoadingRow:hover {
+  cursor: default;
+  background: transparent;
+}
+.relayRankings tbody tr:not(.cutoffRow) {
+  height: 73px;
+}
+.relayRankings .rankingAthlete {
+  min-width: 220px;
+}
+.rankingRelaySkeleton {
+  display: grid;
+  grid-template-columns: repeat(2, 88px);
+  grid-auto-rows: 18px;
+  align-items: center;
+  gap: 4px 16px;
+}
+.strokeSkeletonChoice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.strokeColumns h3:has(> span) {
+  min-height: 28.5px;
+  display: grid;
+  place-items: center;
+}
+.filterControlSkeleton {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  min-height: 44px;
+  padding: 10px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.filterSkeletonLabel {
+  min-height: 18px;
+}
+.searchSkeleton {
+  flex: 1;
+  min-height: 42px;
+}
+.rankingToolbar > span:last-child {
+  flex-shrink: 0;
+}
+
+.rankingTable .cutoffRow,
+.rankingTable .cutoffRow:hover {
+  background: var(--surface);
+  cursor: default;
+}
+
+.rankingTable .cutoffRow td {
+  position: relative;
+  height: 24px;
+  padding: 0;
+  border: 0;
+}
+
+.rankingTable .cutoffWide {
+  display: none;
+}
+
+.cutoffLine {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  overflow: hidden;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  white-space: nowrap;
+}
+
+.cutoffLine span {
+  flex-shrink: 0;
+}
+
+.cutoffLine span:first-child {
+  margin-left: 16px;
+}
+.cutoffLoading {
+  background: var(--background-alt);
+  color: var(--text-muted);
+}
 @container times-results (min-width: 960px) {
+  .rankingTable .cutoffCompact {
+    display: none;
+  }
+  .rankingTable .cutoffWide {
+    display: table-cell;
+  }
   .rankingTable .rankingMeet {
     display: table-cell;
     width: auto;

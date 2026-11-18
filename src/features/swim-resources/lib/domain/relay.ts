@@ -1,5 +1,7 @@
 import type { RelayResult } from '../../types/schema';
+import { heldUuid } from '../../../../lib/collection/held-observations.ts';
 import { isCalendarDate } from './date.ts';
+import { VELOCITY_TEAM_ID } from './entities.ts';
 import { formatSwimTime, parseSwimTime } from './swim-time.ts';
 
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -36,12 +38,38 @@ export function validateLeadOff(data: Record<string, unknown>): void {
     return;
   }
   const verification = data.leadOffVerification;
-  if (data.resultOrigin !== 'relay_leadoff' || data.isRelay !== false || data.status !== 'OK' || data.isOfficial !== true || !identity(data.parentRelayResultId) || !object(verification)) throw new Error('A lead-off result requires a verified official individual time and parent relay.');
-  keys(verification, ['verified', 'flatStart', 'timingVerified', 'leadOffStatus', 'sourceUrl']);
+  if (data.resultOrigin !== 'relay_leadoff' || data.isRelay !== false || data.status !== 'OK' || data.isOfficial !== true || !object(verification)) throw new Error('A lead-off result requires a verified official individual time.');
   if (verification.verified !== true || verification.flatStart !== true || verification.timingVerified !== true || verification.leadOffStatus !== 'OK') throw new Error('A lead-off needs separate valid-start and official-timing evidence.');
   let url: URL;
   try { url = new URL(String(verification.sourceUrl)); } catch { throw new Error('Lead-off verification requires a source URL.'); }
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('Invalid lead-off verification source URL.');
+  const commonKeys = ['verified', 'flatStart', 'timingVerified', 'leadOffStatus', 'sourceUrl'];
+  if (data.parentRelayResultId == null && verification.method === 'Official GoMotion lead-off') {
+    keys(verification, [...commonKeys, 'method', 'observationId', 'decisionId', 'sourceMeetId', 'workbookSha256', 'sourceRow', 'memberIdHash']);
+    if (typeof verification.observationId !== 'string' || !heldUuid.test(verification.observationId) ||
+        typeof verification.decisionId !== 'string' || !heldUuid.test(verification.decisionId) ||
+        typeof verification.sourceMeetId !== 'string' || !/^[0-9]{1,20}$/.test(verification.sourceMeetId) ||
+        typeof verification.workbookSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(verification.workbookSha256) ||
+        typeof verification.memberIdHash !== 'string' || !/^[a-f0-9]{24}$/.test(verification.memberIdHash) ||
+        !integer(verification.sourceRow) || verification.sourceRow <= 0 || verification.sourceRow > 2_147_483_647 ||
+        typeof verification.sourceUrl !== 'string') {
+      throw new Error('An official source lead-off requires a versioned observation and review reference.');
+    }
+    if (data.teamId !== VELOCITY_TEAM_ID || !identity(data.athleteId) ||
+        !object(data.meet) || !identity(data.meet.id) || typeof data.meet.date !== 'string' || !isCalendarDate(data.meet.date) ||
+        !['F', 'P', 'S', 'TT'].includes(String(data.round)) || !['F', 'M', 'X'].includes(String(data.gender)) ||
+        !integer(data.timeMs) || data.timeMs <= 0 ||
+        !integer(data.distance) || typeof data.stroke !== 'string' || typeof data.course !== 'string' ||
+        !/^(25|50|100|200)_(FR|BK)_(SCY|SCM|LCM)$/.test(String(data.eventCode)) ||
+        data.eventCode !== `${data.distance}_${data.stroke}_${data.course}` ||
+        (data.isSplit != null && data.isSplit !== false) || (data.isRelaySplit != null && data.isRelaySplit !== false) ||
+        data.relay !== undefined) throw new Error('An official source lead-off requires coherent first-leg race facts.');
+    // The database binds this shape to the immutable accepted source, cited
+    // review version and canonical swimmer. Client validation cannot approve it.
+    return;
+  }
+  if (!identity(data.parentRelayResultId)) throw new Error('A lead-off result requires a parent relay or reviewed official source.');
+  keys(verification, commonKeys);
 }
 export function canonicalRelayResult(data: Record<string, unknown>): RelayResult {
   if (!identity(data.id) || !identity(data.teamId) || !object(data.meet) || !identity(data.meet.id) || typeof data.meet.name !== 'string' || !data.meet.name.trim() || !isCalendarDate(String(data.meet.date))) throw new Error('A relay needs stable team, meet and result identities.');

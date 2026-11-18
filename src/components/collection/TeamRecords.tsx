@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo } from "react";
 import { VELOCITY_TEAM } from "@/features/swim-resources/lib/domain/entities";
 import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
 import {
@@ -10,18 +10,33 @@ import {
   recordCourses,
   recordEvents,
   recordKey,
+  relayMemberName,
   type Race,
 } from "./times-data";
 import s from "./TeamRecords.module.css";
 import loadingStyles from "./TimesLoading.module.css";
+import { SkeletonText, SkeletonStatus } from "./LoadingSkeleton";
 import RelayLineup from "./RelayLineup";
+import { useRecordsSelection } from "./use-records-selection";
 
-const visibleCourses = recordCourses.filter(([course]) => course !== "SCM");
+const visibleCourses = recordCourses.filter(
+  (entry): entry is (typeof recordCourses)[0] | (typeof recordCourses)[1] =>
+    entry[0] !== "SCM",
+);
 const recordGenders = [
   ["F", "Girls"],
   ["M", "Boys"],
 ] as const;
 const emptyRecordBoard: Record<string, string[]> = {};
+
+function shortEventLabel(event: string) {
+  return eventLabel(event)
+    .replace("Freestyle", "Free")
+    .replace("Backstroke", "Back")
+    .replace("Breaststroke", "Breast")
+    .replace("Butterfly", "Fly")
+    .replace(/Individual medley/i, "IM");
+}
 
 export interface RecordSelection {
   course: string;
@@ -49,17 +64,39 @@ function RecordCell({
   const label = `View ${gender} ${ageLabel} ${selection.course} ${selection.event.replace("_", " ")} rankings`;
   const column = selection.gender === "F" ? s.girlsColumn : s.boysColumn;
   return (
-    <td className={`${s.recordCell} ${column}`}>
+    <td
+      className={`${s.recordCell} ${column}`}
+      data-relay={selection.relay || undefined}
+    >
       <div>
         {loading ? (
-          <div className={s.recordBoard} aria-hidden="true">
-            <div>
-              <span className={loadingStyles.bar} />
-              {selection.relay && <span className={loadingStyles.bar} />}
+          Array.from({ length: Math.max(holders.length, 1) }, (_, index) => (
+            <div
+              key={index}
+              className={`${s.recordBoard} ${s.loadingBoard} ${loadingStyles.pulse}`}
+              aria-hidden="true"
+            >
+              <div className={s.recordName}>
+                {selection.relay ? (
+                  <div className={s.relayNameSkeleton}>
+                    {Array.from({ length: 4 }, (_, leg) => (
+                      <span key={leg}>
+                        <SkeletonText width="85%" height={13} />
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <SkeletonText width="85%" height={13} />
+                )}
+              </div>
+              <span className={s.time}>
+                <SkeletonText width={64} height={15} />
+              </span>
+              <span className={s.recordYear}>
+                <SkeletonText width={28} height={11} />
+              </span>
             </div>
-            <span className={loadingStyles.bar} />
-            <span className={loadingStyles.bar} />
-          </div>
+          ))
         ) : holders.length ? (
           holders.map((race) => {
             const year = race.date.slice(0, 4) || "—";
@@ -68,10 +105,8 @@ function RecordCell({
             const contents = (
               <>
                 <span className={s.recordName}>
-                  {name}
-                  {race.resultOrigin === "relay_leadoff" && (
-                    <small className={s.lineup}>Verified relay lead-off</small>
-                  )}
+                  <span className={s.fullName}>{name}</span>
+                  <span className={s.mobileName}>{relayMemberName(name)}</span>
                 </span>
                 <span className={s.time}>{time}</span>
                 <span className={s.recordYear}>{year}</span>
@@ -119,6 +154,18 @@ function RecordCell({
     </td>
   );
 }
+
+export function TeamRecordsSkeleton() {
+  return (
+    <TeamRecords
+      races={[]}
+      names={new Map()}
+      onRecord={() => {}}
+      loading
+      ready={false}
+    />
+  );
+}
 export default function TeamRecords({
   races,
   recordBoard = emptyRecordBoard,
@@ -137,7 +184,13 @@ export default function TeamRecords({
   loading?: boolean;
 }) {
   const prefix = useId().replaceAll(":", "");
-  const [mobileGender, setMobileGender] = useState<"F" | "M">("F");
+  const [selection, updateSelection] = useRecordsSelection();
+  const {
+    course: selectedCourse,
+    ageGroup: selectedGroup,
+    mobileGender,
+    showAll,
+  } = selection;
   const refreshed = updatedAt ? new Date(updatedAt) : null;
   const currentDate = refreshed?.toLocaleDateString("en-US", {
     month: "short",
@@ -185,8 +238,8 @@ export default function TeamRecords({
       aria-busy={loading}
       data-mobile-gender={mobileGender}
     >
+      {loading && <SkeletonStatus>Loading team records…</SkeletonStatus>}
       <div id={`${prefix}-top`} className={s.controls}>
-        <h2 className={s.title}>Records</h2>
         <nav className={s.jumpLinks} aria-label="Record sections">
           {visibleCourses.map(([course, label]) => (
             <div
@@ -195,25 +248,44 @@ export default function TeamRecords({
               role="group"
               aria-label={`${label} navigation`}
             >
-              <a
+              <button
+                type="button"
                 className={s.courseLink}
-                href={`#${anchor(course)}`}
                 title={label}
+                aria-label={`${label} records`}
+                aria-pressed={!showAll && selectedCourse === course}
+                onClick={() => updateSelection({ course, showAll: false })}
               >
                 {course}
-              </a>
+              </button>
               {groups.map(([key, text]) => (
-                <a
+                <button
                   key={key}
-                  href={`#${anchor(course, key)}`}
+                  type="button"
                   aria-label={`${course} ${text} records`}
+                  aria-pressed={
+                    !showAll &&
+                    selectedCourse === course &&
+                    selectedGroup === key
+                  }
+                  onClick={() =>
+                    updateSelection({ course, ageGroup: key, showAll: false })
+                  }
                 >
                   {text}
-                </a>
+                </button>
               ))}
             </div>
           ))}
         </nav>
+        <button
+          type="button"
+          className={s.renderAll}
+          aria-pressed={showAll}
+          onClick={() => updateSelection({ showAll: true })}
+        >
+          Render all records
+        </button>
       </div>
       {(ready || loading) && (
         <>
@@ -227,7 +299,7 @@ export default function TeamRecords({
                 key={gender}
                 type="button"
                 aria-pressed={mobileGender === gender}
-                onClick={() => setMobileGender(gender)}
+                onClick={() => updateSelection({ mobileGender: gender })}
               >
                 {label}
               </button>
@@ -238,152 +310,165 @@ export default function TeamRecords({
               No eligible Velocity Swimming records in the available results.
             </p>
           )}
-          {visibleCourses.map(([course, courseName]) => (
-            <section
-              key={course}
-              id={anchor(course)}
-              className={s.course}
-              aria-label={`${course} records`}
-            >
-              <div className={s.courseHeading}>
-                <h2>
-                  {courseName} <span>{course}</span>
-                </h2>
-                <a href={`#${prefix}-top`}>Back to navigation ↑</a>
-              </div>
-              {groups.map(([group, ageLabel, minAge]) => (
-                <section
-                  key={group}
-                  id={anchor(course, group)}
-                  className={s.ageSection}
-                  aria-label={`${course} ${ageLabel} records`}
-                >
-                  <div
-                    className={s.tableWrap}
-                    role="region"
-                    aria-label={`${course} ${ageLabel} record table`}
-                  >
-                    <table className={s.table}>
-                      <caption>
-                        <div className={s.tableHeading}>
-                          <span className={s.genderLabel} aria-hidden="true">
-                            Girls
-                          </span>
-                          <div className={s.tableTitle}>
-                            {currentDate ? (
-                              <time dateTime={dateValue}>
-                                Updated {currentDate}
-                              </time>
-                            ) : (
-                              <span>Updating records</span>
-                            )}
-                            <h3>
-                              {VELOCITY_TEAM.name} · {ageLabel} · {course}
-                            </h3>
-                          </div>
-                          <span className={s.genderLabel} aria-hidden="true">
-                            Boys
-                          </span>
-                        </div>
-                      </caption>
-                      <colgroup>
-                        <col className={s.mobileEvent} />
-                        <col className={s.girlsColumn} />
-                        <col className={s.desktopEvent} />
-                        <col className={s.boysColumn} />
-                      </colgroup>
-                      <thead className="sr-only">
-                        <tr>
-                          <th scope="col" className={s.mobileEvent}>
-                            Event
-                          </th>
-                          <th scope="col" className={s.girlsColumn}>
-                            Girls
-                          </th>
-                          <th scope="col" className={s.desktopEvent}>
-                            Event
-                          </th>
-                          <th scope="col" className={s.boysColumn}>
-                            Boys
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody
-                        className={loading ? loadingStyles.pulse : undefined}
+          {visibleCourses
+            .filter(([course]) => showAll || course === selectedCourse)
+            .map(([course]) => (
+              <section
+                key={course}
+                id={anchor(course)}
+                className={s.course}
+                aria-label={`${course} records`}
+              >
+                {groups
+                  .filter(([group]) => showAll || group === selectedGroup)
+                  .map(([group, ageLabel, minAge]) => (
+                    <section
+                      key={group}
+                      id={anchor(course, group)}
+                      className={s.ageSection}
+                      aria-label={`${course} ${ageLabel} records`}
+                    >
+                      <div
+                        className={s.tableWrap}
+                        role="region"
+                        aria-label={`${course} ${ageLabel} record table`}
                       >
-                        {(events.get(course) ?? [])
-                          .filter(
-                            (event) =>
-                              !(
-                                course === "SCY" &&
-                                minAge >= 11 &&
-                                event.startsWith("25_")
-                              ),
-                          )
-                          .map((event) => {
-                            const label = eventLabel(event);
-                            const relay = event.endsWith("-R");
-                            const eventClass = `${s.event} ${relay ? s.relayEvent : ""}`;
-                            return (
-                              <tr key={event}>
-                                <th
-                                  scope="row"
-                                  className={`${eventClass} ${s.mobileEvent}`}
-                                >
-                                  <span>{label}</span>
-                                </th>
-                                <RecordCell
-                                  loading={loading}
-                                  holders={
-                                    records.get(
-                                      recordKey(course, group, event, "F"),
-                                    ) ?? []
-                                  }
-                                  names={names}
-                                  selection={{
-                                    course,
-                                    ageGroup: group,
-                                    event,
-                                    gender: "F",
-                                    relay,
-                                  }}
-                                  ageLabel={ageLabel}
-                                  onRecord={onRecord}
-                                />
-                                <th
-                                  scope="row"
-                                  className={`${eventClass} ${s.desktopEvent}`}
-                                >
-                                  <span>{label}</span>
-                                </th>
-                                <RecordCell
-                                  loading={loading}
-                                  holders={
-                                    records.get(
-                                      recordKey(course, group, event, "M"),
-                                    ) ?? []
-                                  }
-                                  names={names}
-                                  selection={{
-                                    course,
-                                    ageGroup: group,
-                                    event,
-                                    gender: "M",
-                                    relay,
-                                  }}
-                                  ageLabel={ageLabel}
-                                  onRecord={onRecord}
-                                />
-                              </tr>
-                            );
-                          })}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
-              ))}
-            </section>
-          ))}
+                        <table className={s.table}>
+                          <caption>
+                            <div className={s.tableHeading}>
+                              <span
+                                className={s.genderLabel}
+                                aria-hidden="true"
+                              >
+                                Girls
+                              </span>
+                              <div className={s.tableTitle}>
+                                {loading ? (
+                                  <span
+                                    className={`${s.updatedLine} ${loadingStyles.pulse}`}
+                                    aria-hidden="true"
+                                  >
+                                    <SkeletonText width={132} height={12} />
+                                  </span>
+                                ) : currentDate ? (
+                                  <time dateTime={dateValue}>
+                                    Updated {currentDate}
+                                  </time>
+                                ) : (
+                                  <span>Updating records</span>
+                                )}
+                                <h3>
+                                  {VELOCITY_TEAM.name} · {ageLabel} · {course}
+                                </h3>
+                              </div>
+                              <span
+                                className={s.genderLabel}
+                                aria-hidden="true"
+                              >
+                                Boys
+                              </span>
+                            </div>
+                          </caption>
+                          <colgroup>
+                            <col className={s.mobileEvent} />
+                            <col className={s.girlsColumn} />
+                            <col className={s.desktopEvent} />
+                            <col className={s.boysColumn} />
+                          </colgroup>
+                          <thead className="sr-only">
+                            <tr>
+                              <th scope="col" className={s.mobileEvent}>
+                                Event
+                              </th>
+                              <th scope="col" className={s.girlsColumn}>
+                                Girls
+                              </th>
+                              <th scope="col" className={s.desktopEvent}>
+                                Event
+                              </th>
+                              <th scope="col" className={s.boysColumn}>
+                                Boys
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody
+                            data-loading-skeleton={
+                              loading ? "records" : undefined
+                            }
+                          >
+                            {(events.get(course) ?? [])
+                              .filter(
+                                (event) =>
+                                  !(
+                                    course === "SCY" &&
+                                    minAge >= 11 &&
+                                    event.startsWith("25_")
+                                  ),
+                              )
+                              .map((event) => {
+                                const label = eventLabel(event);
+                                const relay = event.endsWith("-R");
+                                const eventClass = `${s.event} ${relay ? s.relayEvent : ""}`;
+                                return (
+                                  <tr key={event}>
+                                    <th
+                                      scope="row"
+                                      className={`${eventClass} ${s.mobileEvent}`}
+                                    >
+                                      <span>{shortEventLabel(event)}</span>
+                                    </th>
+                                    <RecordCell
+                                      loading={loading}
+                                      holders={
+                                        records.get(
+                                          recordKey(course, group, event, "F"),
+                                        ) ?? []
+                                      }
+                                      names={names}
+                                      selection={{
+                                        course,
+                                        ageGroup: group,
+                                        event,
+                                        gender: "F",
+                                        relay,
+                                      }}
+                                      ageLabel={ageLabel}
+                                      onRecord={onRecord}
+                                    />
+                                    <th
+                                      scope="row"
+                                      className={`${eventClass} ${s.desktopEvent}`}
+                                    >
+                                      <span>{label}</span>
+                                    </th>
+                                    <RecordCell
+                                      loading={loading}
+                                      holders={
+                                        records.get(
+                                          recordKey(course, group, event, "M"),
+                                        ) ?? []
+                                      }
+                                      names={names}
+                                      selection={{
+                                        course,
+                                        ageGroup: group,
+                                        event,
+                                        gender: "M",
+                                        relay,
+                                      }}
+                                      ageLabel={ageLabel}
+                                      onRecord={onRecord}
+                                    />
+                                  </tr>
+                                );
+                              })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </section>
+                  ))}
+              </section>
+            ))}
         </>
       )}
     </section>

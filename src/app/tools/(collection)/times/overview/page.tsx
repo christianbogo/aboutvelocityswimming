@@ -1,7 +1,5 @@
-import ToolHome from "@/components/shared/ToolHome";
-
-export const metadata = { title: "Velocity Times | Velocity Swimming" };
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <ToolHome tool="times" />;
+  redirect("/tools/my-times");
 }

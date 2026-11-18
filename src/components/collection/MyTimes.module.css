@@ -11,59 +11,129 @@
   text-decoration: underline;
 }
 .filterPanel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0;
   border: 1px solid var(--border);
   border-radius: 14px;
-  overflow: hidden;
+  background: var(--surface);
+  position: relative;
+  z-index: 5;
 }
-.filterPanel .collapsedHeading {
-  border-bottom: 0;
+.dropdown {
+  position: relative;
+  flex: 1 1 10rem;
+  min-width: 0;
 }
-.filters {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
-  border-radius: 0 0 14px 14px;
+.dropdown + .dropdown {
+  border-left: 1px solid var(--border);
 }
-.athletes {
-  grid-column: 1 / -1;
+.selection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  min-height: 72px;
+  padding: 0.85rem 1rem;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  color: var(--text-main);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
-.page .athleteChips button,
-.manage {
-  flex: 0 1 auto;
-  max-width: 100%;
+.selection:hover,
+.selection[aria-expanded="true"] {
+  background: var(--background-alt);
+}
+.selection:focus-visible,
+.dropdownOptions button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
+.selectionLabel {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.selectionValue {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
-.manage {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.3rem;
-  min-height: 44px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--background-alt);
-  color: var(--accent);
-  font-size: 12px;
-  text-decoration: none;
-}
-.manage svg {
+.selectionValue svg {
   flex-shrink: 0;
 }
-.manage:hover {
-  border-color: var(--accent);
+.dropdownOptions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 10;
+  display: grid;
+  gap: 0.2rem;
+  width: max-content;
+  min-width: 100%;
+  max-width: min(22rem, calc(100vw - 3rem));
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: var(--surface);
+  box-shadow: 0 12px 28px #0002;
 }
-.manage:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+.dropdown:last-of-type .dropdownOptions {
+  left: auto;
+  right: 0;
+}
+.dropdownOptions > button,
+.manage {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.65rem 0.85rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.dropdownOptions > button:hover,
+.manage:hover {
+  background: var(--background-alt);
+}
+.dropdownOptions > button[aria-pressed="true"] {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  font-weight: 650;
+}
+.manage {
+  color: var(--accent);
+  border-top: 1px solid var(--border);
 }
 .yearRange {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  grid-column: 1 / -1;
+  gap: 0.75rem;
+  padding: 0.5rem;
 }
 .filterNotice {
-  grid-column: 1 / -1;
+  flex-basis: 100%;
+  padding: 0.5rem 1rem;
   font-size: 0.8rem;
   color: var(--text-main);
 }
@@ -75,7 +145,7 @@
   color: var(--text-muted);
   font-size: 0.75rem;
 }
-.page button.card {
+.page .card {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   justify-content: stretch;
@@ -84,7 +154,7 @@
   width: 100%;
   min-width: 0;
   padding: 0.65rem 0.4rem;
-  gap: 0.4rem;
+  gap: 0.15rem;
   font-weight: 400;
   font-family: inherit;
   color: var(--text-main);
@@ -101,21 +171,24 @@
   background: color-mix(in srgb, var(--rank-color) 8%, var(--surface));
 }
 .cardHeading {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.page .cardHeading > span {
+  font-size: inherit;
+}
+.rankIcon {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
-  min-height: 2.25rem;
-}
-.cardHeading > span {
-  flex-basis: 100%;
+  min-height: 30px;
 }
 .raceDate {
   display: block;
   color: var(--text-muted);
   font-size: 0.65rem;
-  min-height: 2.3em;
+  min-height: 1.5em;
 }
 .swimAge {
   white-space: nowrap;
@@ -178,8 +251,63 @@
   font-size: 0.7rem;
   text-align: center;
 }
-@container times-workspace (max-width: 550px) {
-  .filters {
-    grid-template-columns: minmax(0, 1fr);
+.skeletonLayout {
+  display: grid;
+  gap: 1.5rem;
+  min-width: 0;
+  pointer-events: none;
+}
+.skeletonCard {
+  user-select: none;
+}
+.skeletonCard strong {
+  min-height: 1.2em;
+}
+.skeletonCard .skeletonCohort {
+  height: 0.8em;
+}
+.skeletonFilter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 72px;
+  padding: 0.85rem 1rem;
+  text-align: center;
+}
+@container (max-width: 120px) {
+  .skeletonCard .skeletonCohort {
+    height: 3em;
   }
+}
+@container times-workspace (max-width: 550px) {
+  .dropdown {
+    flex-basis: 50%;
+  }
+  .dropdown:nth-of-type(odd) {
+    border-left: 0;
+  }
+  .dropdown:nth-of-type(n + 3) {
+    border-top: 1px solid var(--border);
+  }
+  .dropdown:nth-of-type(even) .dropdownOptions {
+    left: auto;
+    right: 0;
+  }
+  .selection {
+    padding: 0.75rem;
+  }
+  .selectionValue {
+    font-size: 0.75rem;
+  }
+  .page .cardHeading {
+    font-size: 0.8rem;
+  }
+}
+
+.results {
+  display: grid;
+  gap: 1.5rem;
+  min-width: 0;
 }

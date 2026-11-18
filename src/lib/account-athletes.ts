@@ -12,6 +12,21 @@ export interface AccountAthletePreferences {
   favoriteAthletes: AccountAthlete[];
 }
 
+const preferenceSnapshots = new Map<string, AccountAthletePreferences>();
+export const accountAthletesChangedEvent = "velocity-account-athletes-changed";
+function preferenceKey(userId: string) {
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}|${userId}`;
+}
+export function cachedAccountAthletes(userId: string) {
+  return preferenceSnapshots.get(preferenceKey(userId));
+}
+function rememberPreferences(userId: string, value: AccountAthletePreferences) {
+  preferenceSnapshots.set(preferenceKey(userId), value);
+  if (preferenceSnapshots.size > 8)
+    preferenceSnapshots.delete(preferenceSnapshots.keys().next().value!);
+  return value;
+}
+
 export const maxFavoriteAthletes = 100;
 
 interface AthleteRow {
@@ -41,7 +56,7 @@ export async function loadAccountAthletes(
     account_user_id: userId,
   });
   if (error) throw error;
-  return preferences(data ?? []);
+  return rememberPreferences(userId, preferences(data ?? []));
 }
 
 export async function searchAccountAthletes(
@@ -92,6 +107,9 @@ export async function saveAccountAthletes(
       favorite_ids: favorites,
     });
     if (error) throw error;
-    return preferences(data ?? []);
+    const next = rememberPreferences(userId, preferences(data ?? []));
+    if (typeof window !== "undefined")
+      window.dispatchEvent(new Event(accountAthletesChangedEvent));
+    return next;
   });
 }
