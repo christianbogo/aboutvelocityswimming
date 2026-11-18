@@ -43,7 +43,7 @@ try {
   await page.locator("input[type=email]").fill("coach@velocity-swimming.com");
   await page.locator("input[type=password]").fill("Velocity-local-test-2026!");
   await page.locator("button[type=submit]").click();
-  await page.waitForURL("**/tools/workshare/admin/families");
+  await page.waitForURL("**/tools");
   const correction = await page.request.post(base + "/api/data", {
     headers: { Origin: base },
     data: {

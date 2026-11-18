@@ -34,6 +34,114 @@ export type Database = {
   };
   public: {
     Tables: {
+      workshare_seasons: {
+        Row: { id: string; name: string; starts_on: string; ends_on: string; copy_from_season_id: string | null; created_at: string };
+        Insert: { id: string; name: string; starts_on: string; ends_on: string; copy_from_season_id?: string | null; created_at?: string };
+        Update: { id?: string; name?: string; starts_on?: string; ends_on?: string; copy_from_season_id?: string | null; created_at?: string };
+        Relationships: [{ foreignKeyName: "workshare_seasons_copy_from_season_id_fkey"; columns: ["copy_from_season_id"]; isOneToOne: false; referencedRelation: "workshare_seasons"; referencedColumns: ["id"] }];
+      };
+      workshare_account_requirements: {
+        Row: { account_id: string; season_id: string; general_hours_required: number | null; starlight_hours_required: number | null; apple_capital_hours_required: number | null; updated_at: string };
+        Insert: { account_id: string; season_id: string; general_hours_required?: number | null; starlight_hours_required?: number | null; apple_capital_hours_required?: number | null; updated_at?: string };
+        Update: { account_id?: string; season_id?: string; general_hours_required?: number | null; starlight_hours_required?: number | null; apple_capital_hours_required?: number | null; updated_at?: string };
+        Relationships: [{ foreignKeyName: "workshare_account_requirements_account_id_fkey"; columns: ["account_id"]; isOneToOne: false; referencedRelation: "workshare_accounts"; referencedColumns: ["id"] }, { foreignKeyName: "workshare_account_requirements_season_id_fkey"; columns: ["season_id"]; isOneToOne: false; referencedRelation: "workshare_seasons"; referencedColumns: ["id"] }];
+      };
+      workshare_ticket_create_keys: {
+        Row: { id: string; payload_fingerprint: string };
+        Insert: { id: string; payload_fingerprint: string };
+        Update: { id?: string; payload_fingerprint?: string };
+        Relationships: [];
+      };
+      workshare_tickets: {
+        Row: { id: string; account_id: string; season_id: string; completed_on: string; description: string; category: string; hours: number; created_at: string; updated_at: string };
+        Insert: { id: string; account_id: string; season_id: string; completed_on: string; description: string; category: string; hours: number; created_at?: string; updated_at?: string };
+        Update: { id?: string; account_id?: string; season_id?: string; completed_on?: string; description?: string; category?: string; hours?: number; created_at?: string; updated_at?: string };
+        Relationships: [{ foreignKeyName: "workshare_tickets_id_fkey"; columns: ["id"]; isOneToOne: true; referencedRelation: "workshare_ticket_create_keys"; referencedColumns: ["id"] }, { foreignKeyName: "workshare_tickets_account_id_fkey"; columns: ["account_id"]; isOneToOne: false; referencedRelation: "workshare_accounts"; referencedColumns: ["id"] }, { foreignKeyName: "workshare_tickets_season_id_fkey"; columns: ["season_id"]; isOneToOne: false; referencedRelation: "workshare_seasons"; referencedColumns: ["id"] }];
+      };
+      workshare_accounts: {
+        Row: {
+          id: string;
+          full_name: string;
+          is_archived: boolean;
+          current_season: string | null;
+          general_hours_required: number | null;
+          starlight_hours_required: number | null;
+          apple_capital_hours_required: number | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          full_name: string;
+          is_archived?: boolean;
+          current_season?: string | null;
+          general_hours_required?: number | null;
+          starlight_hours_required?: number | null;
+          apple_capital_hours_required?: number | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          full_name?: string;
+          is_archived?: boolean;
+          current_season?: string | null;
+          general_hours_required?: number | null;
+          starlight_hours_required?: number | null;
+          apple_capital_hours_required?: number | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      workshare_account_emails: {
+        Row: { account_id: string; email: string };
+        Insert: { account_id: string; email: string };
+        Update: { account_id?: string; email?: string };
+        Relationships: [{
+          foreignKeyName: "workshare_account_emails_account_id_fkey";
+          columns: ["account_id"];
+          isOneToOne: false;
+          referencedRelation: "workshare_accounts";
+          referencedColumns: ["id"];
+        }];
+      };
+      workshare_athletes: {
+        Row: {
+          id: string;
+          account_id: string;
+          full_name: string;
+          training_group: string;
+          times_athlete_id: string | null;
+          is_archived: boolean;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          full_name: string;
+          training_group?: string;
+          times_athlete_id?: string | null;
+          is_archived?: boolean;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          full_name?: string;
+          training_group?: string;
+          times_athlete_id?: string | null;
+          is_archived?: boolean;
+        };
+        Relationships: [{
+          foreignKeyName: "workshare_athletes_account_id_fkey";
+          columns: ["account_id"];
+          isOneToOne: false;
+          referencedRelation: "workshare_accounts";
+          referencedColumns: ["id"];
+        }, {
+          foreignKeyName: "workshare_athletes_times_athlete_id_fkey";
+          columns: ["times_athlete_id"];
+          isOneToOne: false;
+          referencedRelation: "athletes";
+          referencedColumns: ["id"];
+        }];
+      };
       account_followed_athletes: {
         Row: { user_id: string; athlete_id: string; is_primary: boolean };
         Insert: { user_id: string; athlete_id: string; is_primary?: boolean };
@@ -1517,6 +1625,18 @@ export type Database = {
       };
     };
     Functions: {
+      list_workshare_seasons: { Args: Record<PropertyKey, never>; Returns: Json };
+      read_my_workshare_summary: { Args: { season_id?: string }; Returns: Json };
+      create_workshare_season: { Args: { input: Json }; Returns: Json };
+      list_workshare_account_summaries: { Args: { season_id: string }; Returns: Json };
+      save_workshare_requirements: { Args: { account_id: string; input: Json }; Returns: Json };
+      create_workshare_ticket: { Args: { input: Json }; Returns: Json };
+      update_workshare_ticket: { Args: { ticket_id: string; input: Json }; Returns: Json };
+      delete_workshare_ticket: { Args: { ticket_id: string; expected_version: string }; Returns: Json };
+      list_workshare_tickets: { Args: { input: Json }; Returns: Json };
+      list_workshare_accounts: { Args: Record<PropertyKey, never>; Returns: Json };
+      save_workshare_account: { Args: { input: Json }; Returns: Json };
+      import_workshare_accounts: { Args: { input: Json }; Returns: Json };
       claim_shift_reminders: { Args: { dry_run?: boolean }; Returns: Json };
       get_account_athletes: {
         Args: { account_user_id: string };
@@ -1639,6 +1759,7 @@ export type Database = {
         Returns: Json;
       };
       is_staff: { Args: Record<PropertyKey, never>; Returns: boolean };
+      is_workshare_staff: { Args: Record<PropertyKey, never>; Returns: boolean };
       list_result_moderation: {
         Args: {
           include_restored?: boolean;

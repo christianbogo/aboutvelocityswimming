@@ -2,11 +2,11 @@
 
 The website and tools use Supabase (`hgsghjqefynhbavmkehv`). Firebase-specific guides below describe the archived migration history, not the active runtime.
 
-- `/tools/workshare`: private households and commitments. Members are independent of Times athletes.
+- `/tools/admin`: staff-managed Accounts & Roster, athlete registration, and seasonal workshare requirements.
 - `/tools/times`: public approved Velocity Swimming athlete profiles and race history, including meets outside the region.
 - `/tools/review`: staff-only evidence and before/after review. Approve, hold, or decline a bounded batch. Approval checks for stale data and applies all changes atomically.
 
-Staff access requires a verified account and either an explicit user grant in `public.administrators` or a verified email listed in `private.administrator_emails`. Team email domains alone do not grant staff access. Collector tokens cannot grant permissions or publish records.
+Staff access requires a verified account and either an explicit user grant in `public.administrators` or a verified email listed in `private.administrator_emails`. These broad staff grants are separate from Workshare Admin: verified `christiancutter02@gmail.com` and verified addresses on the exact `velocity-swimming.com` domain receive scoped Admin access through `is_workshare_staff`, while other Tools remain owner-restricted. Collector tokens cannot grant permissions or publish records.
 
 Use Node 24. For synthetic local development: start OrbStack/Docker, run `supabase start`, `npm run seed:local`, then `npm run dev:local`. The local wrapper uses the ignored `supabase/.env.local`; ordinary `npm run dev` uses the configured hosted backend. Never seed production.
 
@@ -78,8 +78,8 @@ It mocks provider responses and never creates real payments or orders.
 Provider references: [Printful Orders API](https://developers.printful.com/docs/#tag/Orders-API)
 and [Stripe fulfillment](https://docs.stripe.com/checkout/fulfillment).
 
-## Workshare
+## Admin
 
-The family and administrator portal now lives at `/tools/workshare`, using the
-existing Workshare Firebase project. See [setup and verification](docs/workshare/README.md)
-and the [production cutover runbook](docs/workshare/DEPLOYMENT.md).
+The standalone Admin page at `/tools/admin` contains Accounts & Roster, backed by staff-only
+Supabase tables and an authenticated account editing API. See the
+[Workshare model and API](docs/workshare/README.md).

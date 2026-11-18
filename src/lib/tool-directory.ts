@@ -1,7 +1,9 @@
+import type { ToolsCapabilities } from "./tools-access";
 import {
   BarChart3,
-  Briefcase,
   ClipboardList,
+  Shield,
+  Target,
   Timer,
   Trophy,
   type LucideIcon,
@@ -32,6 +34,14 @@ export const toolDirectory = {
     homeHref: timesViewPaths["my-times"],
     icon: Timer,
   },
+  goals: {
+    title: "Goals",
+    description:
+      "Find the next standards, ranking milestones, and new events for your primary and favorite athletes.",
+    href: "/tools/goals",
+    homeHref: "/tools/goals",
+    icon: Target,
+  },
   rankings: {
     title: "Rankings",
     description:
@@ -56,13 +66,14 @@ export const toolDirectory = {
     homeHref: timesViewPaths.standards,
     icon: Timer,
   },
-  workshare: {
-    title: "Velocity Workshare",
+  admin: {
+    title: "Admin",
     description:
-      "Find volunteer opportunities, sign up for shifts, and track your family’s workshare hours.",
-    href: "/tools/workshare",
-    homeHref: "/tools/workshare/overview",
-    icon: Briefcase,
+      "Manage account contacts, athlete registration, and seasonal workshare requirements.",
+    href: "/tools/admin",
+    homeHref: "/tools/admin",
+    icon: Shield,
+    adminOnly: true,
   },
   imports: {
     title: "Velocity Imports",
@@ -77,9 +88,11 @@ export const toolDirectory = {
 
 export type ToolId = keyof typeof toolDirectory;
 
-export function getAvailableTools(isAdmin: boolean) {
+export function getAvailableTools(access: ToolsCapabilities) {
   const tools = Object.entries(toolDirectory) as [ToolId, Tool][];
-  return tools.filter(([, tool]) => isAdmin || !tool.adminOnly);
+  return tools.filter(([id, tool]) => access.allTools
+    ? access.staff || !tool.adminOnly
+    : access.staff && id === "admin");
 }
 
 export const timesViews = [

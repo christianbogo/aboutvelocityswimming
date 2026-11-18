@@ -1,2 +1,5 @@
-import WorkshareClient from "@/features/workshare/Client";
-export default function Page(){return <WorkshareClient view="family"/>;}
+import { redirect } from "next/navigation";
+
+export default function Page() {
+  redirect("/tools/admin");
+}

@@ -1,610 +1,1264 @@
-import {Dialog} from "@/components/shared/Dialog";
-import SwimmerPicker from "@/components/shared/SwimmerPicker";
-import { postingHours } from "../../lib/hours"
-import { CHILD_GROUPS, DIVISION_STYLES, normalizeEmails } from "../../lib/families"
-import { useEffect, useState, useMemo } from "react"
-import { useNavigate } from "@/features/workshare/lib/navigation"
-import { collection, onSnapshot, addDoc } from "@/lib/data"
-import { db } from "../../lib/backend"
-import type { Family, Child, ChildGroup, Registration, Posting, ManualHour } from "../../types"
-import { Button } from "../ui/Button"
-import { Card } from "../ui/Card"
-import { Input } from "../ui/Input"
-import { downloadCSV } from "../../lib/csv"
-import { Download, Plus, Trash2, X, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown } from "lucide-react"
+"use client";
 
-type SortField = "account" | "general" | "event"
-type SortOrder = "asc" | "desc"
+import { useEffect, useId, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Check, Download, Link2, Plus, Search } from "lucide-react";
+import { Input } from "@/components/shared/Input";
+import { Button } from "@/components/shared/Button";
+import { useUpdateBlocker } from "@/hooks/useUpdateBlocker";
+import {
+  searchAccountAthletes,
+  type AccountAthlete,
+} from "@/lib/account-athletes";
+import {
+  emptyAccount,
+  exportWorkshareAccounts,
+  loadWorkshareAccounts,
+  type RosterAthlete,
+  type WorkshareAccount,
+} from "../../lib/accounts";
+import { useAccountAutosave } from "../../lib/use-account-autosave";
+import {
+  defaultSeason,
+  loadSeasons,
+  loadAccountSummaries,
+  type AccountSeasonSummary,
+  type SeasonRequirements,
+  type WorkshareSeason,
+  type WorkshareTicket,
+} from "../../lib/tickets";
+import {
+  RequirementsEditor,
+  type RequirementsHandle,
+} from "./RequirementsEditor";
+import { TicketComposer } from "./TicketComposer";
+import { TicketsPanel } from "./TicketsPanel";
+import { SeasonDialog } from "./SeasonDialog";
 
+const trainingGroups = [
+  "Splash",
+  "Pre-Team",
+  "Prep",
+  "Age Groupers",
+  "Juniors",
+  "Seniors",
+  "Masters",
+  "Rec Team",
+  "Coaches",
+  "Board Members",
+];
+const requirementFields = [
+  ["generalHoursRequired", "General"],
+  ["starlightHoursRequired", "Starlight"],
+  ["appleCapitalHoursRequired", "Apple Capital"],
+] as const;
 
-function formatAccountName(name?: string): string {
-  if (!name) return ""
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return ""
-  if (parts.length === 1) return parts[0]
-  const firstName = parts[0]
-  const lastPart = parts[parts.length - 1]
-  const lastInitial = lastPart[0] ? `${lastPart[0].toUpperCase()}.` : ""
-  return `${firstName} ${lastInitial}`.trim()
+function TimesLink({
+  value,
+  onChange,
+}: {
+  value: string | null;
+  onChange: (value: string | null) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [result, setResult] = useState<{
+    query: string;
+    matches: AccountAthlete[];
+    failed?: boolean;
+  }>();
+  const term = query.trim();
+  useEffect(() => {
+    if (term.length < 2) return;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      void searchAccountAthletes(term, controller.signal)
+        .then((matches) => {
+          if (!controller.signal.aborted) setResult({ query: term, matches });
+        })
+        .catch(() => {
+          if (!controller.signal.aborted)
+            setResult({ query: term, matches: [], failed: true });
+        });
+    }, 250);
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [term]);
+  const current = result?.query === term ? result : undefined;
+  if (value)
+    return (
+      <div className="flex min-h-11 items-center gap-2 text-xs">
+        <span className="break-all">Times ID: {value}</span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setQuery("");
+            onChange(null);
+          }}
+        >
+          Unlink
+        </Button>
+      </div>
+    );
+  return (
+    <div className="space-y-2">
+      <Input
+        aria-label="Search Times database"
+        type="search"
+        maxLength={100}
+        value={query}
+        placeholder="Find swimmer in Times…"
+        onChange={(event) => setQuery(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.preventDefault();
+          if (event.key === "Escape") setQuery("");
+        }}
+      />
+      {term.length >= 2 && (
+        <div
+          className="max-h-44 overflow-y-auto rounded-lg border border-border bg-surface text-xs"
+          aria-live="polite"
+        >
+          {!current ? (
+            <p className="p-3">Searching…</p>
+          ) : current.failed ? (
+            <p role="alert" className="p-3">
+              Times search unavailable. Edit the search to retry.
+            </p>
+          ) : current.matches.length === 0 ? (
+            <p className="p-3">No swimmers found.</p>
+          ) : (
+            <ul aria-label="Times swimmer matches">
+              {current.matches.map((athlete) => (
+                <li key={athlete.id}>
+                  <button
+                    type="button"
+                    className="w-full p-3 text-left hover:bg-bg focus-visible:outline-accent"
+                    onClick={() => {
+                      onChange(athlete.id);
+                      setQuery("");
+                    }}
+                  >
+                    <span className="block font-semibold">{athlete.name}</span>
+                    <span>
+                      {athlete.teamName || "No team listed"} · {athlete.id}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
-function formatHours(num: number): string {
-  const rounded = Math.round(num * 10) / 10
-  return Number.isInteger(rounded) ? rounded.toString() : rounded.toFixed(1)
+function ArchiveToggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label
+      className={`flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border bg-surface px-3.5 py-2 text-xs font-medium transition-colors ${checked ? "border-accent" : "border-border"}`}
+    >
+      <input
+        type="checkbox"
+        className="peer sr-only"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <span
+        aria-hidden="true"
+        className={`flex size-4 shrink-0 items-center justify-center rounded border peer-focus-visible:ring-2 peer-focus-visible:ring-accent/40 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-surface ${checked ? "border-accent bg-accent text-white" : "border-border bg-bg"}`}
+      >
+        <Check className={`size-3 ${checked ? "opacity-100" : "opacity-0"}`} />
+      </span>
+      {label}
+    </label>
+  );
+}
+
+function AccountRow({
+  account,
+  onSaved,
+  onEditingChange,
+  anotherEditing = false,
+  onClose,
+  groups,
+  season,
+  summary,
+  summaryLoading,
+  summaryError,
+  onRequirementsSaved,
+  onAddTicket,
+  onReuse,
+  ticketRevision,
+  onTicketsChanged,
+  allAccounts,
+  onTicketEditingChange,
+}: {
+  account: WorkshareAccount;
+  onSaved: (account: WorkshareAccount) => void;
+  onEditingChange: (editing: boolean) => void;
+  anotherEditing?: boolean;
+  onClose?: () => void;
+  groups: string[];
+  season?: WorkshareSeason;
+  summary?: AccountSeasonSummary;
+  summaryLoading: boolean;
+  summaryError?: string;
+  onRequirementsSaved: (requirements: SeasonRequirements) => void;
+  onAddTicket: (accountId: string) => void;
+  onReuse: (ticket: WorkshareTicket) => void;
+  ticketRevision: number;
+  onTicketsChanged: () => void;
+  allAccounts: WorkshareAccount[];
+  onTicketEditingChange: (editing: boolean) => void;
+}) {
+  const [editing, setEditing] = useState(!account.id);
+  const {
+    draft,
+    setDraft,
+    emails,
+    setEmails,
+    busy,
+    dirty,
+    error,
+    saved,
+    reloadRequired,
+    flush,
+    reset,
+  } = useAccountAutosave(account, onSaved);
+  const [closing, setClosing] = useState(false);
+  const formId = useId();
+  const form = useRef<HTMLFormElement>(null);
+  const requirementsEditor = useRef<RequirementsHandle>(null);
+  const editingCallback = useRef(onEditingChange);
+  useEffect(() => {
+    editingCallback.current = onEditingChange;
+  }, [onEditingChange]);
+  useEffect(() => {
+    if (!editing) return;
+    return () => editingCallback.current(false);
+  }, [editing]);
+  const reloadRequested = useRef(false);
+  useUpdateBlocker(dirty || busy);
+  useEffect(() => {
+    if (editing)
+      form.current?.closest("[data-accounts-table]")?.scrollTo({ left: 0 });
+  }, [editing]);
+  useEffect(() => {
+    if (!dirty && !busy) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (!reloadRequested.current) event.preventDefault();
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, [dirty, busy]);
+  const begin = () => {
+    if (anotherEditing) return;
+    reset(account);
+    setEditing(true);
+    onEditingChange(true);
+  };
+  const changeAthlete = (index: number, changes: Partial<RosterAthlete>) =>
+    setDraft((previous) => ({
+      ...previous,
+      athletes: previous.athletes.map((athlete, i) =>
+        i === index ? { ...athlete, ...changes } : athlete,
+      ),
+    }));
+  const close = async () => {
+    if (closing) return;
+    setClosing(true);
+    try {
+      const results = await Promise.all([
+        flush(),
+        requirementsEditor.current?.flush() ?? Promise.resolve(true),
+      ]);
+      if (results.some((saved) => !saved)) {
+        form.current?.reportValidity();
+        return;
+      }
+      setEditing(false);
+      onEditingChange(false);
+      onClose?.();
+    } finally {
+      setClosing(false);
+    }
+  };
+  const cell = "align-top px-4 py-4";
+  if (!editing)
+    return (
+      <tr
+        className={`border-t border-border focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${anotherEditing ? "" : "cursor-pointer hover:bg-bg/40"} ${account.isArchived ? "bg-bg/60" : ""}`}
+        tabIndex={anotherEditing ? -1 : 0}
+        onClick={begin}
+        onKeyDown={(event) => {
+          if (
+            event.target === event.currentTarget &&
+            (event.key === "Enter" || event.key === " ")
+          ) {
+            event.preventDefault();
+            begin();
+          }
+        }}
+      >
+        <td className={cell}>
+          <p className="font-semibold">
+            {account.fullName}
+            {account.isArchived && (
+              <span className="ml-2 text-xs text-text-secondary">
+                Archived account
+              </span>
+            )}
+          </p>
+          <ul className="mt-1 space-y-1 text-xs text-text-secondary">
+            {account.emails.map((email) => (
+              <li key={email} className="break-all">
+                {email}
+              </li>
+            ))}
+          </ul>
+        </td>
+        <td className={cell}>
+          {account.athletes.length === 0 ? (
+            <span className="text-xs text-text-secondary">No athletes</span>
+          ) : (
+            <ul className="space-y-3">
+              {account.athletes.map((athlete) => (
+                <li key={athlete.id}>
+                  <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 font-medium">
+                    <span>{athlete.fullName}</span>
+                    {athlete.timesAthleteId && (
+                      <span
+                        role="img"
+                        aria-label="Linked to Times"
+                        title="Linked to Times"
+                      >
+                        <Link2
+                          className="size-3.5 text-accent"
+                          aria-hidden="true"
+                        />
+                      </span>
+                    )}
+                    {athlete.isArchived && (
+                      <span className="ml-2 text-xs text-text-secondary">
+                        Archived
+                      </span>
+                    )}
+                  </p>
+                  <p className="mt-1 text-xs text-text-secondary">
+                    {athlete.trainingGroup || "Group unset"}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </td>
+        {requirementFields.map(([field], index) => {
+          const completed =
+            summary?.completed[
+              (["general", "starlight", "appleCapital"] as const)[index]
+            ] ?? 0;
+          const required = season
+            ? (summary?.requirements[field] ?? null)
+            : account[field];
+          return (
+            <td key={field} className={`${cell} tabular-nums`}>
+              {summaryError ? (
+                <span aria-label="Hours unavailable">—</span>
+              ) : summaryLoading ? (
+                <span aria-label="Loading hours">…</span>
+              ) : (
+                <span
+                  aria-label={`${completed} completed / ${required ?? "unset"} required hours`}
+                >
+                  {completed}/{required ?? "-"}
+                </span>
+              )}
+            </td>
+          );
+        })}
+        <td className={cell}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={anotherEditing}
+            onClick={(event) => {
+              event.stopPropagation();
+              begin();
+            }}
+          >
+            Edit<span className="sr-only"> {account.fullName}</span>
+          </Button>
+          {account.id && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="mt-2 block whitespace-nowrap"
+              disabled={anotherEditing || !season}
+              aria-label={`Add ticket for ${account.fullName}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onAddTicket(account.id!);
+              }}
+            >
+              Add ticket
+            </Button>
+          )}
+          {saved && (
+            <p role="status" className="mt-2 text-xs text-accent">
+              Saved
+            </p>
+          )}
+        </td>
+      </tr>
+    );
+  return (
+    <tr className="border-t-2 border-accent bg-bg/40">
+      <td colSpan={6} className="p-4 sm:p-5">
+        <form
+          ref={form}
+          id={formId}
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            void Promise.all([flush(), requirementsEditor.current?.flush()]);
+          }}
+          className="w-[calc(100cqw-2rem-2px)] max-w-7xl space-y-5 sm:w-[calc(100cqw-2.5rem-2px)]"
+          aria-label={account.id ? `Edit ${account.fullName}` : "New account"}
+        >
+          <fieldset
+            disabled={closing}
+            className="space-y-5 disabled:opacity-60"
+          >
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <label className="grid w-full min-w-0 max-w-xs content-start gap-1 text-xs font-semibold leading-4">
+                <span>Account full name</span>
+                <Input
+                  required
+                  maxLength={200}
+                  autoFocus
+                  value={draft.fullName}
+                  onChange={(event) =>
+                    setDraft({ ...draft, fullName: event.target.value })
+                  }
+                />
+              </label>
+              <label className="grid w-full min-w-0 max-w-sm content-start gap-1 text-xs font-semibold leading-4">
+                <span>Account / athlete emails</span>
+                <textarea
+                  rows={3}
+                  className="block w-full rounded-lg border border-border bg-surface p-3 text-sm font-normal"
+                  value={emails}
+                  placeholder="One email per line"
+                  onChange={(event) => setEmails(event.target.value)}
+                />
+              </label>
+              <div className="w-fit self-start xl:pt-5">
+                <ArchiveToggle
+                  label="Archive account"
+                  checked={draft.isArchived}
+                  onChange={(isArchived) => setDraft({ ...draft, isArchived })}
+                />
+              </div>
+            </div>
+            {season && draft.id && !summaryLoading ? (
+              <RequirementsEditor
+                key={`${season.id}-${draft.id}`}
+                ref={requirementsEditor}
+                requirements={
+                  summary?.requirements ?? {
+                    accountId: draft.id,
+                    seasonId: season.id,
+                    generalHoursRequired: null,
+                    starlightHoursRequired: null,
+                    appleCapitalHoursRequired: null,
+                    updatedAt: null,
+                  }
+                }
+                onSaved={onRequirementsSaved}
+              />
+            ) : (
+              <p className="text-xs text-text-secondary">
+                {!season
+                  ? "Create a season to manage required hours and tickets. Existing requirements will be adopted into the first season."
+                  : summaryError
+                    ? "Season hours are unavailable. Retry loading season hours above."
+                    : summaryLoading
+                      ? "Loading season requirements…"
+                      : "Required hours are available after this account is created."}
+              </p>
+            )}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold">Athletes</h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setDraft((previous) => ({
+                      ...previous,
+                      athletes: [
+                        ...previous.athletes,
+                        {
+                          fullName: "",
+                          trainingGroup: "",
+                          timesAthleteId: null,
+                          isArchived: false,
+                        },
+                      ],
+                    }))
+                  }
+                >
+                  <Plus className="mr-1 size-3" aria-hidden="true" />
+                  Add athlete
+                </Button>
+              </div>
+              {draft.athletes.map((athlete, index) => (
+                <div
+                  key={index}
+                  className="grid items-start gap-3 rounded-xl border border-border bg-surface p-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1.4fr_auto]"
+                >
+                  <label className="grid w-full min-w-0 max-w-xs content-start gap-1 text-xs font-semibold leading-4">
+                    <span>Athlete full name</span>
+                    <Input
+                      required
+                      maxLength={200}
+                      value={athlete.fullName}
+                      onChange={(event) =>
+                        changeAthlete(index, { fullName: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label className="grid w-full min-w-0 max-w-64 content-start gap-1 text-xs font-semibold leading-4">
+                    <span>Training group</span>
+                    <select
+                      className="block h-11 w-full min-w-0 rounded-lg border border-border bg-surface px-3.5 py-2 text-sm text-text-primary transition-all focus-visible:border-[#0A856C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/20"
+                      value={athlete.trainingGroup}
+                      onChange={(event) =>
+                        changeAthlete(index, {
+                          trainingGroup: event.target.value,
+                        })
+                      }
+                    >
+                      <option value="">Select training group</option>
+                      {[
+                        ...new Set([
+                          ...trainingGroups,
+                          ...groups,
+                          athlete.trainingGroup,
+                        ]),
+                      ]
+                        .filter(Boolean)
+                        .map((group) => (
+                          <option key={group} value={group}>
+                            {group}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <div className="grid w-full min-w-0 max-w-sm content-start gap-1">
+                    <p className="text-xs font-semibold leading-4">
+                      Times database linkage
+                    </p>
+                    <TimesLink
+                      value={athlete.timesAthleteId}
+                      onChange={(timesAthleteId) =>
+                        changeAthlete(index, { timesAthleteId })
+                      }
+                    />
+                  </div>
+                  <div className="w-fit space-y-2 sm:pt-5">
+                    <ArchiveToggle
+                      label="Archive athlete"
+                      checked={athlete.isArchived}
+                      onChange={(isArchived) =>
+                        changeAthlete(index, { isArchived })
+                      }
+                    />
+                    {!athlete.id && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setDraft((previous) => ({
+                            ...previous,
+                            athletes: previous.athletes.filter(
+                              (_, i) => i !== index,
+                            ),
+                          }))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {draft.athletes.length === 0 && (
+                <p className="text-xs text-text-secondary">
+                  No athletes on this account.
+                </p>
+              )}
+            </div>
+            {season && draft.id && (
+              <section
+                aria-label="Account tickets"
+                className="space-y-3 border-t border-border pt-5"
+              >
+                <h3 className="text-sm font-semibold">
+                  Tickets · {season.name}
+                </h3>
+                <TicketsPanel
+                  season={season}
+                  accounts={allAccounts}
+                  accountId={draft.id}
+                  revision={ticketRevision}
+                  onChanged={onTicketsChanged}
+                  onAdd={() => onAddTicket(draft.id!)}
+                  onReuse={onReuse}
+                  onEditingChange={onTicketEditingChange}
+                />
+              </section>
+            )}
+            <p className="text-xs text-text-secondary">
+              Leave unknown requirements blank. Enter 0 when no hours are
+              required. Tickets count toward the selected season’s completed
+              hours.
+            </p>
+            {error && (
+              <p role="alert" className="text-sm text-red-600">
+                {error}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                size="sm"
+                disabled={closing || reloadRequired}
+                onClick={() => void close()}
+              >
+                {closing ? "Finishing…" : "Done"}
+              </Button>
+              {!draft.id && !reloadRequired && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={busy || closing}
+                  onClick={() => {
+                    reset(emptyAccount());
+                    setEditing(false);
+                    onEditingChange(false);
+                    onClose?.();
+                  }}
+                >
+                  Cancel
+                </Button>
+              )}
+              {error && !reloadRequired && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={busy || closing}
+                  onClick={() => void flush()}
+                >
+                  Retry save
+                </Button>
+              )}
+              {reloadRequired && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    reloadRequested.current = true;
+                    window.location.reload();
+                  }}
+                >
+                  Reload accounts
+                </Button>
+              )}
+              <p role="status" className="text-xs text-text-secondary">
+                {busy
+                  ? "Saving…"
+                  : error
+                    ? "Changes not saved"
+                    : dirty
+                      ? "Waiting to save…"
+                      : saved
+                        ? "All changes saved"
+                        : "Changes save automatically"}
+              </p>
+            </div>
+          </fieldset>
+        </form>
+      </td>
+    </tr>
+  );
 }
 
 export function FamiliesAdmin() {
-  const navigate = useNavigate()
-  const [families, setFamilies] = useState<Family[]>([])
-  const [registrations, setRegistrations] = useState<Registration[]>([])
-  const [postings, setPostings] = useState<Record<string, Posting>>({})
-  const [manualHours, setManualHours] = useState<ManualHour[]>([])
-  const [isModalOpen, setIsModalOpen] = useState(false)
-
-  // Search & Filter state
-  const [searchTerm, setSearchTerm] = useState("")
-  const [divisionFilter, setDivisionFilter] = useState<string>("ALL")
-  const [sortField, setSortField] = useState<SortField>("account")
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc")
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder(prev => (prev === "asc" ? "desc" : "asc"))
-    } else {
-      setSortField(field)
-      setSortOrder(field === "account" ? "asc" : "desc")
-    }
+  const [accounts, setAccounts] = useState<WorkshareAccount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [seasons, setSeasons] = useState<WorkshareSeason[]>([]);
+  const [summaryResult, setSummaryResult] = useState<{
+    seasonId: string;
+    data: Record<string, AccountSeasonSummary>;
+    error?: string;
+    loaded: boolean;
+  }>();
+  const [ticketRevision, setTicketRevision] = useState(0);
+  const [ticketEditing, setTicketEditing] = useState(false);
+  const [seasonDialog, setSeasonDialog] = useState(false);
+  const [composer, setComposer] = useState<{
+    accountId?: string;
+    template?: WorkshareTicket;
+  } | null>(null);
+  const router = useRouter();
+  const params = useSearchParams();
+  const tab = params.get("tab") === "tickets" ? "tickets" : "accounts";
+  const season =
+    seasons.find((item) => item.id === params.get("season")) ??
+    defaultSeason(seasons);
+  const summaryLoading =
+    !!season &&
+    (summaryResult?.seasonId !== season.id || !summaryResult.loaded);
+  const summaryError =
+    summaryResult?.seasonId === season?.id ? summaryResult?.error : undefined;
+  const summaries =
+    summaryResult?.seasonId === season?.id ? (summaryResult?.data ?? {}) : {};
+  const tabId = useId();
+  function selectView(next: { tab?: string; season?: string }) {
+    const query = new URLSearchParams(params.toString());
+    if (next.tab) query.set("tab", next.tab);
+    if (next.season) query.set("season", next.season);
+    else if (season) query.set("season", season.id);
+    router.replace(`/tools/admin?${query}`, { scroll: false });
   }
-
-  // Form state
-  const [accountName, setAccountName] = useState("")
-  const [category, setCategory] = useState<Family["category"]>("Recreation")
-  const [emails, setEmails] = useState("")
-  const [children, setChildren] = useState<Child[]>([])
-  const [generalHours, setGeneralHours] = useState("0")
-  const [eventHours, setEventHours] = useState("0")
-
-  useEffect(() => {
-    const unsubFamilies = onSnapshot(collection(db, "families"), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Family))
-      setFamilies(data)
-    })
-    const unsubRegs = onSnapshot(collection(db, "registrations"), (snapshot) => {
-      setRegistrations(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Registration)))
-    })
-    const unsubPosts = onSnapshot(collection(db, "postings"), (snapshot) => {
-      const posts: Record<string, Posting> = {}
-      snapshot.forEach(d => { posts[d.id] = { id: d.id, ...d.data() } as Posting })
-      setPostings(posts)
-    })
-    const unsubManual = onSnapshot(collection(db, "manual_hours"), (snapshot) => {
-      setManualHours(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ManualHour)))
-    })
-    return () => {
-      unsubFamilies()
-      unsubRegs()
-      unsubPosts()
-      unsubManual()
+  const ticketsChanged = () => setTicketRevision((value) => value + 1);
+  const addTicket = (accountId?: string) => {
+    if (!season) {
+      setSeasonDialog(true);
+      return;
     }
-  }, [])
-
-  const familyCompletedHours = useMemo(() => {
-    const map: Record<string, { general: number; event: number }> = {}
-    
-    for (const f of families) {
-      map[f.id] = { general: 0, event: 0 }
-    }
-
-    for (const reg of registrations) {
-      if (reg.status === "Complete" && reg.familyId) {
-        const post = reg.shiftSnapshot || postings[reg.postingId]
-        if (post) {
-          const hours = postingHours(post)
-          if (!map[reg.familyId]) {
-            map[reg.familyId] = { general: 0, event: 0 }
-          }
-          if (post.type === "General") {
-            map[reg.familyId].general += hours
-          } else {
-            map[reg.familyId].event += hours
-          }
-        }
-      }
-    }
-
-    for (const m of manualHours) {
-      if (!map[m.familyId]) {
-        map[m.familyId] = { general: 0, event: 0 }
-      }
-      if (m.type === "General") {
-        map[m.familyId].general += m.hours
-      } else {
-        map[m.familyId].event += m.hours
-      }
-    }
-
-    return map
-  }, [registrations, postings, manualHours, families])
-
-  const filteredFamilies = useMemo(() => {
-    const list = families.filter(f => {
-      const matchesDivision = divisionFilter === "ALL" || f.category === divisionFilter
-      if (!matchesDivision) return false
-
-      if (!searchTerm.trim()) return true
-      const term = searchTerm.toLowerCase()
-      const matchName = f.accountName?.toLowerCase().includes(term)
-      const matchEmail = f.authorizedEmails?.some(e => e.toLowerCase().includes(term))
-      const matchChild = f.children?.some(c => c.name.toLowerCase().includes(term) || c.group.toLowerCase().includes(term))
-      return matchName || matchEmail || matchChild
-    })
-
-    return list.sort((a, b) => {
-      if (sortField === "account") {
-        const nameA = (a.accountName || "").trim().split(/\s+/)[0].toLowerCase()
-        const nameB = (b.accountName || "").trim().split(/\s+/)[0].toLowerCase()
-        const comp = nameA.localeCompare(nameB)
-        return sortOrder === "asc" ? comp : -comp
-      }
-
-      if (sortField === "general") {
-        const hoursA = familyCompletedHours[a.id]?.general ?? 0
-        const hoursB = familyCompletedHours[b.id]?.general ?? 0
-        const comp = hoursA - hoursB
-        return sortOrder === "asc" ? comp : -comp
-      }
-
-      if (sortField === "event") {
-        const hoursA = familyCompletedHours[a.id]?.event ?? 0
-        const hoursB = familyCompletedHours[b.id]?.event ?? 0
-        const comp = hoursA - hoursB
-        return sortOrder === "asc" ? comp : -comp
-      }
-
-      return 0
-    })
-  }, [families, searchTerm, divisionFilter, sortField, sortOrder, familyCompletedHours])
-
-  const handleExport = () => {
-    const dataToExport = families.map(f => {
-      const completed = familyCompletedHours[f.id] || { general: 0, event: 0 }
+    setComposer({ accountId });
+  };
+  const reuseTicket = (ticket: WorkshareTicket) =>
+    setComposer({ template: ticket });
+  const requirementsSaved = (requirements: SeasonRequirements) => {
+    setSummaryResult((previous) => {
+      if (!previous || previous.seasonId !== requirements.seasonId)
+        return previous;
+      const entry = previous.data[requirements.accountId];
       return {
-        ID: f.id,
-        AccountName: f.accountName || "",
-        Division: f.category,
-        Children: f.children ? f.children.map(c => `${c.name} (${c.group})`).join("; ") : "",
-        Emails: f.authorizedEmails.join("; "),
-        GeneralPoolHoursReq: f.requirements?.generalPoolHours ?? 0,
-        GeneralPoolHoursCompleted: completed.general,
-        EventSpecificHoursReq: f.requirements?.eventSpecificHours ?? 0,
-        EventSpecificHoursCompleted: completed.event
-      }
+        ...previous,
+        data: {
+          ...previous.data,
+          [requirements.accountId]: {
+            account:
+              entry?.account ??
+              accounts.find((item) => item.id === requirements.accountId)!,
+            requirements,
+            completed: entry?.completed ?? {
+              general: 0,
+              starlight: 0,
+              appleCapital: 0,
+            },
+          },
+        },
+      };
+    });
+    ticketsChanged();
+  };
+  const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  const [search, setSearch] = useState("");
+  const [archive, setArchive] = useState("active");
+  const [group, setGroup] = useState("");
+  const [newAccount, setNewAccount] = useState<WorkshareAccount | null>(null);
+  const adding = newAccount !== null;
+  const [activeEditor, setActiveEditor] = useState<string | null>(null);
+  const [editorName, setEditorName] = useState("");
+  useUpdateBlocker(loading);
+  useEffect(() => {
+    const controller = new AbortController();
+    void Promise.all([
+      loadWorkshareAccounts(controller.signal),
+      loadSeasons(controller.signal),
+    ])
+      .then(([data, loadedSeasons]) => {
+        setAccounts(data);
+        setSeasons(loadedSeasons);
+        setLoading(false);
+        setError("");
+      })
+      .catch((cause) => {
+        if (!controller.signal.aborted) {
+          setError(
+            cause instanceof Error ? cause.message : "Unable to load accounts.",
+          );
+          setLoading(false);
+        }
+      });
+    return () => controller.abort();
+  }, [attempt]);
+  useEffect(() => {
+    if (!season) return;
+    const controller = new AbortController();
+    void loadAccountSummaries(season.id, controller.signal)
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        setSummaryResult({
+          seasonId: season.id,
+          loaded: true,
+          data: Object.fromEntries(
+            data.map((entry) => [entry.account.id!, entry]),
+          ),
+        });
+      })
+      .catch((cause) => {
+        if (!controller.signal.aborted)
+          setSummaryResult((previous) => ({
+            seasonId: season.id,
+            loaded: previous?.seasonId === season.id && previous.loaded,
+            data: previous?.seasonId === season.id ? previous.data : {},
+            error:
+              cause instanceof Error
+                ? cause.message
+                : "Unable to load season hours.",
+          }));
+      });
+    return () => controller.abort();
+  }, [season, ticketRevision]);
+  useEffect(() => {
+    if (!season || params.get("season") === season.id) return;
+    const query = new URLSearchParams(params.toString());
+    query.set("season", season.id);
+    router.replace(`/tools/admin?${query}`, { scroll: false });
+  }, [season, params, router]);
+  const locked =
+    activeEditor !== null || ticketEditing || composer !== null || seasonDialog;
+  const rowProps = {
+    season,
+    summaryLoading,
+    summaryError,
+    onRequirementsSaved: requirementsSaved,
+    onAddTicket: addTicket,
+    onReuse: reuseTicket,
+    ticketRevision,
+    onTicketsChanged: ticketsChanged,
+    allAccounts: accounts,
+    onTicketEditingChange: setTicketEditing,
+  };
+  const groups = [
+    ...new Set(
+      accounts
+        .flatMap((account) =>
+          account.athletes.map((athlete) => athlete.trainingGroup),
+        )
+        .filter(Boolean),
+    ),
+  ].sort();
+  const term = search.trim().toLowerCase();
+  const filtered = accounts
+    .filter((account) => {
+      if (account.id === newAccount?.id) return false;
+      if (account.id === activeEditor) return true;
+      if (archive !== "all" && account.isArchived !== (archive === "archived"))
+        return false;
+      if (
+        group &&
+        !account.athletes.some((athlete) => athlete.trainingGroup === group)
+      )
+        return false;
+      return (
+        !term ||
+        [
+          account.fullName,
+          ...account.emails,
+          ...account.athletes.flatMap((athlete) => [
+            athlete.fullName,
+            athlete.trainingGroup,
+            athlete.timesAthleteId || "",
+          ]),
+        ].some((value) => value.toLowerCase().includes(term))
+      );
     })
-    downloadCSV(dataToExport, "families_export.csv")
-  }
-
-  const openModal = () => {
-    setAccountName("")
-    setCategory("Recreation")
-    setEmails("")
-    setChildren([])
-    setGeneralHours("0")
-    setEventHours("0")
-    setIsModalOpen(true)
-  }
-
-  const handleAddChild = () => {
-    setChildren(prev => [...prev, { name: "", group: "No Assignment" }])
-  }
-
-  const handleChildChange = (index: number, field: keyof Child, value: string) => {
-    setChildren(prev => {
-      const updated = [...prev]
-      updated[index] = { ...updated[index], [field]: value }
-      return updated
-    })
-  }
-
-  const handleRemoveChild = (index: number) => {
-    setChildren(prev => prev.filter((_, i) => i !== index))
-  }
-
-  const handleNumberChange = (setter: (val: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value
-    // Allow empty string or valid integer/decimal number
-    if (val === "" || /^\d*\.?\d*$/.test(val)) {
-      setter(val)
-    }
-  }
-
-  const saveFamily = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    const genHoursNum = parseFloat(generalHours)
-    const eventHoursNum = parseFloat(eventHours)
-
-    if (isNaN(genHoursNum) || isNaN(eventHoursNum)) {
-      alert("Please enter a valid number for General Pool Hours and Event-Specific Hours.")
-      return
-    }
-
-    const authorizedEmails = normalizeEmails(emails)
-    const validChildren = children.map(c => ({
-      ...(c.id ? {id:c.id} : {}),
-      name: c.name.trim(),
-      group: c.group
-    })).filter(c => c.name.length > 0)
-
-    const familyData = {
-      accountName: accountName.trim(),
-      category,
-      authorizedEmails,
-      children: validChildren,
-      requirements: {
-        generalPoolHours: genHoursNum,
-        eventSpecificHours: eventHoursNum
-      },
-      members: []
-    }
-
-    try {
-      await addDoc(collection(db, "families"), familyData)
-      setIsModalOpen(false)
-    } catch (err) {
-      console.error(err)
-      alert("Error saving family data. Check console.")
-    }
-  }
-
+    .sort((a, b) => {
+      const first = a.id === activeEditor ? editorName : a.fullName;
+      const second = b.id === activeEditor ? editorName : b.fullName;
+      return first.localeCompare(second);
+    });
+  const saved = (next: WorkshareAccount) => {
+    setAccounts((previous) => [
+      ...previous.filter((account) => account.id !== next.id),
+      next,
+    ]);
+  };
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-text-primary tracking-tight">Family Roster</h2>
+          <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
+            {tab === "accounts" ? "Accounts & Roster" : "Workshare Tickets"}
+          </h1>
+          <p className="mt-2 text-sm text-text-secondary">
+            Manage accounts, seasonal requirements, and completed Workshare
+            hours.
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
-          <Button variant="outline" size="sm" onClick={handleExport}>
-            <Download className="w-4 h-4 mr-1.5 text-slate-500" />
-            Export CSV
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={loading || !!error}
+            onClick={() => exportWorkshareAccounts(accounts)}
+          >
+            <Download className="mr-1.5 size-4" aria-hidden="true" />
+            Export JSON
           </Button>
-          <Button variant="primary" size="sm" onClick={() => openModal()}>
-            <Plus className="w-4 h-4 mr-1.5" />
-            Add Family
-          </Button>
-        </div>
-      </div>
-
-      {/* Search & Filter Bar */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-        <div className="relative flex-1 w-full">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <Input
-            type="text"
-            placeholder="Search by family, child, or email..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="pl-9 h-10 text-sm w-full"
-          />
-        </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
-          <div className="relative w-full sm:w-44">
-            <select
-              value={divisionFilter}
-              onChange={e => setDivisionFilter(e.target.value)}
-              className="flex h-10 w-full appearance-none rounded-lg border border-slate-300 bg-surface pl-3.5 pr-10 py-1.5 text-xs font-medium text-text-primary focus-visible:outline-none focus-visible:border-[#0A856C] focus-visible:ring-2 focus-visible:ring-[#0A856C]/20 cursor-pointer"
+          {tab === "accounts" ? (
+            <Button
+              size="sm"
+              disabled={locked || loading || !!error}
+              onClick={() => {
+                setNewAccount(emptyAccount());
+                setActiveEditor("new");
+              }}
             >
-              <option value="ALL">All Divisions ({families.length})</option>
-              <option value="Competitive">Competitive</option>
-              <option value="Development">Development</option>
-              <option value="Recreation">Recreation</option>
-              <option value="Masters">Masters</option>
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          </div>
-          <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">
-            Showing {filteredFamilies.length} of {families.length}
-          </span>
+              <Plus className="mr-1.5 size-4" aria-hidden="true" />
+              Add account
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              disabled={locked || loading || !!error || !season}
+              onClick={() => addTicket()}
+            >
+              <Plus className="mr-1.5 size-4" aria-hidden="true" />
+              Add ticket
+            </Button>
+          )}
         </div>
       </div>
-
-      {/* Families List / Table */}
-      <Card className="p-0 md:p-0 overflow-hidden bg-surface border border-slate-200 shadow-xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[500px]">
-            <thead>
-              <tr className="border-b border-slate-100 bg-bg/70">
-                <th
-                  onClick={() => handleSort("account")}
-                  className="py-3.5 px-4 font-bold text-xs uppercase tracking-wider text-slate-500 cursor-pointer select-none hover:text-text-primary transition-colors group"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <span>Account</span>
-                    {sortField === "account" ? (
-                      sortOrder === "asc" ? (
-                        <ArrowUp className="w-3.5 h-3.5 text-accent" />
-                      ) : (
-                        <ArrowDown className="w-3.5 h-3.5 text-accent" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-40 group-hover:opacity-80 transition-opacity" />
-                    )}
-                  </div>
-                </th>
-                <th className="py-3.5 px-4 font-bold text-xs uppercase tracking-wider text-slate-500">
-                  Swimmers
-                </th>
-                <th
-                  onClick={() => handleSort("general")}
-                  className="py-3.5 px-4 font-bold text-xs uppercase tracking-wider text-slate-500 cursor-pointer select-none hover:text-text-primary transition-colors group"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <span>General Hours</span>
-                    {sortField === "general" ? (
-                      sortOrder === "asc" ? (
-                        <ArrowUp className="w-3.5 h-3.5 text-accent" />
-                      ) : (
-                        <ArrowDown className="w-3.5 h-3.5 text-accent" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-40 group-hover:opacity-80 transition-opacity" />
-                    )}
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort("event")}
-                  className="py-3.5 px-4 font-bold text-xs uppercase tracking-wider text-slate-500 cursor-pointer select-none hover:text-text-primary transition-colors group"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <span>Event Hours</span>
-                    {sortField === "event" ? (
-                      sortOrder === "asc" ? (
-                        <ArrowUp className="w-3.5 h-3.5 text-accent" />
-                      ) : (
-                        <ArrowDown className="w-3.5 h-3.5 text-accent" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-40 group-hover:opacity-80 transition-opacity" />
-                    )}
-                  </div>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredFamilies.map(f => {
-                const completed = familyCompletedHours[f.id] || { general: 0, event: 0 }
-                const reqGen = f.requirements?.generalPoolHours ?? 0
-                const reqEvent = f.requirements?.eventSpecificHours ?? 0
-
-                return (
-                  <tr
-                    key={f.id}
-                    onClick={() => navigate(`/admin/families/${f.id}`)}
-                    tabIndex={0}
-                    onKeyDown={e => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault()
-                        navigate(`/admin/families/${f.id}`)
-                      }
-                    }}
-                    className="hover:bg-bg/80 cursor-pointer transition-colors focus-visible:outline-none focus-visible:bg-bg"
-                    title="View family details"
-                  >
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-sm text-text-primary">
-                          {formatAccountName(f.accountName) || <span className="text-slate-400 font-normal italic">Unnamed Family</span>}
-                        </span>
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
-                            DIVISION_STYLES[f.category] || DIVISION_STYLES.Recreation
-                          }`}
-                        >
-                          {f.category}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      {f.children && f.children.length > 0 ? (
-                        <div className="flex flex-col items-start gap-1">
-                          {f.children.map((child, idx) => (
-                            <span
-                              key={idx}
-                              className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200"
-                            >
-                              <span className="font-semibold text-text-primary mr-1">
-                                {child.name ? child.name.trim().split(/\s+/)[0] : ""}
-                              </span>
-                              <span className="text-slate-500 text-[11px]">({child.group})</span>
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-slate-400 text-xs italic">No children</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span
-                        className={`text-base sm:text-lg font-bold tracking-tight ${
-                          completed.general >= reqGen && reqGen > 0 ? "text-accent" : "text-text-primary"
-                        }`}
-                      >
-                        {formatHours(completed.general)} of {formatHours(reqGen)} Complete
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span
-                        className={`text-base sm:text-lg font-bold tracking-tight ${
-                          completed.event >= reqEvent && reqEvent > 0 ? "text-accent" : "text-text-primary"
-                        }`}
-                      >
-                        {formatHours(completed.event)} of {formatHours(reqEvent)} Complete
-                      </span>
-                    </td>
-                  </tr>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div
+          role="tablist"
+          aria-label="Admin sections"
+          className="flex rounded-lg border border-border bg-surface p-1"
+        >
+          {(["accounts", "tickets"] as const).map((value) => (
+            <button
+              key={value}
+              id={`${tabId}-${value}`}
+              type="button"
+              role="tab"
+              aria-selected={tab === value}
+              aria-controls={`${tabId}-panel`}
+              tabIndex={tab === value ? 0 : -1}
+              onKeyDown={(event) => {
+                if (
+                  locked ||
+                  !["ArrowLeft", "ArrowRight", "Home", "End"].includes(
+                    event.key,
+                  )
                 )
-              })}
-              {filteredFamilies.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="py-12 px-4 text-center text-slate-400 text-sm">
-                    {families.length === 0 ? "No families registered yet. Click \"Add Family\" to create one." : "No families matched your search filter."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                  return;
+                event.preventDefault();
+                const target =
+                  event.key === "Home"
+                    ? "accounts"
+                    : event.key === "End"
+                      ? "tickets"
+                      : value === "accounts"
+                        ? "tickets"
+                        : "accounts";
+                selectView({ tab: target });
+                document.getElementById(`${tabId}-${target}`)?.focus();
+              }}
+              disabled={locked}
+              className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-60 ${tab === value ? "bg-accent text-primary-ink" : "text-text-secondary hover:bg-bg"}`}
+              onClick={() => selectView({ tab: value })}
+            >
+              {value === "accounts" ? "Accounts" : "Tickets"}
+            </button>
+          ))}
         </div>
-      </Card>
-
-      {/* Add / Edit Modal */}
-      {isModalOpen && (
-        <Dialog onClose={() => setIsModalOpen(false)} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <Card className="w-full max-w-xl max-h-[90vh] flex flex-col bg-surface shadow-xl relative z-10 border border-slate-200 p-6 overflow-hidden">
-            <div className="flex justify-between items-center mb-5 pb-2 border-b border-slate-100 shrink-0">
-              <h3 className="text-xl font-bold text-text-primary">Add New Family</h3>
-              <button aria-label="Close dialog"
-                onClick={() => setIsModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-full transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={saveFamily} className="space-y-4 overflow-y-auto pr-1 flex-1">
-              {/* Account Name and Division on the same row, name on left */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-text-primary mb-1">Account Name</label>
-                  <Input
-                    required
-                    value={accountName}
-                    onChange={e => setAccountName(e.target.value)}
-                    placeholder="e.g. Smith Family"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-primary mb-1">Division</label>
-                  <div className="relative">
-                    <select
-                      className="flex h-11 w-full appearance-none rounded-lg border border-slate-300 bg-surface pl-3.5 pr-10 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:border-[#0A856C] focus-visible:ring-2 focus-visible:ring-[#0A856C]/20 cursor-pointer"
-                      value={category}
-                      onChange={e => setCategory(e.target.value as Family["category"])}
-                    >
-                      <option value="Recreation">Recreation</option>
-                      <option value="Development">Development</option>
-                      <option value="Competitive">Competitive</option>
-                      <option value="Masters">Masters</option>
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Authorized Emails */}
-              <div>
-                <label className="block text-xs font-semibold text-text-primary mb-1">Authorized Emails (comma-separated)</label>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="grid gap-1 text-xs font-semibold leading-4">
+            <span>Workshare season</span>
+            <select
+              value={season?.id ?? ""}
+              disabled={locked || loading || !seasons.length}
+              className="h-11 max-w-64 rounded-lg border border-border bg-surface px-3 text-sm"
+              onChange={(event) => selectView({ season: event.target.value })}
+            >
+              {!seasons.length && <option value="">No seasons yet</option>}
+              {seasons.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={locked || loading || !!error}
+            onClick={() => setSeasonDialog(true)}
+          >
+            {seasons.length ? "New season" : "Create first season"}
+          </Button>
+        </div>
+      </div>
+      {!loading && !seasons.length && !error && (
+        <div className="rounded-xl border border-border bg-surface p-4 text-sm text-text-secondary">
+          Create the first season to adopt the required hours already entered
+          and start adding completed-hours tickets.
+        </div>
+      )}
+      {summaryResult?.seasonId === season?.id && summaryResult?.error && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-4 text-sm"
+        >
+          <p>{summaryResult.error}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={ticketsChanged}
+          >
+            Retry season hours
+          </Button>
+        </div>
+      )}
+      <div
+        role="tabpanel"
+        id={`${tabId}-panel`}
+        aria-labelledby={`${tabId}-${tab}`}
+        className="space-y-5"
+      >
+        {tab === "accounts" ? (
+          <>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative min-w-56 flex-1">
+                <Search
+                  className="pointer-events-none absolute left-3 top-3 size-4 text-text-secondary"
+                  aria-hidden="true"
+                />
                 <Input
-                  required
-                  value={emails}
-                  onChange={e => setEmails(e.target.value)}
-                  placeholder="parent1@example.com, parent2@example.com"
+                  disabled={activeEditor !== null}
+                  aria-label="Search accounts and athletes"
+                  type="search"
+                  className="pl-9"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search names, emails, or athletes…"
                 />
               </div>
-
-              {/* Children Section with Add Child button */}
-              <div className="space-y-2.5 pt-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="block text-xs font-semibold text-text-primary">Swimmers</label>
-                    <p className="text-[11px] text-slate-500">Add children and their assigned swim group.</p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddChild}
-                    className="h-8 text-xs px-2.5 text-accent border-[#0A856C]/30 hover:bg-[#0A856C]/10"
-                  >
-                    <Plus className="w-3.5 h-3.5 mr-1" />
-                    Add Child
-                  </Button>
-                </div>
-
-                {children.length > 0 ? (
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                    {children.map((child, index) => (
-                      <div key={index} className="flex items-center gap-2 bg-bg p-2.5 rounded-lg border border-slate-200">
-                        <div className="flex-1">
-                          <SwimmerPicker child={child} onChange={value=>setChildren(previous=>previous.map((item,i)=>i===index?value:item))}/>
-                        </div>
-                        <div className="relative w-40 sm:w-44">
-                          <select
-                            value={child.group}
-                          disabled={Boolean(child.id)}
-                            onChange={e => handleChildChange(index, "group", e.target.value as ChildGroup)}
-                            className="flex h-9 w-full appearance-none rounded-lg border border-slate-300 bg-surface pl-3 pr-9 py-1 text-xs text-text-primary focus-visible:outline-none focus-visible:border-[#0A856C] focus-visible:ring-2 focus-visible:ring-[#0A856C]/20 cursor-pointer"
-                          >
-                            {CHILD_GROUPS.map(grp => (
-                              <option key={grp} value={grp}>{grp}</option>
-                            ))}
-                          </select>
-                          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveChild(index)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                          title="Remove child"
+              <select
+                disabled={activeEditor !== null}
+                aria-label="Account archive filter"
+                className="h-11 rounded-lg border border-border bg-surface px-3 text-sm"
+                value={archive}
+                onChange={(event) => setArchive(event.target.value)}
+              >
+                <option value="active">Active accounts</option>
+                <option value="archived">Archived accounts</option>
+                <option value="all">All accounts</option>
+              </select>
+              <select
+                disabled={activeEditor !== null}
+                aria-label="Training group filter"
+                className="h-11 max-w-full rounded-lg border border-border bg-surface px-3 text-sm"
+                value={group}
+                onChange={(event) => setGroup(event.target.value)}
+              >
+                <option value="">All training groups</option>
+                {groups.map((group) => (
+                  <option key={group} value={group}>
+                    {group}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-text-secondary">
+                {filtered.length} of {accounts.length} accounts
+              </span>
+            </div>
+            {error ? (
+              <div
+                role="alert"
+                className="space-y-3 rounded-xl border border-border p-5"
+              >
+                <p>{error}</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setLoading(true);
+                    setAttempt(attempt + 1);
+                  }}
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : (
+              <div
+                data-accounts-table
+                className="relative overflow-x-auto rounded-xl border border-border bg-surface [container-type:inline-size]"
+              >
+                <table className="w-full min-w-[900px] text-left text-sm">
+                  <caption className="sr-only">
+                    Accounts, athlete roster, and completed / required hours
+                  </caption>
+                  <thead className="bg-bg text-xs text-text-secondary">
+                    <tr>
+                      {[
+                        "Account",
+                        "Athletes",
+                        "General",
+                        "Starlight",
+                        "Apple Capital",
+                        "Actions",
+                      ].map((title) => (
+                        <th
+                          scope="col"
+                          key={title}
+                          className="px-4 py-3 font-semibold"
                         >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-xs text-slate-400 italic bg-bg border border-dashed border-slate-200 rounded-lg p-3 text-center">
-                    No children added yet. Click &quot;Add Child&quot; to add swimmers.
-                  </div>
-                )}
+                          {title}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {newAccount && (
+                      <AccountRow
+                        {...rowProps}
+                        account={newAccount}
+                        summary={
+                          newAccount.id ? summaries[newAccount.id] : undefined
+                        }
+                        groups={groups}
+                        onSaved={(next) => {
+                          saved(next);
+                          setNewAccount(next);
+                        }}
+                        onEditingChange={(editing) =>
+                          setActiveEditor(editing ? "new" : null)
+                        }
+                        onClose={() => setNewAccount(null)}
+                      />
+                    )}
+                    {loading ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          role="status"
+                          className="p-8 text-center text-text-secondary"
+                        >
+                          Loading accounts…
+                        </td>
+                      </tr>
+                    ) : (
+                      filtered.map((account) => (
+                        <AccountRow
+                          {...rowProps}
+                          summary={summaries[account.id!]}
+                          key={`${account.id}-${season?.id ?? "unscoped"}`}
+                          account={account}
+                          groups={groups}
+                          onSaved={saved}
+                          anotherEditing={
+                            activeEditor !== null && activeEditor !== account.id
+                          }
+                          onEditingChange={(editing) => {
+                            setActiveEditor(editing ? account.id! : null);
+                            if (editing) setEditorName(account.fullName);
+                          }}
+                        />
+                      ))
+                    )}
+                    {!loading && !adding && filtered.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="p-8 text-center text-text-secondary"
+                        >
+                          {accounts.length
+                            ? "No accounts match these filters."
+                            : "No accounts yet. Add an account to start."}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
-
-              {/* Numerical inputs as text inputs with validation */}
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <div>
-                  <label className="block text-xs font-semibold text-text-primary mb-1">General Pool Hours</label>
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    required
-                    value={generalHours}
-                    onChange={handleNumberChange(setGeneralHours)}
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-primary mb-1">Event-Specific Hours</label>
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    required
-                    value={eventHours}
-                    onChange={handleNumberChange(setEventHours)}
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-4 flex items-center justify-between border-t border-slate-100 shrink-0">
-                <div />
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" type="button" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-                  <Button type="submit" variant="primary">Save Family</Button>
-                </div>
-              </div>
-            </form>
-          </Card>
-        </Dialog>
+            )}
+          </>
+        ) : season ? (
+          <TicketsPanel
+            key={season.id}
+            season={season}
+            accounts={accounts}
+            revision={ticketRevision}
+            onChanged={ticketsChanged}
+            onAdd={addTicket}
+            onReuse={reuseTicket}
+            onEditingChange={setTicketEditing}
+          />
+        ) : (
+          <p className="rounded-xl border border-border bg-surface p-6 text-sm text-text-secondary">
+            Create a season to begin tracking tickets.
+          </p>
+        )}
+      </div>
+      {seasonDialog && (
+        <SeasonDialog
+          seasons={seasons}
+          selectedSeasonId={season?.id}
+          onClose={() => setSeasonDialog(false)}
+          onCreated={(next) => {
+            setSeasons((previous) =>
+              [...previous.filter((item) => item.id !== next.id), next].sort(
+                (a, b) => a.startsOn.localeCompare(b.startsOn),
+              ),
+            );
+            setSeasonDialog(false);
+            selectView({ season: next.id });
+          }}
+        />
+      )}
+      {composer && season && (
+        <TicketComposer
+          key={season.id}
+          season={season}
+          accounts={accounts}
+          accountId={composer.accountId}
+          template={composer.template}
+          onChanged={ticketsChanged}
+          onClose={() => setComposer(null)}
+        />
       )}
     </div>
-  )
+  );
 }

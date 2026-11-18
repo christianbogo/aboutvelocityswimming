@@ -1,3 +1,4 @@
+export const ADMIN_PATH = "/tools/admin";
 export const WORKSHARE_PATH = "/tools/workshare";
 
 export function worksharePath(path = "") {
@@ -6,6 +7,6 @@ export function worksharePath(path = "") {
 
 export function isWorkshareRoute(segments: string[] = []) {
   const path = segments.join("/");
-  return ["", "login", "guest", "logs", "jobs", "admin/families", "admin/roster", "admin/settings"].includes(path)
+  return ["", "overview", "login", "guest", "logs", "jobs", "admin/families", "admin/roster", "admin/settings"].includes(path)
     || (segments.length === 3 && segments[0] === "admin" && segments[1] === "families" && !!segments[2]);
 }

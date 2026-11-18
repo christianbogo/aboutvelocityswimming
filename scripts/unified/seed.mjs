@@ -66,10 +66,6 @@ const athlete = (id, first, last, gender) => ({
     updatedAt: "2026-10-01T00:00:00Z",
   },
 });
-const at = new Date();
-at.setDate(at.getDate() + 5);
-at.setUTCHours(18, 0, 0, 0);
-const end = new Date(at.getTime() + 3600000);
 const records = [
   [
     "teams/velocity-swimming",
@@ -94,10 +90,7 @@ const records = [
       accountName: "Example Family A",
       authorizedEmails: ["family-a@example.test"],
       category: "Competitive",
-      children: [
-        { id: "test-swimmer-a", name: "Avery Example", group: "Juniors" },
-      ],
-      requirements: { generalPoolHours: 10, eventSpecificHours: 5 },
+      children: [],
     },
   ],
   [
@@ -106,10 +99,7 @@ const records = [
       accountName: "Example Family B",
       authorizedEmails: ["family-b@example.test"],
       category: "Competitive",
-      children: [
-        { id: "test-swimmer-b", name: "Blake Example", group: "Juniors" },
-      ],
-      requirements: { generalPoolHours: 10, eventSpecificHours: 5 },
+      children: [],
     },
   ],
   [
@@ -155,21 +145,6 @@ const records = [
       status: "present",
     },
   ],
-  [
-    "postings/test-shift",
-    {
-      id: "test-shift",
-      title: "Synthetic meet setup",
-      type: "General",
-      date: at.toISOString(),
-      startTime: at.toISOString(),
-      endTime: end.toISOString(),
-      status: "Open",
-      positions: { min: 1, desired: 2, max: 3 },
-      meetId: "test-meet",
-    },
-  ],
-  ["work_descriptions/test-description", { text: "Synthetic setup hours" }],
 ];
 for (const [path, after] of records) {
   const { error } = await client.rpc("collect_records", {

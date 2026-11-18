@@ -59,6 +59,20 @@ const collect = async (path, after) => {
 };
 const action = async (client, operation, input) =>
   client.rpc("workshare_action", { operation, input });
+await test("legacy Workshare storage and actions remain retired", async () => {
+  for (const client of [anon, familyA, familyB, staff, admin]) {
+    assert.ok((await action(client, "registerForShift", {})).error);
+  }
+  for (const root of ["postings", "registrations", "manual_hours", "work_descriptions"]) {
+    assert.deepEqual(await query(staff, root), []);
+    const result = await admin.rpc("collect_records", {
+      reads: [],
+      writes: [{ path: `${root}/retired-test`, after: { text: "Retired" } }],
+    });
+    assert.ok(result.error, `${root} must not accept legacy writes`);
+  }
+  assert.deepEqual((await admin.rpc("claim_shift_reminders", { dry_run: false })).data, []);
+});
 await test("database policies isolate family records and staff data", async () => {
   assert.deepEqual(
     (await query(familyA, "families")).map((r) => r.path),
@@ -103,8 +117,8 @@ await test("database policies isolate family records and staff data", async () =
     "Example Family B",
   );
   const stored = await record(familyA, "families/family-a");
-  assert.equal(stored.children[0].id, "test-swimmer-a");
-  assert.equal(stored.children[0].name, "Avery Example");
+  assert.deepEqual(stored.children, []);
+  assert.equal(stored.requirements, undefined);
 });
 await test("reviewed writes reject stale state and roll back all writes", async () => {
   const before = await record(staff, "teams/velocity-swimming");
@@ -162,90 +176,6 @@ await test("bests follow corrections, invalid status, deletion, and relay eligib
     65000,
   );
   await collect("swims/test-race-1", first);
-});
-await test("invitations preserve scope, hide family data, and serialize the final spot", async () => {
-  const base = await record(staff, "postings/test-shift");
-  const shiftId = "capacity-" + Date.now();
-  await collect("postings/" + shiftId, {
-    ...base,
-    id: shiftId,
-    positions: { min: 1, desired: 1, max: 1 },
-  });
-  const forged = await action(familyB, "createGuestInvitation", {
-    familyId: "family-a",
-    postingId: shiftId,
-  });
-  assert.ok(forged.error);
-  const created = await action(familyA, "createGuestInvitation", {
-    familyId: "family-a",
-    postingId: shiftId,
-  });
-  assert.ifError(created.error);
-  const token = created.data.token;
-  const preview = await action(anon, "getGuestInvitation", { token });
-  assert.ifError(preview.error);
-  assert.equal(preview.data.authorizedEmails, undefined);
-  const requests = await Promise.all([
-    action(anon, "redeemGuestInvitation", {
-      token,
-      firstName: "Guest",
-      lastName: "Example",
-      relation: "Friend",
-      familyId: "family-b",
-      postingId: "forged",
-    }),
-    action(familyB, "registerForShift", {
-      familyId: "family-b",
-      postingId: shiftId,
-      name: "Second Volunteer",
-    }),
-  ]);
-  assert.equal(requests.filter((r) => !r.error).length, 1);
-  const registrations = await query(staff, "registrations");
-  assert.equal(
-    registrations.filter((r) => r.data.postingId === shiftId).length,
-    1,
-  );
-  if (!requests[0].error) {
-    const retry = await action(anon, "redeemGuestInvitation", {
-      token,
-      firstName: "Guest",
-      lastName: "Example",
-      relation: "Friend",
-    });
-    assert.ifError(retry.error);
-    assert.equal(retry.data.registrationId, requests[0].data.registrationId);
-    const reg = registrations.find((r) =>
-      r.path.endsWith(retry.data.registrationId),
-    );
-    assert.equal(reg.data.familyId, "family-a");
-  }
-  const denied = await action(anon, "redeemGuestInvitation", {
-    token: "bad",
-    firstName: "Guest",
-    lastName: "Example",
-    relation: "Friend",
-  });
-  assert.ok(denied.error);
-});
-await test("completed hour snapshots survive shift edits", async () => {
-  const base = await record(staff, "postings/test-shift");
-  const regId = "credit-" + Date.now();
-  await collect("registrations/" + regId, {
-    postingId: "test-shift",
-    familyId: "family-a",
-    assignee: { name: "Credit Test " + regId, isGuest: false },
-    status: "Complete",
-  });
-  await collect("postings/test-shift", {
-    ...base,
-    endTime: new Date(
-      new Date(base.startTime).getTime() + 7200000,
-    ).toISOString(),
-  });
-  const reg = await record(staff, "registrations/" + regId);
-  assert.equal(reg.shiftSnapshot.endTime, base.endTime);
-  await collect("postings/test-shift", base);
 });
 await test("private captures deny public access and immutable evidence prevents overwrite", async () => {
   const bytes = new TextEncoder().encode("synthetic evidence");
@@ -313,7 +243,7 @@ await test("authorization uses verified server identity and explicit administrat
     { stdio: "pipe" },
   );
 });
-await test("Times roster edits preserve independent Workshare identities and update inactive ranks", async () => {
+await test("Times roster edits preserve family contact records and update inactive ranks", async () => {
   const before = await record(staff, "athletes/test-swimmer-a");
   await collect("athletes/test-swimmer-a", {
     ...before,
@@ -322,8 +252,7 @@ await test("Times roster edits preserve independent Workshare identities and upd
     status: "inactive",
   });
   const family = await record(familyA, "families/family-a");
-  assert.equal(family.children[0].name, "Avery Example");
-  assert.equal(family.children[0].group, "Juniors");
+  assert.deepEqual(family.children, []);
   const best = (await query(anon, "athletes/test-swimmer-a/bests"))[0].data;
   assert.equal(best.clubRankActiveRoster, null);
   await collect("athletes/test-swimmer-a", before);
@@ -332,100 +261,6 @@ await test("Times roster edits preserve independent Workshare identities and upd
     writes: [{ path: "teams/no-reviewed-state", after: { name: "Forged" } }],
   });
   assert.ok(invalid.error);
-});
-await test("expired and revoked invitations cannot create registrations", async () => {
-  const created = await action(familyA, "createGuestInvitation", {
-    familyId: "family-a",
-    postingId: "test-shift",
-  });
-  assert.ifError(created.error);
-  await action(familyA, "revokeGuestInvitation", {
-    invitationId: created.data.invitationId,
-  });
-  assert.ok(
-    (
-      await action(anon, "redeemGuestInvitation", {
-        token: created.data.token,
-        firstName: "Test",
-        lastName: "Guest",
-        relation: "Friend",
-      })
-    ).error,
-  );
-  const expired = await action(familyA, "createGuestInvitation", {
-    familyId: "family-a",
-    postingId: "test-shift",
-  });
-  assert.ifError(expired.error);
-  execFileSync(
-    "docker",
-    [
-      "exec",
-      "supabase_db_aboutvelocityswimming",
-      "psql",
-      "-U",
-      "postgres",
-      "-v",
-      "ON_ERROR_STOP=1",
-      "-c",
-      `update private.guest_invitations set expires_at=now()-interval '1 minute' where id='${expired.data.invitationId}'`,
-    ],
-    { stdio: "pipe" },
-  );
-  assert.ok(
-    (await action(anon, "getGuestInvitation", { token: expired.data.token }))
-      .error,
-  );
-});
-await test("reminder queue claims once across workers and preserves delivery receipts", async () => {
-  const base = await record(staff, "postings/test-shift"),
-    id = "reminder-" + Date.now();
-  // The reminder query uses Pacific calendar days, including on UTC CI runners.
-  const pacificToday = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Los_Angeles",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-  const at = new Date(`${pacificToday}T18:00:00Z`);
-  at.setUTCDate(at.getUTCDate() + 2);
-  await collect("postings/" + id, {
-    ...base,
-    id,
-    date: at.toISOString(),
-    startTime: at.toISOString(),
-    endTime: new Date(at.getTime() + 3600000).toISOString(),
-  });
-  await collect("registrations/" + id, {
-    postingId: id,
-    familyId: "family-a",
-    assignee: { name: "Reminder Test", isGuest: false },
-    status: "Pending",
-  });
-  const denied = await familyA.rpc("claim_shift_reminders", { dry_run: false });
-  assert.ok(denied.error);
-  const results = await Promise.all([
-    admin.rpc("claim_shift_reminders", { dry_run: false }),
-    admin.rpc("claim_shift_reminders", { dry_run: false }),
-  ]);
-  results.forEach((r) => assert.ifError(r.error));
-  const matches = results
-    .flatMap((r) => r.data)
-    .filter((r) => r.registrationId === id);
-  assert.equal(matches.length, 1);
-  const reminder = matches[0];
-  const finished = await admin.rpc("finish_shift_reminder", {
-    registration_id: id,
-    reminder_date: reminder.date,
-    delivery_id: "synthetic-delivery",
-  });
-  assert.ifError(finished.error);
-  assert.equal(
-    (await admin.rpc("claim_shift_reminders", { dry_run: false })).data.some(
-      (r) => r.registrationId === id,
-    ),
-    false,
-  );
 });
 await test("collection is staging-only, isolated, deduplicated and atomically reviewed", async () => {
   const token = "local-collector-" + crypto.randomUUID();
@@ -526,16 +361,6 @@ await test("collection is staging-only, isolated, deduplicated and atomically re
   await collect("families/family-a", family);
   execFileSync("docker", ["exec", "supabase_db_aboutvelocityswimming", "psql", "-U", "postgres", "-c", `update private.collection_workers set revoked_at=now() where token_hash='${tokenHash}';`], { stdio: "pipe" });
   assert.ok((await stage(batch)).error);
-});
-await test("Workshare-only children never become public athletes", async () => {
-  const before = await record(staff, "families/family-a");
-  const athletesBefore = await query(anon, "public_athletes");
-  await collect("families/family-a", { ...before, children: [...before.children, { name: "Private Child", group: "No Assignment" }] });
-  assert.equal((await record(familyA, "families/family-a")).children.length, 2);
-  assert.equal((await query(anon, "public_athletes")).length, athletesBefore.length);
-  const members = await familyB.from("workshare_members").select("id").eq("family_id", "family-a");
-  assert.deepEqual(members.data, []);
-  await collect("families/family-a", before);
 });
 await test("public race history never exposes private source fields", async () => {
   const before = await record(staff, "swims/test-race-1");

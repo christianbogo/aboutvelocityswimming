@@ -9,21 +9,45 @@ vi.mock("next/navigation", () => ({
 }));
 import LegacyTimesPage from "@/app/tools/(collection)/times/page";
 import LegacyOverviewPage from "@/app/tools/(collection)/times/overview/page";
+import WorkshareEntry from "@/app/tools/(workshare)/workshare/page";
+import WorkshareOverview from "@/app/tools/(workshare)/workshare/overview/page";
+import RetiredJobs from "@/app/tools/(workshare)/workshare/jobs/page";
+import RetiredSettings from "@/app/tools/(workshare)/workshare/admin/settings/page";
+import RetiredRoster from "@/app/tools/(workshare)/workshare/admin/roster/page";
+import RetiredFamilyDetail from "@/app/tools/(workshare)/workshare/admin/families/[familyId]/page";
+import RetiredFamilies from "@/app/tools/(workshare)/workshare/admin/families/page";
+import RetiredLogs from "@/app/tools/(workshare)/workshare/logs/page";
+import RetiredGuest from "@/app/tools/(workshare)/workshare/guest/page";
 
 describe("independent times tools", () => {
+  it("restricts approved staff to Admin while other tools stay locked", () => {
+    expect(getAvailableTools({ allTools: false, staff: true }).map(([id]) => id)).toEqual(["admin"]);
+    expect(getAvailableTools({ allTools: false, staff: false })).toEqual([]);
+  });
   it("lists each tool directly and keeps staff tools restricted", () => {
-    const tools = getAvailableTools(false);
+    const tools = getAvailableTools({ allTools: true, staff: false });
     expect(tools.map(([id, tool]) => [id, tool.homeHref])).toEqual([
       ["my-times", "/tools/my-times"],
+      ["goals", "/tools/goals"],
       ["rankings", "/tools/rankings"],
       ["records", "/tools/records"],
       ["standards", "/tools/standards"],
-      ["workshare", "/tools/workshare/overview"],
     ]);
-    for (const [id] of tools.slice(0, 4)) {
-      expect(getToolPages(id, false)).toEqual([]);
+    for (const [id] of tools) {
+      expect(getToolPages(id)).toEqual([]);
     }
-    expect(getAvailableTools(true).map(([id]) => id)).toContain("imports");
+    expect(getAvailableTools({ allTools: true, staff: true }).map(([id]) => id)).toContain("imports");
+    expect(getAvailableTools({ allTools: true, staff: true }).map(([id, { title, homeHref }]) => ({ id, title, homeHref })))
+      .toContainEqual({ id: "admin", title: "Admin", homeHref: "/tools/admin" });
+  });
+
+  it("keeps Admin standalone and redirects retired Workshare bookmarks", () => {
+    expect(getToolPages("admin")).toEqual([]);
+    expect(getAvailableTools({ allTools: true, staff: false }).map(([id]) => id)).not.toContain("admin");
+    expect(getAvailableTools({ allTools: true, staff: true }).map(([id]) => id)).not.toContain("workshare");
+    for (const Page of [WorkshareEntry, WorkshareOverview, RetiredJobs, RetiredSettings, RetiredRoster, RetiredFamilyDetail, RetiredFamilies, RetiredLogs, RetiredGuest]) {
+      expect(() => Page()).toThrow("/tools/admin");
+    }
   });
 
   it("redirects the retired overview directly to Times", () => {

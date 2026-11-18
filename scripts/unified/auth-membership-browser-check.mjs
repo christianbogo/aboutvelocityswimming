@@ -73,32 +73,30 @@ try {
     await page.locator("input[type=email]").fill(email);
     await page.locator("input[type=password]").fill("Velocity-local-test-2026!");
     await page.locator("button[type=submit]").click();
-    await page.waitForURL(base + "/tools");
+    if (email === "christiancutter02@gmail.com") await page.waitForURL(base + "/tools");
+    else await page.getByText("This account does not have access to the tools.", { exact: true }).waitFor();
   };
   const page = await context.newPage();
   await watch(page);
-  await login(page, "coach@velocity-swimming.com");
+  await login(page, "christiancutter02@gmail.com");
   await page.goto(base + "/tools/review");
   await page.getByRole("searchbox", { name: "Search batches", exact: true }).fill(title);
   const article = page.locator("article").filter({ hasText: title });
   await article.getByRole("button", { name: "Approve all changes", exact: true }).click();
   await article.waitFor({ state: "detached" });
-  const approved = await client.auth.signInWithPassword({ email: "coach@velocity-swimming.com", password: "Velocity-local-test-2026!" });
+  const approved = await client.auth.signInWithPassword({ email: "christiancutter02@gmail.com", password: "Velocity-local-test-2026!" });
   assert.ifError(approved.error);
   const { data: result, error } = await client.from("collection_batches").select("status").eq("id", staged.data).single();
   assert.ifError(error);
   assert.equal(result.status, "approved");
   await client.auth.signOut({ scope: "local" });
 
-  await page.goto(base + "/tools/workshare/admin/families/family-a");
-  await page.getByRole("button", { name: "View Client", exact: true }).last().click();
-  await page.waitForURL(base + "/tools/workshare");
-  await page.getByText("Example Family A", { exact: true }).first().waitFor();
+  await page.goto(base + "/tools/admin");
+  await page.getByRole("heading", { name: "Accounts & Roster", exact: true }).waitFor();
   const recovered = page.waitForResponse((response) => new URL(response.url()).pathname === "/rest/v1/family_emails");
   await page.evaluate(() => window.dispatchEvent(new Event("visibilitychange")));
   assert.equal((await recovered).status(), 200);
-  await page.getByRole("button", { name: "To Admin", exact: true }).last().waitFor();
-  await page.getByText("Example Family A", { exact: true }).first().waitFor();
+  await page.getByRole("heading", { name: "Accounts & Roster", exact: true }).waitFor();
 
   // Expire only this synthetic browser's session timestamp so the real SDK
   // performs a token refresh and publishes the same-account auth event.
@@ -122,22 +120,21 @@ try {
   await page.evaluate(() => window.dispatchEvent(new Event("visibilitychange")));
   assert.equal((await refresh).status(), 200);
   assert.equal((await refreshedMembership).status(), 200);
-  await page.getByRole("button", { name: "To Admin", exact: true }).last().waitFor();
-  await page.getByText("Example Family A", { exact: true }).first().waitFor();
+  await page.getByRole("heading", { name: "Accounts & Roster", exact: true }).waitFor();
 
   const familyContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const familyPage = await familyContext.newPage();
   await watch(familyPage);
   await login(familyPage, "family-a@example.test");
   await familyPage.goto(base + "/tools/workshare");
-  await familyPage.getByText("Example Family A", { exact: true }).first().waitFor();
-  assert.equal(await familyPage.getByRole("button", { name: "View Client", exact: true }).count(), 0);
-  assert.equal(await familyPage.getByText("Example Family B", { exact: true }).count(), 0);
+  await familyPage.waitForURL(base + "/login");
+  await familyPage.getByText("This account does not have access to the tools.", { exact: true }).waitFor();
+  assert.equal(await familyPage.getByRole("heading", { name: "Accounts & Roster", exact: true }).count(), 0);
   assert.ok(membership.length >= 4);
   assert.ok(membership.every((status) => status === 200));
   assert.deepEqual(obsoleteLookups, []);
   assert.deepEqual(errors, []);
-  console.log("Verified local staff approval, indexed membership, focus recovery, token refresh with client preview preserved, and family dashboard access.");
+  console.log("Verified local staff approval, indexed membership, focus recovery, token refresh on Accounts & Roster, and current nonadmin tools restriction.");
 } finally {
   await browser?.close();
   await client.auth.signOut({ scope: "local" });

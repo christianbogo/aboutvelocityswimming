@@ -5,6 +5,7 @@ import { useId, useState } from "react";
 import { useAuth } from "@/features/workshare/contexts/auth";
 import AccountAthletes from "./AccountAthletes";
 import AccountSignInMethods from "./AccountSignInMethods";
+import AccountWorkshare from "./AccountWorkshare";
 import VelocityFamily, { familyPreview } from "./VelocityFamily";
 import { Button } from "./Button";
 
@@ -99,6 +100,10 @@ export default function AccountProfile() {
         </section>
       </div>
       <VelocityFamily family={familyPreview(accountFamilyId, user.email)} />
+      <AccountWorkshare
+        key={`${user.uid}:${user.email ?? ""}`}
+        userId={user.uid}
+      />
       <AccountAthletes key={user.uid} userId={user.uid} />
     </section>
   );

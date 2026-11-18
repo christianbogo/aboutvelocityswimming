@@ -20,9 +20,6 @@ const eslintConfig = defineConfig([
     "tests/legacy-firebase/**",
     "firebase/**",
     ".next-velocity-test/**",
-    ".next-workshare-test/**",
-    "firebase/workshare/functions/lib/**",
-    "firebase/workshare/functions/node_modules/**",
   ]),
 ]);
 

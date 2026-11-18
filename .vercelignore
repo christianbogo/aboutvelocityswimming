@@ -23,9 +23,4 @@ pnpm-debug.log*
 .DS_Store
 *.tsbuildinfo
 
-# Workshare backend and isolated browser test build
-firebase/workshare/functions/node_modules/
-firebase/workshare/functions/lib/
-firebase/workshare/.firebase/
-.next-workshare-test/
 .next-velocity-test/

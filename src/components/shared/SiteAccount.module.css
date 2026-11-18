@@ -3,11 +3,4 @@
 .icon { width: 1.2em; height: 1.2em; flex-shrink: 0; }
 .email { position: relative; display: block; min-width: 4.5rem; max-width: 100%; white-space: nowrap; }
 .emailText { display: block; overflow: hidden; text-overflow: ellipsis; }
-.signOut { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; }
-.account:focus-visible .emailText { opacity: 0; }
-.account:focus-visible .signOut { opacity: 1; }
-@media (hover: hover) {
-  .account:hover .emailText { opacity: 0; }
-  .account:hover .signOut { opacity: 1; }
-}
 @media (max-width: 550px) { .pill { font-size: .75rem; padding: .65rem .8rem; } }

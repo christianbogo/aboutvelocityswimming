@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { PanelLeftClose, PanelLeftOpen, Waves } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import {
   useEffect,
   useId,
@@ -246,7 +246,10 @@ export default function ToolSidebar({
           <div className={styles.brand}>
             <Link href="/tools" className={styles.logo} aria-label="Velocity Tools" title="Velocity Tools">
               <span className={styles.fullLogo}>{logo}</span>
-              <Waves className={styles.railLogo} aria-hidden="true" />
+              <span className={styles.railLogo} aria-hidden="true">
+                <Image src="/swim-resources/initials-light.svg" alt="" width={374} height={200} className="theme-light-only" />
+                <Image src="/swim-resources/initials-dark.svg" alt="" width={374} height={200} className="theme-dark-only" />
+              </span>
             </Link>
             {badge}
           </div>

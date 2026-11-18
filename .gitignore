@@ -50,10 +50,5 @@ scripts/**/serviceAccountKey*.json
 __pycache__/
 !.env.example
 
-# Workshare backend and isolated browser test build
-firebase/workshare/functions/node_modules/
-firebase/workshare/functions/lib/
-firebase/workshare/.firebase/
-.next-workshare-test/
 
 .next-velocity-test/

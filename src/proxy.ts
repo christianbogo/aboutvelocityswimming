@@ -1,7 +1,12 @@
 import type { Database } from "@/lib/supabase/database.types";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { isToolsAdmin, isToolsApi, isToolsPage } from "@/lib/tools-access";
+import {
+  isStaffToolsPath,
+  isToolsAdmin,
+  isToolsApi,
+  isToolsPage,
+} from "@/lib/tools-access";
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
   const toolPage = isToolsPage(request.nextUrl.pathname);
@@ -20,7 +25,7 @@ export async function proxy(request: NextRequest) {
               error:
                 status === 503
                   ? "Tools are temporarily unavailable."
-                  : "Tools are temporarily restricted to the administrator account.",
+                  : "This account does not have access to this tool.",
             },
             { status },
           );
@@ -53,19 +58,25 @@ export async function proxy(request: NextRequest) {
     try {
       // Read the current, server-confirmed identity rather than trusting cookie data
       // or user-editable metadata. Prepared imports also support bearer auth.
-      const token = toolApi
-        ? request.headers.get("authorization")?.match(/^Bearer (\S+)$/i)?.[1]
-        : undefined;
+      // Staff endpoints use the same cookie-bound identity as their route
+      // handlers. A bearer lookup must never borrow staff status from cookies.
+      const staffPath = isStaffToolsPath(request.nextUrl.pathname);
+      const token =
+        toolApi && !staffPath
+          ? request.headers.get("authorization")?.match(/^Bearer (\S+)$/i)?.[1]
+          : undefined;
       const {
         data: { user },
         error,
       } = await client.auth.getUser(token);
       if (error || !user) return deny(401);
-      if (
-        user.is_anonymous ||
-        !isToolsAdmin(user.email, Boolean(user.email_confirmed_at))
-      )
-        return deny(403);
+      if (user.is_anonymous || !user.email_confirmed_at) return deny(403);
+      if (!isToolsAdmin(user.email, true)) {
+        if (!staffPath) return deny(403);
+        const { data: staff, error: staffError } = await client.rpc("is_workshare_staff");
+        if (staffError) return deny(503);
+        if (staff !== true) return deny(403);
+      }
     } catch {
       return deny(503);
     }

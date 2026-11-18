@@ -1,7 +1,5 @@
-import ToolHome from "@/components/shared/ToolHome";
-
-export const metadata = { title: "Velocity Workshare | Velocity Swimming" };
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <ToolHome tool="workshare" />;
+  redirect("/tools/admin");
 }

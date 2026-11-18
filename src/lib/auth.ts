@@ -6,18 +6,25 @@ export interface User {
   email: string | null;
   emailVerified: boolean;
   staff: boolean;
+  /** Scoped Admin authority; does not grant access to the other Tools. */
+  workshareStaff?: boolean;
   getIdToken(): Promise<string>;
 }
 export const auth: { currentUser: User | null } = { currentUser: null };
 let generation = 0;
 async function currentUser(user: SupabaseUser | null): Promise<User | null> {
   if (!user) return null;
-  const { data: staff } = await browserClient().rpc("is_staff");
+  const client = browserClient();
+  const [{ data: staff }, { data: workshareStaff }] = await Promise.all([
+    client.rpc("is_staff"),
+    client.rpc("is_workshare_staff"),
+  ]);
   return {
     uid: user.id,
     email: user.email ?? null,
     emailVerified: Boolean(user.email_confirmed_at),
     staff: staff === true,
+    workshareStaff: workshareStaff === true,
     getIdToken: async () => {
       const { data } = await browserClient().auth.getSession();
       return data.session?.access_token ?? "";

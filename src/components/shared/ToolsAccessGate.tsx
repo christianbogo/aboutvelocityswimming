@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/features/workshare/contexts/auth";
-import { isToolsAdmin, isToolsPage } from "@/lib/tools-access";
+import { canAccessToolsPath, isToolsPage } from "@/lib/tools-access";
 
 export default function ToolsAccessGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -17,11 +17,13 @@ export default function ToolsAccessGate({ children }: { children: ReactNode }) {
         Checking your account…
       </main>
     );
-  if (!isToolsAdmin(user?.email, user?.emailVerified === true)) {
+  if (!canAccessToolsPath(pathname, user)) {
     return (
       <main className="p-12 text-center space-y-4">
-        <h1 className="text-2xl font-semibold">Tools are temporarily locked</h1>
-        <p>Access is currently limited to the administrator account.</p>
+        <h1 className="text-2xl font-semibold">Access restricted</h1>
+        <p>
+          Admin is available to approved staff. Other tools remain restricted.
+        </p>
         <Link href="/login" className="underline">
           Sign in or switch accounts
         </Link>

@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
-  ArrowLeft, CircleUserRound, Eye, EyeOff, LogOut, Shield, type LucideIcon,
+  ArrowLeft, CircleUserRound, LogOut, Shield, type LucideIcon,
 } from "lucide-react";
 import { useId, type ReactNode } from "react";
 import { useAuth } from "@/features/workshare/contexts/auth";
-import { worksharePath } from "@/features/workshare/lib/routes";
 import { getAvailableTools, toolDirectory, type ToolId } from "@/lib/tool-directory";
+import { getToolsCapabilities } from "@/lib/tools-access";
 import { getToolPages } from "@/lib/tool-pages";
 import ToolSidebar from "./ToolSidebar";
 import styles from "./ToolSidebar.module.css";
@@ -34,11 +34,10 @@ function SidebarLink({ label, href, icon: Icon, active }: Subpage) {
 }
 
 function ToolsNavigation({ pathname, currentTool }: { pathname: string; currentTool?: ToolId }) {
-  const { isAdmin, clientMode } = useAuth();
+  const { user } = useAuth();
+  const access = getToolsCapabilities(user);
   const sectionId = useId();
-  const workshareAdmin = isAdmin && !clientMode;
-
-  const subpages = currentTool ? getToolPages(currentTool, workshareAdmin).map(page => {
+  const subpages = currentTool ? getToolPages(currentTool).map(page => {
     if (page.activePaths?.includes(pathname)) {
       return { ...page, active: true };
     }
@@ -49,8 +48,8 @@ function ToolsNavigation({ pathname, currentTool }: { pathname: string; currentT
     <>
       <SidebarLink {...routeItem(pathname, "/tools", "Account", CircleUserRound)} />
       <ul className={styles.groups}>
-        {getAvailableTools(isAdmin).map(([id, { homeHref, title, icon: Icon }]) => {
-          const hasSubpages = getToolPages(id, workshareAdmin).length > 0;
+        {getAvailableTools(access).map(([id, { homeHref, title, icon: Icon }]) => {
+          const hasSubpages = getToolPages(id).length > 0;
           const expanded = currentTool === id;
           const idForPages = `${sectionId}-${id}`;
           const childIsCurrent = expanded && subpages.some((page) => page.active && page.href === homeHref);
@@ -82,29 +81,10 @@ function ToolsNavigation({ pathname, currentTool }: { pathname: string; currentT
   );
 }
 
-function ToolsAccount({ workshare, pathname, collapseControl }: {
-  workshare: boolean;
-  pathname: string;
-  collapseControl: ReactNode;
-}) {
-  const { logout, isAdmin, clientMode, setClientMode, setPreviewFamilyId } = useAuth();
-  const router = useRouter();
-  const PreviewIcon = clientMode ? EyeOff : Eye;
-  function toggleClientMode() {
-    const family = pathname.match(/\/admin\/families\/([^/]+)/)?.[1];
-    setPreviewFamilyId(clientMode ? null : family ?? null);
-    setClientMode(!clientMode);
-    router.push(worksharePath(clientMode ? "admin/families" : ""));
-  }
-
+function ToolsAccount({ collapseControl }: { collapseControl: ReactNode }) {
+  const { logout } = useAuth();
   return (
     <>
-      {workshare && isAdmin && (
-        <button type="button" className={styles.item} onClick={toggleClientMode} aria-label={clientMode ? "To Admin" : "View Client"} title={clientMode ? "To Admin" : "View Client"} data-close-tool-drawer>
-          <PreviewIcon aria-hidden="true" />
-          <span>{clientMode ? "To Admin" : "View Client"}</span>
-        </button>
-      )}
       <Link href="/" className={`${styles.item} ${styles.footerAction}`} aria-label="Back to Home" title="Back to Home"><ArrowLeft aria-hidden="true" /><span>Back to Home</span></Link>
       {collapseControl}
       <button type="button" className={`${styles.item} ${styles.footerAction}`} aria-label="Sign Out" title="Sign Out" onClick={() => void logout()}>
@@ -116,22 +96,23 @@ function ToolsAccount({ workshare, pathname, collapseControl }: {
 
 export default function ToolsWorkspace({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { isAdmin, clientMode } = useAuth();
-  const currentTool = getAvailableTools(isAdmin).find(([, { href }]) => pathname === href || pathname.startsWith(href + "/"))?.[0]
-    ?? (pathname.startsWith("/tools/swim-resources/") ? "rankings" : undefined);
-  const workshare = currentTool === "workshare";
+  const { user, isAdmin } = useAuth();
+  const access = getToolsCapabilities(user);
+  const currentTool = getAvailableTools(access).find(([, { href }]) => pathname === href || pathname.startsWith(href + "/"))?.[0]
+    ?? (access.allTools && pathname.startsWith("/tools/swim-resources/") ? "rankings" : undefined);
+  const admin = currentTool === "admin";
 
   return (
     <ToolSidebar
       title={currentTool ? toolDirectory[currentTool].title : "Velocity Tools"}
-      badge={workshare && isAdmin && !clientMode && (
+      badge={admin && isAdmin && (
         <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#0A856C]/10 px-2.5 py-1 text-xs font-semibold text-accent">
           <Shield className="size-3.5 shrink-0" aria-hidden="true" />Administrator
         </span>
       )}
       navigation={<ToolsNavigation pathname={pathname} currentTool={currentTool} />}
       renderFooter={(collapseControl) => (
-        <ToolsAccount workshare={workshare} pathname={pathname} collapseControl={collapseControl} />
+        <ToolsAccount collapseControl={collapseControl} />
       )}
     >
       {children}

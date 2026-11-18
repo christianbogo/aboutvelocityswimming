@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import type { User } from "@/lib/auth";
 import { onAuthStateChanged, signOut } from "@/lib/auth";
 import { AuthContext } from "./auth";
+import { getToolsCapabilities } from "@/lib/tools-access";
 import { auth } from "../lib/backend";
 import { findFamilyMembership } from "../lib/family-membership";
 
@@ -29,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             accountUser.email?.trim().toLowerCase(),
             accountUser.emailVerified,
             accountUser.staff,
+            accountUser.workshareStaff,
           ])
         : null;
       if (!initialized || identity !== activeIdentity) {
@@ -47,12 +49,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const foundFamilyId = await findFamilyMembership(accountUser);
 
           if (currentGeneration !== generation) return;
-          setIsAdmin(accountUser.staff);
+          setIsAdmin(getToolsCapabilities(accountUser).staff);
           setFamilyId(foundFamilyId);
         } catch (error) {
           if (currentGeneration !== generation) return;
           console.error("Error fetching family membership:", error);
-          setIsAdmin(accountUser.staff);
+          setIsAdmin(getToolsCapabilities(accountUser).staff);
           setFamilyId(null);
         }
       } else {

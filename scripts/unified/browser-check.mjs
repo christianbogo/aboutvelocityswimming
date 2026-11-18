@@ -41,7 +41,7 @@ try {
   const account = navigation.getByRole("link", { name: "Account", exact: true });
   const home = page.getByRole("link", { name: "Back to Home", exact: true });
   const importPage = page.getByRole("main", { name: "Velocity Imports", exact: true });
-  const toolNames = ["Velocity Workshare", "Velocity Imports"];
+  const toolNames = ["Admin", "Velocity Imports"];
   const toolLink = (name) => navigation.getByRole("link", { name, exact: true });
   async function toolSection(name) {
     const sectionId = await toolLink(name).getAttribute("aria-controls");
@@ -55,27 +55,26 @@ try {
     await page.waitForURL(base + href);
     const imports = name === "Velocity Imports";
     if (imports) await importPage.waitFor();
-    else await page.getByRole("heading", { name: `Explore ${name}`, exact: true }).waitFor();
+    else await page.getByRole("heading", { name: "Accounts & Roster", exact: true }).waitFor();
     assert.equal(await link.getAttribute("aria-current"), imports ? null : "page");
     for (const tool of toolNames) {
-      assert.equal(await toolLink(tool).getAttribute("aria-expanded"), String(tool === name));
+      assert.equal(await toolLink(tool).getAttribute("aria-expanded"), tool === "Admin" ? null : String(tool === name));
     }
-    return toolSection(name);
+    return imports ? toolSection(name) : null;
   }
   await account.waitFor();
   assert.equal(await account.getAttribute("aria-current"), "page");
-  for (const name of toolNames) {
-    assert.equal(await toolLink(name).getAttribute("aria-expanded"), "false");
-    assert.equal(await (await toolSection(name)).isVisible(), false);
-  }
-  const workshareSection = await openTool("Velocity Workshare");
-  await workshareSection.getByRole("link", { name: "Job Board", exact: true }).waitFor();
-  assert.equal(await page.getByRole("main").getByRole("link", { name: /^Families / }).count(), 1);
-  assert.equal(await page.getByRole("main").getByRole("link", { name: /^Volunteer Logs / }).count(), 0);
-  // Keyboard navigation opens Times directly and closes the previous group.
+  assert.equal(await toolLink("Admin").getAttribute("aria-expanded"), null);
+  assert.equal(await toolLink("Admin").getAttribute("aria-controls"), null);
+  assert.equal(await toolLink("Velocity Imports").getAttribute("aria-expanded"), "false");
+  assert.equal(await (await toolSection("Velocity Imports")).isVisible(), false);
+  await openTool("Admin");
+  assert.equal(await navigation.getByRole("link", { name: "Accounts & Roster", exact: true }).count(), 0);
+  assert.equal(await navigation.getByRole("link", { name: "Velocity Workshare", exact: true }).count(), 0);
+  assert.equal(await page.getByRole("button", { name: "View Client", exact: true }).count(), 0);
+  // Keyboard navigation opens Times directly from the standalone Admin page.
   await toolLink("Times").press("Enter");
   await page.waitForURL(base + "/tools/my-times");
-  await workshareSection.waitFor({ state: "hidden" });
   assert.equal(await toolLink("Times").getAttribute("aria-current"), "page");
   assert.equal(await toolLink("Times").getAttribute("aria-expanded"), null);
   const rankings = toolLink("Rankings");
@@ -143,30 +142,18 @@ try {
     .getByRole("columnheader", { name: "Import status", exact: true }).waitFor();
   console.log("Velocity Imports inventory tabs and missing-source filter verified");
 
-  const workshareNavigation = await openTool("Velocity Workshare");
-  const families = workshareNavigation.getByRole("link", { name: "Families", exact: true });
-  await families.click();
-  await page.waitForURL(base + "/tools/workshare/admin/families");
-  await page.getByText("Example A.", { exact: true }).first().waitFor();
-  assert.equal(await families.getAttribute("aria-current"), "page");
-  await page.goto(base + "/tools/workshare/admin/families/family-a");
-  await page.getByRole("button", { name: "View Client", exact: true }).click();
-  await page.waitForURL(base + "/tools/workshare");
-  await page.getByText("Example Family A", { exact: true }).first().waitFor();
-  await navigation.getByRole("link", { name: "Volunteer Logs", exact: true }).waitFor();
-  assert.equal(await navigation.getByRole("link", { name: "Families", exact: true }).count(), 0);
-  await page.getByRole("button", { name: "To Admin", exact: true }).click();
-  await page.waitForURL(base + "/tools/workshare/admin/families");
-  await navigation.getByRole("link", { name: "Families", exact: true }).waitFor();
-  console.log("Workshare navigation and administrator family preview verified");
+  await openTool("Admin");
+  assert.equal(await toolLink("Admin").getAttribute("aria-current"), "page");
+  for (const retired of ["", "/overview", "/jobs", "/logs", "/guest", "/admin/roster", "/admin/settings", "/admin/families", "/admin/families/family-a"]) {
+    await page.goto(base + "/tools/workshare" + retired);
+    await page.waitForURL(base + "/tools/admin");
+    await page.getByRole("heading", { name: "Accounts & Roster", exact: true }).waitFor();
+  }
+  console.log("Accounts & Roster navigation and retired Workshare bookmarks verified");
   await page.goto(base + "/tools/swim-resources/attendance/admin");
   await page.waitForURL(base + "/tools");
   assert.equal(await page.getByRole("link", { name: /Coach attendance/ }).count(), 0);
   console.log("Retired attendance returns to Account");
-  await page.goto(base+'/tools/workshare/jobs');
-  await page.getByRole('button',{name:/Create Shift|Post.*Shift|Add.*Shift/}).first().click();
-  await page.getByRole('dialog').waitFor();await page.keyboard.press('Escape');assert.equal(await page.getByRole('dialog').count(),0);
-
   const openDrawer = page.getByRole("button", { name: "Open navigation sidebar", exact: true });
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
@@ -181,35 +168,31 @@ try {
       () => document.documentElement.scrollWidth > innerWidth,
     );
     assert.equal(overflow, false, "Account overflows at " + width);
-    for (const [name, path, count] of [
+    for (const [name, path] of [
       ["Times", "my-times", 0],
       ["Rankings", "rankings", 0],
       ["Records", "records", 0],
       ["Standards", "standards", 0],
-      ["Velocity Workshare", "workshare", 5],
+      ["Admin", "admin", 0],
       ["Velocity Imports", "review", 3],
     ]) {
       if (width < 768) await openDrawer.click();
       await toolLink(name).click();
       const imports = name === "Velocity Imports";
-      const grouped = name === "Velocity Workshare";
-      await page.waitForURL(base + `/tools/${path}${grouped ? "/overview" : ""}`);
+      const admin = name === "Admin";
+      await page.waitForURL(base + `/tools/${path}`);
       if (imports) {
         await importPage.waitFor();
-      } else if (grouped) {
-        await page.getByRole("heading", { name: `Explore ${name}`, exact: true }).waitFor();
-        assert.equal(await page.getByRole("main").getByRole("list").getByRole("link").count(), count);
+      } else if (admin) {
+        await page.getByRole("heading", { name: "Accounts & Roster", exact: true }).waitFor();
+        assert.equal(await toolLink(name).getAttribute("aria-controls"), null);
       }
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${name} overflow at ${width}`);
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
       if (width >= 768) await navigation.waitFor();
-      await page.screenshot({ path: `/tmp/velocity-${path}-home-${width}.png`, fullPage: true });
-      if (!grouped) {
-        if (width < 768) await openDrawer.click();
-        await account.click();
-      } else {
-        await page.getByRole("main").getByRole("link", { name: "Back to Account", exact: true }).click();
-      }
+      await page.screenshot({ path: `/tmp/velocity-${path.replaceAll("/", "-")}-home-${width}.png`, fullPage: true });
+      if (width < 768) await openDrawer.click();
+      await account.click();
       await page.waitForURL(base + "/tools");
     }
   }

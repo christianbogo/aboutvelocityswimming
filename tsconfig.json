@@ -42,7 +42,6 @@
   "exclude": [
     "node_modules",
     "backups",
-    "firebase/workshare/functions",
     "tests/legacy-firebase",
     "supabase/functions"
   ]

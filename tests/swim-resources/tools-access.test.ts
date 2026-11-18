@@ -8,10 +8,17 @@ const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
   getClaims: vi.fn(),
   createClient: vi.fn(),
+  rpc: vi.fn(),
 }));
 vi.mock("@supabase/ssr", () => ({ createServerClient: mocks.createClient }));
 import { config, proxy } from "@/proxy";
-import { isToolsAdmin } from "@/lib/tools-access";
+import {
+  canAccessToolsPath,
+  getToolsCapabilities,
+  getToolsHome,
+  getToolsSignInDestination,
+  isToolsAdmin,
+} from "@/lib/tools-access";
 
 const admin = {
   email: "christiancutter02@gmail.com",
@@ -43,8 +50,10 @@ beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "test-key");
   mocks.createClient.mockReturnValue({
     auth: { getUser: mocks.getUser, getClaims: mocks.getClaims },
+    rpc: mocks.rpc,
   });
   mocks.getUser.mockResolvedValue({ data: { user: null }, error: null });
+  mocks.rpc.mockResolvedValue({ data: false, error: null });
 });
 
 describe("temporary tools lock", () => {
@@ -99,6 +108,7 @@ describe("temporary tools lock", () => {
   it.each([
     "/api/times",
     "/api/times/moderation",
+    "/api/times/team-map",
     "/api/collection/review",
     "/api/collection/race-baseline",
     "/api/data",
@@ -190,4 +200,181 @@ describe("temporary tools lock", () => {
       expect(mocks.getClaims).toHaveBeenCalled();
     },
   );
+});
+
+const staffUser = { ...admin, email: "approved@example.test" };
+const staffIdentity = {
+  email: staffUser.email,
+  emailVerified: true,
+  staff: true,
+};
+const staffPaths = [
+  "/tools",
+  "/tools/admin",
+  "/tools/admin/tickets",
+  "/api/workshare/accounts",
+  "/api/workshare/accounts/example",
+  "/api/workshare/seasons",
+  "/api/workshare/tickets/example/credits",
+];
+
+describe("scoped staff Admin access", () => {
+  it("keeps domain Admin authority separate from broad staff capabilities", () => {
+    const domainIdentity = {
+      email: "coach@velocity-swimming.com",
+      emailVerified: true,
+      staff: false,
+      workshareStaff: true,
+    };
+    expect(getToolsCapabilities(domainIdentity)).toEqual({ allTools: false, staff: true });
+    expect(canAccessToolsPath("/tools/admin", domainIdentity)).toBe(true);
+    expect(canAccessToolsPath("/tools", domainIdentity)).toBe(true);
+    expect(canAccessToolsPath("/tools/review", domainIdentity)).toBe(false);
+    expect(canAccessToolsPath("/api/times", domainIdentity)).toBe(false);
+    expect(getToolsSignInDestination(domainIdentity)).toBe("/tools/admin");
+    expect(getToolsCapabilities({ ...domainIdentity, emailVerified: false }).staff).toBe(false);
+    // Client navigation waits for database authority, never the email suffix alone.
+    expect(getToolsCapabilities({ ...domainIdentity, workshareStaff: false }).staff).toBe(false);
+  });
+
+  it("requires the scoped database authority even for a verified domain email", async () => {
+    const user = { ...admin, email: "coach@velocity-swimming.com" };
+    mocks.getUser.mockResolvedValue({ data: { user }, error: null });
+    expect((await proxy(request("/tools/admin"))).status).toBe(307);
+    mocks.rpc.mockResolvedValue({ data: true, error: null });
+    expect((await proxy(request("/tools/admin"))).headers.get("x-middleware-next")).toBe("1");
+    expect((await proxy(request("/api/times"))).status).toBe(403);
+  });
+
+  it.each(staffPaths)("allows approved verified staff at %s", async (path) => {
+    mocks.getUser.mockResolvedValue({ data: { user: staffUser }, error: null });
+    mocks.rpc.mockResolvedValue({ data: true, error: null });
+    const response = await proxy(request(path));
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith("is_workshare_staff");
+    expect(canAccessToolsPath(path, staffIdentity)).toBe(true);
+  });
+
+  it.each([
+    "/tools/review",
+    "/tools/rankings",
+    "/tools/admin-other",
+    "/tools/goals",
+    "/tools/team-map",
+    "/api/times",
+    "/api/collection/review",
+    "/api/workshare",
+    "/api/workshare/accounts-other",
+    "/api/workshare/tickets-other",
+    "/api/workshare/seasons-other",
+  ])(
+    "keeps other tools and misleading prefixes restricted: %s",
+    async (path) => {
+      mocks.getUser.mockResolvedValue({
+        data: { user: staffUser },
+        error: null,
+      });
+      mocks.rpc.mockResolvedValue({ data: true, error: null });
+      const response = await proxy(request(path));
+      expect(response.status).toBe(path.startsWith("/api/") ? 403 : 307);
+      expect(mocks.rpc).not.toHaveBeenCalled();
+      expect(canAccessToolsPath(path, staffIdentity)).toBe(false);
+    },
+  );
+
+  it.each([
+    { ...staffUser, email_confirmed_at: null },
+    { ...staffUser, is_anonymous: true },
+  ])(
+    "rejects unverified or anonymous identities even if a role is present",
+    async (user) => {
+      mocks.getUser.mockResolvedValue({ data: { user }, error: null });
+      mocks.rpc.mockResolvedValue({ data: true, error: null });
+      expect((await proxy(request("/api/workshare/accounts"))).status).toBe(
+        403,
+      );
+      expect(mocks.rpc).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects unapproved users and editable metadata", async () => {
+    mocks.getUser.mockResolvedValue({
+      data: {
+        user: {
+          ...staffUser,
+          user_metadata: { staff: true },
+          app_metadata: { staff: true },
+        },
+      },
+      error: null,
+    });
+    expect((await proxy(request("/api/workshare/accounts"))).status).toBe(403);
+  });
+
+  it("fails closed on staff RPC failures", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: staffUser }, error: null });
+    mocks.rpc.mockResolvedValue({
+      data: true,
+      error: new Error("Unavailable"),
+    });
+    expect((await proxy(request("/api/workshare/accounts"))).status).toBe(503);
+    mocks.rpc.mockRejectedValue(new Error("Unavailable"));
+    expect((await proxy(request("/tools/admin"))).status).toBe(503);
+  });
+
+  it("checks staff APIs with cookie identity without borrowing role from a bearer lookup", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: staffUser }, error: null });
+    mocks.rpc.mockResolvedValue({ data: true, error: null });
+    expect(
+      (
+        await proxy(
+          request("/api/workshare/accounts", {
+            authorization: "Bearer somebody-else",
+          }),
+        )
+      ).headers.get("x-middleware-next"),
+    ).toBe("1");
+    expect(mocks.getUser).toHaveBeenCalledWith(undefined);
+    mocks.getUser.mockResolvedValue({ data: { user: null }, error: null });
+    expect(
+      (
+        await proxy(
+          request("/api/workshare/accounts", {
+            authorization: "Bearer staff-token",
+          }),
+        )
+      ).status,
+    ).toBe(401);
+  });
+
+  it("uses verified staff only for Admin capabilities and sign-in landing", () => {
+    expect(getToolsCapabilities(staffIdentity)).toEqual({
+      allTools: false,
+      staff: true,
+    });
+    expect(getToolsHome(staffIdentity)).toBe("/tools/admin");
+    expect(getToolsSignInDestination(staffIdentity)).toBe("/tools/admin");
+    expect(
+      getToolsSignInDestination(staffIdentity, "/tools/review?batch=123"),
+    ).toBe("/tools/admin");
+    expect(
+      getToolsSignInDestination(
+        staffIdentity,
+        "/tools?account-link=success",
+        true,
+      ),
+    ).toBe("/tools?account-link=success");
+    expect(getToolsSignInDestination(staffIdentity, "/schedule")).toBe(
+      "/schedule",
+    );
+    expect(getToolsHome({ ...staffIdentity, emailVerified: false })).toBe(
+      "/login",
+    );
+    expect(getToolsHome({ ...staffIdentity, staff: false })).toBe("/login");
+    expect(getToolsHome(null)).toBe("/login");
+    expect(getToolsHome({ ...staffIdentity, email: admin.email })).toBe(
+      "/tools",
+    );
+  });
 });

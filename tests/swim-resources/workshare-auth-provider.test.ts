@@ -156,6 +156,16 @@ describe("Workshare auth membership lifecycle", () => {
     await changing;
     expect(harness.unsubscribe).toHaveBeenCalledOnce();
   });
+  it("admits scoped Workshare staff without broad Tools staff authority", async () => {
+    mount();
+    await publish({ ...account("domain-coach", false), workshareStaff: true });
+    expect(state()).toMatchObject({ isAdmin: true, loading: false });
+    const revoking = publish({ ...account("domain-coach", false), workshareStaff: false });
+    expect(state().isAdmin).toBe(false);
+    await revoking;
+    expect(state().isAdmin).toBe(false);
+  });
+
   it("keeps staff authorization independent of family membership", async () => {
     const cleanup = mount();
     const staff = account();
