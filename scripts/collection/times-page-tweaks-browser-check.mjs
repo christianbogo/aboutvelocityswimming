@@ -570,9 +570,20 @@ try {
     );
     await records.getByRole("table").first().waitFor();
     assert.equal(await records.getByRole("table").count(), 1);
-    assert.equal(await records.locator('th[scope="row"]').filter({ hasText: /^100 (Free|Freestyle|Medley) relay$/i }).count(), 0);
+    assert.equal(
+      await records
+        .locator('th[scope="row"]')
+        .filter({ hasText: /^100 (Free|Freestyle|Medley) relay$/i })
+        .count(),
+      0,
+    );
     for (const course of ["Short course yards", "Long course meters"]) {
-      assert.equal(await records.getByRole("button", { name: `${course} records`, exact: true }).evaluate((el) => getComputedStyle(el).justifyContent), "center");
+      assert.equal(
+        await records
+          .getByRole("button", { name: `${course} records`, exact: true })
+          .evaluate((el) => getComputedStyle(el).justifyContent),
+        "center",
+      );
     }
     assert.equal(
       await records
@@ -677,15 +688,15 @@ try {
       name: "Event filters",
       exact: true,
     });
-    await eventFilters.waitFor();
-    assert.equal(await eventFilters.getAttribute("aria-expanded"), "false");
+    assert.equal(await eventFilters.count(), 0);
+    await page
+      .getByRole("button", { name: "Course: SCY", exact: true })
+      .waitFor();
     assert.ok(
       queries.some(
         (query) => query.view === "rankings" && query.mode === "bests",
       ),
     );
-    await eventFilters.click();
-    assert.equal(await eventFilters.getAttribute("aria-expanded"), "true");
     await page.goBack();
     await records.getByRole("table").first().waitFor();
     assert.equal(page.url(), recordSourceUrl);
@@ -738,13 +749,16 @@ try {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await gotoView("rankings", { filters: JSON.stringify(filters) });
     const bookmark = page.getByRole("button", {
-      name: "Bookmark Selection",
+      name: "Add Bookmark",
       exact: true,
     });
     await bookmark.waitFor();
-    await page
-      .getByRole("button", { name: "Event filters", exact: true })
-      .click();
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Event filters", exact: true })
+        .count(),
+      0,
+    );
     assert.ok(await bookmark.isVisible());
     await bookmark.click();
     const name = page.getByRole("textbox", {
@@ -818,25 +832,29 @@ try {
       false,
     );
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page
-      .getByRole("button", { name: "Event filters", exact: true })
-      .click();
-    const agePicker = page.getByRole("dialog", {
-      name: "Age group",
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Event filters", exact: true })
+        .count(),
+      0,
+    );
+    const agePicker = page.getByRole("group", {
+      name: "Age group options",
       exact: true,
     });
     for (const choice of ["11–12", "All ages", "13–14"]) {
-      await page
-        .getByRole("button", { name: "Age group", exact: true })
-        .click();
+      await page.getByRole("button", { name: /^Age group:/ }).click();
       await agePicker
         .getByRole("button", { name: choice, exact: true })
         .click();
       await agePicker.waitFor({ state: "hidden" });
     }
-    const yearPicker = page.getByRole("dialog", { name: "Year", exact: true });
+    const yearPicker = page.getByRole("group", {
+      name: "Year options",
+      exact: true,
+    });
     const chooseYear = async (year) => {
-      await page.getByRole("button", { name: "Year", exact: true }).click();
+      await page.getByRole("button", { name: /^Year:/ }).click();
       await yearPicker.getByRole("button", { name: year, exact: true }).click();
       await yearPicker.waitFor({ state: "hidden" });
     };
@@ -869,7 +887,7 @@ try {
       0,
     );
     console.log(
-      "Rankings UI passed collapsed bookmarks, age picker auto-close, historical/year-boundary cutoffs, no fallback for missing editions, white cutoff text, and no lead-off row label.",
+      "Rankings UI passed always-visible filters and bookmarks, age picker auto-close, historical/year-boundary cutoffs, no fallback for missing editions, white cutoff text, and no lead-off row label.",
     );
     await gotoView("my-times");
     const timeFilters = page.getByRole("region", {
@@ -877,8 +895,18 @@ try {
       exact: true,
     });
     await timeFilters.waitFor();
-    assert.equal(await page.getByText("All-time team ranks · each swim’s age group", { exact: true }).count(), 0);
-    assert.equal(await page.getByText("All-time best · SCY", { exact: true }).count(), 0);
+    assert.equal(
+      await page
+        .getByText("All-time team ranks · each swim’s age group", {
+          exact: true,
+        })
+        .count(),
+      0,
+    );
+    assert.equal(
+      await page.getByText("All-time best · SCY", { exact: true }).count(),
+      0,
+    );
     await page.setViewportSize({ width: 1440, height: 1000 });
     const card25 = page.getByRole("button", {
       name: "View 25 Freestyle rankings",

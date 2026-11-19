@@ -1,3 +1,4 @@
+import { artifactPath } from "../verification-artifacts.mjs";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
@@ -19,7 +20,7 @@ const accountIds = ["active", "archived", "unrelated"].map((suffix) => `${prefix
 const seasonId = randomUUID();
 const ticketIds = [];
 const errors = [];
-const evidence = "backups/workshare/account-summary-browser";
+const evidence = artifactPath("workshare/account-summary-browser");
 mkdirSync(evidence, { recursive: true });
 let browser;
 

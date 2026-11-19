@@ -4,1886 +4,1815 @@ export type Json =
   | boolean
   | null
   | { [key: string]: Json | undefined }
-  | Json[];
+  | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never;
-    };
-    Views: {
-      [_ in never]: never;
-    };
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json;
-          operationName?: string;
-          query?: string;
-          variables?: Json;
-        };
-        Returns: Json;
-      };
-    };
-    Enums: {
-      [_ in never]: never;
-    };
-    CompositeTypes: {
-      [_ in never]: never;
-    };
-  };
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.18"
+  }
   public: {
     Tables: {
-      workshare_seasons: {
-        Row: { id: string; name: string; starts_on: string; ends_on: string; copy_from_season_id: string | null; created_at: string };
-        Insert: { id: string; name: string; starts_on: string; ends_on: string; copy_from_season_id?: string | null; created_at?: string };
-        Update: { id?: string; name?: string; starts_on?: string; ends_on?: string; copy_from_season_id?: string | null; created_at?: string };
-        Relationships: [{ foreignKeyName: "workshare_seasons_copy_from_season_id_fkey"; columns: ["copy_from_season_id"]; isOneToOne: false; referencedRelation: "workshare_seasons"; referencedColumns: ["id"] }];
-      };
-      workshare_account_requirements: {
-        Row: { account_id: string; season_id: string; general_hours_required: number | null; starlight_hours_required: number | null; apple_capital_hours_required: number | null; updated_at: string };
-        Insert: { account_id: string; season_id: string; general_hours_required?: number | null; starlight_hours_required?: number | null; apple_capital_hours_required?: number | null; updated_at?: string };
-        Update: { account_id?: string; season_id?: string; general_hours_required?: number | null; starlight_hours_required?: number | null; apple_capital_hours_required?: number | null; updated_at?: string };
-        Relationships: [{ foreignKeyName: "workshare_account_requirements_account_id_fkey"; columns: ["account_id"]; isOneToOne: false; referencedRelation: "workshare_accounts"; referencedColumns: ["id"] }, { foreignKeyName: "workshare_account_requirements_season_id_fkey"; columns: ["season_id"]; isOneToOne: false; referencedRelation: "workshare_seasons"; referencedColumns: ["id"] }];
-      };
-      workshare_ticket_create_keys: {
-        Row: { id: string; payload_fingerprint: string };
-        Insert: { id: string; payload_fingerprint: string };
-        Update: { id?: string; payload_fingerprint?: string };
-        Relationships: [];
-      };
-      workshare_tickets: {
-        Row: { id: string; account_id: string; season_id: string; completed_on: string; description: string; category: string; hours: number; created_at: string; updated_at: string };
-        Insert: { id: string; account_id: string; season_id: string; completed_on: string; description: string; category: string; hours: number; created_at?: string; updated_at?: string };
-        Update: { id?: string; account_id?: string; season_id?: string; completed_on?: string; description?: string; category?: string; hours?: number; created_at?: string; updated_at?: string };
-        Relationships: [{ foreignKeyName: "workshare_tickets_id_fkey"; columns: ["id"]; isOneToOne: true; referencedRelation: "workshare_ticket_create_keys"; referencedColumns: ["id"] }, { foreignKeyName: "workshare_tickets_account_id_fkey"; columns: ["account_id"]; isOneToOne: false; referencedRelation: "workshare_accounts"; referencedColumns: ["id"] }, { foreignKeyName: "workshare_tickets_season_id_fkey"; columns: ["season_id"]; isOneToOne: false; referencedRelation: "workshare_seasons"; referencedColumns: ["id"] }];
-      };
-      workshare_accounts: {
-        Row: {
-          id: string;
-          full_name: string;
-          is_archived: boolean;
-          current_season: string | null;
-          general_hours_required: number | null;
-          starlight_hours_required: number | null;
-          apple_capital_hours_required: number | null;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          full_name: string;
-          is_archived?: boolean;
-          current_season?: string | null;
-          general_hours_required?: number | null;
-          starlight_hours_required?: number | null;
-          apple_capital_hours_required?: number | null;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          full_name?: string;
-          is_archived?: boolean;
-          current_season?: string | null;
-          general_hours_required?: number | null;
-          starlight_hours_required?: number | null;
-          apple_capital_hours_required?: number | null;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
-      workshare_account_emails: {
-        Row: { account_id: string; email: string };
-        Insert: { account_id: string; email: string };
-        Update: { account_id?: string; email?: string };
-        Relationships: [{
-          foreignKeyName: "workshare_account_emails_account_id_fkey";
-          columns: ["account_id"];
-          isOneToOne: false;
-          referencedRelation: "workshare_accounts";
-          referencedColumns: ["id"];
-        }];
-      };
-      workshare_athletes: {
-        Row: {
-          id: string;
-          account_id: string;
-          full_name: string;
-          training_group: string;
-          times_athlete_id: string | null;
-          is_archived: boolean;
-        };
-        Insert: {
-          id?: string;
-          account_id: string;
-          full_name: string;
-          training_group?: string;
-          times_athlete_id?: string | null;
-          is_archived?: boolean;
-        };
-        Update: {
-          id?: string;
-          account_id?: string;
-          full_name?: string;
-          training_group?: string;
-          times_athlete_id?: string | null;
-          is_archived?: boolean;
-        };
-        Relationships: [{
-          foreignKeyName: "workshare_athletes_account_id_fkey";
-          columns: ["account_id"];
-          isOneToOne: false;
-          referencedRelation: "workshare_accounts";
-          referencedColumns: ["id"];
-        }, {
-          foreignKeyName: "workshare_athletes_times_athlete_id_fkey";
-          columns: ["times_athlete_id"];
-          isOneToOne: false;
-          referencedRelation: "athletes";
-          referencedColumns: ["id"];
-        }];
-      };
       account_followed_athletes: {
-        Row: { user_id: string; athlete_id: string; is_primary: boolean };
-        Insert: { user_id: string; athlete_id: string; is_primary?: boolean };
-        Update: { user_id?: string; athlete_id?: string; is_primary?: boolean };
+        Row: {
+          athlete_id: string
+          is_primary: boolean
+          user_id: string
+        }
+        Insert: {
+          athlete_id: string
+          is_primary?: boolean
+          user_id: string
+        }
+        Update: {
+          athlete_id?: string
+          is_primary?: boolean
+          user_id?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "account_followed_athletes_athlete_id_fkey";
-            columns: ["athlete_id"];
-            isOneToOne: false;
-            referencedRelation: "public_athletes";
-            referencedColumns: ["id"];
+            foreignKeyName: "account_followed_athletes_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_athletes"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       account_profiles: {
         Row: {
-          user_id: string;
-          username: string;
-          bio: string;
-          avatar_path: string | null;
-        };
+          avatar_path: string | null
+          bio: string
+          user_id: string
+          username: string
+        }
         Insert: {
-          user_id: string;
-          username?: string;
-          bio?: string;
-          avatar_path?: string | null;
-        };
+          avatar_path?: string | null
+          bio?: string
+          user_id: string
+          username?: string
+        }
         Update: {
-          user_id?: string;
-          username?: string;
-          bio?: string;
-          avatar_path?: string | null;
-        };
-        Relationships: [];
-      };
+          avatar_path?: string | null
+          bio?: string
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
       administrators: {
         Row: {
-          user_id: string;
-        };
+          user_id: string
+        }
         Insert: {
-          user_id: string;
-        };
+          user_id: string
+        }
         Update: {
-          user_id?: string;
-        };
-        Relationships: [];
-      };
+          user_id?: string
+        }
+        Relationships: []
+      }
       athlete_bests: {
         Row: {
-          athlete_id: string;
-          data: NonNullable<Json>;
-          event_code: string;
-        };
+          athlete_id: string
+          data: Json
+          event_code: string
+        }
         Insert: {
-          athlete_id: string;
-          data: NonNullable<Json>;
-          event_code: string;
-        };
+          athlete_id: string
+          data: Json
+          event_code: string
+        }
         Update: {
-          athlete_id?: string;
-          data?: NonNullable<Json>;
-          event_code?: string;
-        };
+          athlete_id?: string
+          data?: Json
+          event_code?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "athlete_bests_athlete_id_fkey";
-            columns: ["athlete_id"];
-            isOneToOne: false;
-            referencedRelation: "athletes";
-            referencedColumns: ["id"];
+            foreignKeyName: "athlete_bests_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "athletes"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       athletes: {
         Row: {
-          data: NonNullable<Json>;
-          group_id: string | null;
-          id: string;
-          person_id: string;
-          team_id: string | null;
-        };
+          data: Json
+          group_id: string | null
+          id: string
+          person_id: string
+          team_id: string | null
+        }
         Insert: {
-          data: NonNullable<Json>;
-          group_id?: string | null;
-          id: string;
-          person_id: string;
-          team_id?: never;
-        };
+          data: Json
+          group_id?: string | null
+          id: string
+          person_id: string
+          team_id?: string | null
+        }
         Update: {
-          data?: NonNullable<Json>;
-          group_id?: string | null;
-          id?: string;
-          person_id?: string;
-          team_id?: never;
-        };
+          data?: Json
+          group_id?: string | null
+          id?: string
+          person_id?: string
+          team_id?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: "athletes_group_id_fkey";
-            columns: ["group_id"];
-            isOneToOne: false;
-            referencedRelation: "training_groups";
-            referencedColumns: ["id"];
+            foreignKeyName: "athletes_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "training_groups"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "athletes_person_id_fkey";
-            columns: ["person_id"];
-            isOneToOne: true;
-            referencedRelation: "people";
-            referencedColumns: ["id"];
+            foreignKeyName: "athletes_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: true
+            referencedRelation: "people"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "athletes_team_id_fkey";
-            columns: ["team_id"];
-            isOneToOne: false;
-            referencedRelation: "teams";
-            referencedColumns: ["id"];
+            foreignKeyName: "athletes_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       attendance: {
         Row: {
-          athlete_id: string | null;
-          data: NonNullable<Json>;
-          id: string;
-          session_id: string | null;
-        };
+          athlete_id: string | null
+          data: Json
+          id: string
+          session_id: string | null
+        }
         Insert: {
-          athlete_id?: never;
-          data: NonNullable<Json>;
-          id: string;
-          session_id?: never;
-        };
+          athlete_id?: string | null
+          data: Json
+          id: string
+          session_id?: string | null
+        }
         Update: {
-          athlete_id?: never;
-          data?: NonNullable<Json>;
-          id?: string;
-          session_id?: never;
-        };
+          athlete_id?: string | null
+          data?: Json
+          id?: string
+          session_id?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: "attendance_athlete_id_fkey";
-            columns: ["athlete_id"];
-            isOneToOne: false;
-            referencedRelation: "athletes";
-            referencedColumns: ["id"];
+            foreignKeyName: "attendance_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "athletes"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "attendance_session_id_fkey";
-            columns: ["session_id"];
-            isOneToOne: false;
-            referencedRelation: "practice_sessions";
-            referencedColumns: ["id"];
+            foreignKeyName: "attendance_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "practice_sessions"
+            referencedColumns: ["id"]
           },
-        ];
-      };
-      collection_batches: {
-        Row: {
-          captured_at: string;
-          coverage: string;
-          division: string;
-          evidence: NonNullable<Json>;
-          fingerprint: string;
-          id: string;
-          reads: NonNullable<Json>;
-          received_at: string;
-          review_note: string | null;
-          review_priority: number | null;
-          reviewed_at: string | null;
-          reviewed_by: string | null;
-          scope: string;
-          source_url: string;
-          status: string;
-          worker_id: string;
-          writes: NonNullable<Json>;
-        };
-        Insert: {
-          captured_at: string;
-          coverage: string;
-          division: string;
-          evidence: NonNullable<Json>;
-          fingerprint: string;
-          id?: string;
-          reads: NonNullable<Json>;
-          received_at?: string;
-          review_note?: string | null;
-          review_priority?: never;
-          reviewed_at?: string | null;
-          reviewed_by?: string | null;
-          scope: string;
-          source_url: string;
-          status?: string;
-          worker_id: string;
-          writes: NonNullable<Json>;
-        };
-        Update: {
-          captured_at?: string;
-          coverage?: string;
-          division?: string;
-          evidence?: NonNullable<Json>;
-          fingerprint?: string;
-          id?: string;
-          reads?: NonNullable<Json>;
-          received_at?: string;
-          review_note?: string | null;
-          review_priority?: never;
-          reviewed_at?: string | null;
-          reviewed_by?: string | null;
-          scope?: string;
-          source_url?: string;
-          status?: string;
-          worker_id?: string;
-          writes?: NonNullable<Json>;
-        };
-        Relationships: [];
-      };
+        ]
+      }
       collection_coverage: {
         Row: {
-          category: string;
-          checked_at: string;
-          gaps: string[];
-          id: string;
-          meet_count: number;
-          scope: string;
-          source_url: string;
-          status: string;
-          year: number;
-        };
+          category: string
+          checked_at: string
+          gaps: string[]
+          id: string
+          meet_count: number
+          scope: string
+          source_url: string
+          status: string
+          year: number
+        }
         Insert: {
-          category: string;
-          checked_at?: string;
-          gaps?: string[];
-          id: string;
-          meet_count?: number;
-          scope: string;
-          source_url: string;
-          status?: string;
-          year: number;
-        };
+          category: string
+          checked_at?: string
+          gaps?: string[]
+          id: string
+          meet_count?: number
+          scope: string
+          source_url: string
+          status?: string
+          year: number
+        }
         Update: {
-          category?: string;
-          checked_at?: string;
-          gaps?: string[];
-          id?: string;
-          meet_count?: number;
-          scope?: string;
-          source_url?: string;
-          status?: string;
-          year?: number;
-        };
-        Relationships: [];
-      };
-      collection_reviews: {
-        Row: {
-          batch_id: string;
-          decision: string;
-          id: number;
-          note: string | null;
-          reviewed_at: string;
-          reviewer_id: string;
-        };
-        Insert: {
-          batch_id: string;
-          decision: string;
-          id?: never;
-          note?: string | null;
-          reviewed_at?: string;
-          reviewer_id: string;
-        };
-        Update: {
-          batch_id?: string;
-          decision?: string;
-          id?: never;
-          note?: string | null;
-          reviewed_at?: string;
-          reviewer_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "collection_reviews_batch_id_fkey";
-            columns: ["batch_id"];
-            isOneToOne: false;
-            referencedRelation: "collection_batch_queue";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "collection_reviews_batch_id_fkey";
-            columns: ["batch_id"];
-            isOneToOne: false;
-            referencedRelation: "collection_batches";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
+          category?: string
+          checked_at?: string
+          gaps?: string[]
+          id?: string
+          meet_count?: number
+          scope?: string
+          source_url?: string
+          status?: string
+          year?: number
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
-          athlete_id: string | null;
-          data: NonNullable<Json>;
-          id: string;
-          meet_id: string | null;
-          person_id: string | null;
-          team_id: string | null;
-          venue_id: string | null;
-        };
+          athlete_id: string | null
+          data: Json
+          id: string
+          meet_id: string | null
+          person_id: string | null
+          team_id: string | null
+          venue_id: string | null
+        }
         Insert: {
-          athlete_id?: never;
-          data: NonNullable<Json>;
-          id: string;
-          meet_id?: never;
-          person_id?: never;
-          team_id?: never;
-          venue_id?: never;
-        };
+          athlete_id?: string | null
+          data: Json
+          id: string
+          meet_id?: string | null
+          person_id?: string | null
+          team_id?: string | null
+          venue_id?: string | null
+        }
         Update: {
-          athlete_id?: never;
-          data?: NonNullable<Json>;
-          id?: string;
-          meet_id?: never;
-          person_id?: never;
-          team_id?: never;
-          venue_id?: never;
-        };
+          athlete_id?: string | null
+          data?: Json
+          id?: string
+          meet_id?: string | null
+          person_id?: string | null
+          team_id?: string | null
+          venue_id?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: "documents_athlete_id_fkey";
-            columns: ["athlete_id"];
-            isOneToOne: false;
-            referencedRelation: "athletes";
-            referencedColumns: ["id"];
+            foreignKeyName: "documents_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "athletes"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "documents_meet_id_fkey";
-            columns: ["meet_id"];
-            isOneToOne: false;
-            referencedRelation: "meets";
-            referencedColumns: ["id"];
+            foreignKeyName: "documents_meet_id_fkey"
+            columns: ["meet_id"]
+            isOneToOne: false
+            referencedRelation: "meets"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "documents_person_id_fkey";
-            columns: ["person_id"];
-            isOneToOne: false;
-            referencedRelation: "people";
-            referencedColumns: ["id"];
+            foreignKeyName: "documents_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "documents_team_id_fkey";
-            columns: ["team_id"];
-            isOneToOne: false;
-            referencedRelation: "teams";
-            referencedColumns: ["id"];
+            foreignKeyName: "documents_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "documents_venue_id_fkey";
-            columns: ["venue_id"];
-            isOneToOne: false;
-            referencedRelation: "venues";
-            referencedColumns: ["id"];
+            foreignKeyName: "documents_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       evidence_records: {
         Row: {
-          data: NonNullable<Json>;
-          path: string;
-          root: string | null;
-        };
+          data: Json
+          path: string
+          root: string | null
+        }
         Insert: {
-          data: NonNullable<Json>;
-          path: string;
-          root?: never;
-        };
+          data: Json
+          path: string
+          root?: string | null
+        }
         Update: {
-          data?: NonNullable<Json>;
-          path?: string;
-          root?: never;
-        };
-        Relationships: [];
-      };
+          data?: Json
+          path?: string
+          root?: string | null
+        }
+        Relationships: []
+      }
       families: {
         Row: {
-          data: NonNullable<Json>;
-          id: string;
-        };
+          data: Json
+          id: string
+        }
         Insert: {
-          data: NonNullable<Json>;
-          id: string;
-        };
+          data: Json
+          id: string
+        }
         Update: {
-          data?: NonNullable<Json>;
-          id?: string;
-        };
-        Relationships: [];
-      };
+          data?: Json
+          id?: string
+        }
+        Relationships: []
+      }
       family_emails: {
         Row: {
-          email: string;
-          family_id: string;
-        };
+          email: string
+          family_id: string
+        }
         Insert: {
-          email: string;
-          family_id: string;
-        };
+          email: string
+          family_id: string
+        }
         Update: {
-          email?: string;
-          family_id?: string;
-        };
+          email?: string
+          family_id?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "family_emails_family_id_fkey";
-            columns: ["family_id"];
-            isOneToOne: false;
-            referencedRelation: "families";
-            referencedColumns: ["id"];
+            foreignKeyName: "family_emails_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       family_people: {
         Row: {
-          family_id: string;
-          person_id: string;
-          relationship: string;
-        };
+          family_id: string
+          person_id: string
+          relationship: string
+        }
         Insert: {
-          family_id: string;
-          person_id: string;
-          relationship: string;
-        };
+          family_id: string
+          person_id: string
+          relationship: string
+        }
         Update: {
-          family_id?: string;
-          person_id?: string;
-          relationship?: string;
-        };
+          family_id?: string
+          person_id?: string
+          relationship?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "family_people_family_id_fkey";
-            columns: ["family_id"];
-            isOneToOne: false;
-            referencedRelation: "families";
-            referencedColumns: ["id"];
+            foreignKeyName: "family_people_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "family_people_person_id_fkey";
-            columns: ["person_id"];
-            isOneToOne: false;
-            referencedRelation: "people";
-            referencedColumns: ["id"];
+            foreignKeyName: "family_people_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       knowledge_entries: {
         Row: {
-          data: NonNullable<Json>;
-          effective_from: string | null;
-          effective_until: string | null;
-          ends_on: string | null;
-          id: string;
-          kind: string;
-          parent_id: string | null;
-          source_url: string;
-          starts_on: string | null;
-          title: string;
-          updated_at: string;
-        };
+          data: Json
+          effective_from: string | null
+          effective_until: string | null
+          ends_on: string | null
+          id: string
+          kind: string
+          parent_id: string | null
+          source_url: string
+          starts_on: string | null
+          title: string
+          updated_at: string
+        }
         Insert: {
-          data: NonNullable<Json>;
-          effective_from?: string | null;
-          effective_until?: string | null;
-          ends_on?: string | null;
-          id: string;
-          kind?: never;
-          parent_id?: never;
-          source_url?: never;
-          starts_on?: string | null;
-          title?: never;
-          updated_at?: string;
-        };
+          data: Json
+          effective_from?: string | null
+          effective_until?: string | null
+          ends_on?: string | null
+          id: string
+          kind?: string
+          parent_id?: string | null
+          source_url?: string
+          starts_on?: string | null
+          title?: string
+          updated_at?: string
+        }
         Update: {
-          data?: NonNullable<Json>;
-          effective_from?: string | null;
-          effective_until?: string | null;
-          ends_on?: string | null;
-          id?: string;
-          kind?: never;
-          parent_id?: never;
-          source_url?: never;
-          starts_on?: string | null;
-          title?: never;
-          updated_at?: string;
-        };
+          data?: Json
+          effective_from?: string | null
+          effective_until?: string | null
+          ends_on?: string | null
+          id?: string
+          kind?: string
+          parent_id?: string | null
+          source_url?: string
+          starts_on?: string | null
+          title?: string
+          updated_at?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "knowledge_entries_parent_id_fkey";
-            columns: ["parent_id"];
-            isOneToOne: false;
-            referencedRelation: "knowledge_entries";
-            referencedColumns: ["id"];
+            foreignKeyName: "knowledge_entries_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_entries"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       manual_hours: {
         Row: {
-          data: NonNullable<Json>;
-          family_id: string | null;
-          id: string;
-        };
+          data: Json
+          family_id: string | null
+          id: string
+        }
         Insert: {
-          data: NonNullable<Json>;
-          family_id?: never;
-          id: string;
-        };
+          data: Json
+          family_id?: string | null
+          id: string
+        }
         Update: {
-          data?: NonNullable<Json>;
-          family_id?: never;
-          id?: string;
-        };
+          data?: Json
+          family_id?: string | null
+          id?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "manual_hours_family_id_fkey";
-            columns: ["family_id"];
-            isOneToOne: false;
-            referencedRelation: "families";
-            referencedColumns: ["id"];
+            foreignKeyName: "manual_hours_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
           },
-        ];
-      };
-      meet_collection_work: {
-        Row: {
-          acquisition_state: string;
-          blockers: string[];
-          import_state: string;
-          meet_id: string;
-          notes: string;
-          priority: number;
-          reconciliation_note: string;
-          selected: boolean;
-          updated_at: string;
-        };
-        Insert: {
-          acquisition_state?: string;
-          blockers?: string[];
-          import_state?: string;
-          meet_id: string;
-          notes?: string;
-          priority?: number;
-          reconciliation_note?: string;
-          selected?: boolean;
-          updated_at?: string;
-        };
-        Update: {
-          acquisition_state?: string;
-          blockers?: string[];
-          import_state?: string;
-          meet_id?: string;
-          notes?: string;
-          priority?: number;
-          reconciliation_note?: string;
-          selected?: boolean;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "meet_collection_work_meet_id_fkey";
-            columns: ["meet_id"];
-            isOneToOne: true;
-            referencedRelation: "knowledge_entries";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
+        ]
+      }
       meets: {
         Row: {
-          data: NonNullable<Json>;
-          host_team_id: string | null;
-          id: string;
-          team_id: string | null;
-          venue_id: string | null;
-        };
+          data: Json
+          host_team_id: string | null
+          id: string
+          team_id: string | null
+          venue_id: string | null
+        }
         Insert: {
-          data: NonNullable<Json>;
-          host_team_id?: never;
-          id: string;
-          team_id?: never;
-          venue_id?: never;
-        };
+          data: Json
+          host_team_id?: string | null
+          id: string
+          team_id?: string | null
+          venue_id?: string | null
+        }
         Update: {
-          data?: NonNullable<Json>;
-          host_team_id?: never;
-          id?: string;
-          team_id?: never;
-          venue_id?: never;
-        };
+          data?: Json
+          host_team_id?: string | null
+          id?: string
+          team_id?: string | null
+          venue_id?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: "meets_host_team_id_fkey";
-            columns: ["host_team_id"];
-            isOneToOne: false;
-            referencedRelation: "teams";
-            referencedColumns: ["id"];
+            foreignKeyName: "meets_host_team_id_fkey"
+            columns: ["host_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "meets_team_id_fkey";
-            columns: ["team_id"];
-            isOneToOne: false;
-            referencedRelation: "teams";
-            referencedColumns: ["id"];
+            foreignKeyName: "meets_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "meets_venue_id_fkey";
-            columns: ["venue_id"];
-            isOneToOne: false;
-            referencedRelation: "venues";
-            referencedColumns: ["id"];
+            foreignKeyName: "meets_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       people: {
         Row: {
-          data: NonNullable<Json>;
-          id: string;
-          name: string | null;
-          team_id: string | null;
-        };
+          data: Json
+          id: string
+          name: string | null
+          team_id: string | null
+        }
         Insert: {
-          data: NonNullable<Json>;
-          id: string;
-          name?: never;
-          team_id?: never;
-        };
+          data: Json
+          id: string
+          name?: string | null
+          team_id?: string | null
+        }
         Update: {
-          data?: NonNullable<Json>;
-          id?: string;
-          name?: never;
-          team_id?: never;
-        };
+          data?: Json
+          id?: string
+          name?: string | null
+          team_id?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: "people_team_id_fkey";
-            columns: ["team_id"];
-            isOneToOne: false;
-            referencedRelation: "teams";
-            referencedColumns: ["id"];
+            foreignKeyName: "people_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       postings: {
         Row: {
-          data: NonNullable<Json>;
-          id: string;
-          meet_id: string | null;
-        };
+          data: Json
+          id: string
+          meet_id: string | null
+        }
         Insert: {
-          data: NonNullable<Json>;
-          id: string;
-          meet_id?: never;
-        };
+          data: Json
+          id: string
+          meet_id?: string | null
+        }
         Update: {
-          data?: NonNullable<Json>;
-          id?: string;
-          meet_id?: never;
-        };
+          data?: Json
+          id?: string
+          meet_id?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: "postings_meet_id_fkey";
-            columns: ["meet_id"];
-            isOneToOne: false;
-            referencedRelation: "meets";
-            referencedColumns: ["id"];
+            foreignKeyName: "postings_meet_id_fkey"
+            columns: ["meet_id"]
+            isOneToOne: false
+            referencedRelation: "meets"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       practice_sessions: {
         Row: {
-          data: NonNullable<Json>;
-          group_id: string | null;
-          group_name: string | null;
-          id: string;
-          practice_date: string | null;
-        };
+          data: Json
+          group_id: string | null
+          group_name: string | null
+          id: string
+          practice_date: string | null
+        }
         Insert: {
-          data: NonNullable<Json>;
-          group_id?: never;
-          group_name?: never;
-          id: string;
-          practice_date?: never;
-        };
+          data: Json
+          group_id?: string | null
+          group_name?: string | null
+          id: string
+          practice_date?: string | null
+        }
         Update: {
-          data?: NonNullable<Json>;
-          group_id?: never;
-          group_name?: never;
-          id?: string;
-          practice_date?: never;
-        };
+          data?: Json
+          group_id?: string | null
+          group_name?: string | null
+          id?: string
+          practice_date?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: "practice_sessions_group_id_fkey";
-            columns: ["group_id"];
-            isOneToOne: false;
-            referencedRelation: "training_groups";
-            referencedColumns: ["id"];
+            foreignKeyName: "practice_sessions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "training_groups"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       public_athletes: {
         Row: {
-          data: NonNullable<Json>;
-          id: string;
-        };
+          data: Json
+          id: string
+        }
         Insert: {
-          data: NonNullable<Json>;
-          id: string;
-        };
+          data: Json
+          id: string
+        }
         Update: {
-          data?: NonNullable<Json>;
-          id?: string;
-        };
+          data?: Json
+          id?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "public_athletes_id_fkey";
-            columns: ["id"];
-            isOneToOne: true;
-            referencedRelation: "athletes";
-            referencedColumns: ["id"];
+            foreignKeyName: "public_athletes_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "athletes"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       public_relay_results: {
         Row: {
-          data: NonNullable<Json>;
-          id: string;
-          swim_date: string | null;
-          team_id: string;
-          times_course: string | null;
-          times_event: string | null;
-          times_meet: string | null;
-          times_time: number | null;
-        };
+          data: Json
+          id: string
+          swim_date: string | null
+          team_id: string
+          times_course: string | null
+          times_event: string | null
+          times_meet: string | null
+          times_time: number | null
+        }
         Insert: {
-          data: NonNullable<Json>;
-          id: string;
-          swim_date?: string | null;
-          team_id: string;
-          times_course?: never;
-          times_event?: never;
-          times_meet?: never;
-          times_time?: never;
-        };
+          data: Json
+          id: string
+          swim_date?: string | null
+          team_id: string
+          times_course?: string | null
+          times_event?: string | null
+          times_meet?: string | null
+          times_time?: number | null
+        }
         Update: {
-          data?: NonNullable<Json>;
-          id?: string;
-          swim_date?: string | null;
-          team_id?: string;
-          times_course?: never;
-          times_event?: never;
-          times_meet?: never;
-          times_time?: never;
-        };
+          data?: Json
+          id?: string
+          swim_date?: string | null
+          team_id?: string
+          times_course?: string | null
+          times_event?: string | null
+          times_meet?: string | null
+          times_time?: number | null
+        }
         Relationships: [
           {
-            foreignKeyName: "public_relay_results_id_fkey";
-            columns: ["id"];
-            isOneToOne: true;
-            referencedRelation: "relay_results";
-            referencedColumns: ["id"];
+            foreignKeyName: "public_relay_results_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "relay_results"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "public_relay_results_team_id_fkey";
-            columns: ["team_id"];
-            isOneToOne: false;
-            referencedRelation: "teams";
-            referencedColumns: ["id"];
+            foreignKeyName: "public_relay_results_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       public_swims: {
         Row: {
-          athlete_id: string;
-          data: NonNullable<Json>;
-          id: string;
-          swim_date: string;
-          times_age: number | null;
-          times_course: string | null;
-          times_event: string | null;
-          times_gender: string | null;
-          times_leg: number | null;
-          times_meet: string | null;
-          times_meet_name: string;
-          times_official: boolean | null;
-          times_relay: boolean | null;
-          times_split: boolean | null;
-          times_status: string | null;
-          times_team: string | null;
-          times_time: number | null;
-        };
+          athlete_id: string
+          data: Json
+          id: string
+          swim_date: string
+          times_age: number | null
+          times_course: string | null
+          times_event: string | null
+          times_gender: string | null
+          times_leg: number | null
+          times_meet: string | null
+          times_meet_name: string
+          times_official: boolean | null
+          times_relay: boolean | null
+          times_split: boolean | null
+          times_status: string | null
+          times_team: string | null
+          times_time: number | null
+        }
         Insert: {
-          athlete_id: string;
-          data: NonNullable<Json>;
-          id: string;
-          swim_date: string;
-          times_age?: never;
-          times_course?: never;
-          times_event?: never;
-          times_gender?: never;
-          times_leg?: never;
-          times_meet?: never;
-          times_meet_name?: never;
-          times_official?: never;
-          times_relay?: never;
-          times_split?: never;
-          times_status?: never;
-          times_team?: never;
-          times_time?: never;
-        };
+          athlete_id: string
+          data: Json
+          id: string
+          swim_date: string
+          times_age?: number | null
+          times_course?: string | null
+          times_event?: string | null
+          times_gender?: string | null
+          times_leg?: number | null
+          times_meet?: string | null
+          times_meet_name?: string
+          times_official?: boolean | null
+          times_relay?: boolean | null
+          times_split?: boolean | null
+          times_status?: string | null
+          times_team?: string | null
+          times_time?: number | null
+        }
         Update: {
-          athlete_id?: string;
-          data?: NonNullable<Json>;
-          id?: string;
-          swim_date?: string;
-          times_age?: never;
-          times_course?: never;
-          times_event?: never;
-          times_gender?: never;
-          times_leg?: never;
-          times_meet?: never;
-          times_meet_name?: never;
-          times_official?: never;
-          times_relay?: never;
-          times_split?: never;
-          times_status?: never;
-          times_team?: never;
-          times_time?: never;
-        };
+          athlete_id?: string
+          data?: Json
+          id?: string
+          swim_date?: string
+          times_age?: number | null
+          times_course?: string | null
+          times_event?: string | null
+          times_gender?: string | null
+          times_leg?: number | null
+          times_meet?: string | null
+          times_meet_name?: string
+          times_official?: boolean | null
+          times_relay?: boolean | null
+          times_split?: boolean | null
+          times_status?: string | null
+          times_team?: string | null
+          times_time?: number | null
+        }
         Relationships: [
           {
-            foreignKeyName: "public_swims_athlete_id_fkey";
-            columns: ["athlete_id"];
-            isOneToOne: false;
-            referencedRelation: "public_athletes";
-            referencedColumns: ["id"];
+            foreignKeyName: "public_swims_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_athletes"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "public_swims_id_fkey";
-            columns: ["id"];
-            isOneToOne: true;
-            referencedRelation: "swims";
-            referencedColumns: ["id"];
+            foreignKeyName: "public_swims_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "swims"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       public_times_teams: {
         Row: {
-          club_code: string | null;
-          id: string;
-          lsc_code: string;
-          name: string;
-        };
+          club_code: string | null
+          id: string
+          lsc_code: string
+          name: string
+        }
         Insert: {
-          club_code?: string | null;
-          id: string;
-          lsc_code: string;
-          name: string;
-        };
+          club_code?: string | null
+          id: string
+          lsc_code: string
+          name: string
+        }
         Update: {
-          club_code?: string | null;
-          id?: string;
-          lsc_code?: string;
-          name?: string;
-        };
+          club_code?: string | null
+          id?: string
+          lsc_code?: string
+          name?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "public_times_teams_id_fkey";
-            columns: ["id"];
-            isOneToOne: true;
-            referencedRelation: "teams";
-            referencedColumns: ["id"];
+            foreignKeyName: "public_times_teams_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       registrations: {
         Row: {
-          assignee_key: string | null;
-          data: NonNullable<Json>;
-          family_id: string | null;
-          id: string;
-          posting_id: string | null;
-        };
+          assignee_key: string | null
+          data: Json
+          family_id: string | null
+          id: string
+          posting_id: string | null
+        }
         Insert: {
-          assignee_key?: never;
-          data: NonNullable<Json>;
-          family_id?: never;
-          id: string;
-          posting_id?: never;
-        };
+          assignee_key?: string | null
+          data: Json
+          family_id?: string | null
+          id: string
+          posting_id?: string | null
+        }
         Update: {
-          assignee_key?: never;
-          data?: NonNullable<Json>;
-          family_id?: never;
-          id?: string;
-          posting_id?: never;
-        };
+          assignee_key?: string | null
+          data?: Json
+          family_id?: string | null
+          id?: string
+          posting_id?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: "registrations_family_id_fkey";
-            columns: ["family_id"];
-            isOneToOne: false;
-            referencedRelation: "families";
-            referencedColumns: ["id"];
+            foreignKeyName: "registrations_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "registrations_posting_id_fkey";
-            columns: ["posting_id"];
-            isOneToOne: false;
-            referencedRelation: "postings";
-            referencedColumns: ["id"];
+            foreignKeyName: "registrations_posting_id_fkey"
+            columns: ["posting_id"]
+            isOneToOne: false
+            referencedRelation: "postings"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       relay_results: {
         Row: {
-          course: string;
-          data: NonNullable<Json>;
-          event_code: string;
-          id: string;
-          meet_id: string | null;
-          status: string | null;
-          team_id: string;
-          time_ms: number | null;
-        };
+          course: string
+          data: Json
+          event_code: string
+          id: string
+          meet_id: string | null
+          status: string | null
+          team_id: string
+          time_ms: number | null
+        }
         Insert: {
-          course?: never;
-          data: NonNullable<Json>;
-          event_code?: never;
-          id: string;
-          meet_id?: never;
-          status?: never;
-          team_id?: never;
-          time_ms?: never;
-        };
+          course?: string
+          data: Json
+          event_code?: string
+          id: string
+          meet_id?: string | null
+          status?: string | null
+          team_id?: string
+          time_ms?: number | null
+        }
         Update: {
-          course?: never;
-          data?: NonNullable<Json>;
-          event_code?: never;
-          id?: string;
-          meet_id?: never;
-          status?: never;
-          team_id?: never;
-          time_ms?: never;
-        };
+          course?: string
+          data?: Json
+          event_code?: string
+          id?: string
+          meet_id?: string | null
+          status?: string | null
+          team_id?: string
+          time_ms?: number | null
+        }
         Relationships: [
           {
-            foreignKeyName: "relay_results_meet_id_fkey";
-            columns: ["meet_id"];
-            isOneToOne: false;
-            referencedRelation: "meets";
-            referencedColumns: ["id"];
+            foreignKeyName: "relay_results_meet_id_fkey"
+            columns: ["meet_id"]
+            isOneToOne: false
+            referencedRelation: "meets"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "relay_results_team_id_fkey";
-            columns: ["team_id"];
-            isOneToOne: false;
-            referencedRelation: "teams";
-            referencedColumns: ["id"];
+            foreignKeyName: "relay_results_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       result_moderation: {
         Row: {
-          flagged: boolean;
-          result_id: string;
-          result_type: string;
-          version: number;
-        };
+          flagged: boolean
+          result_id: string
+          result_type: string
+          version: number
+        }
         Insert: {
-          flagged: boolean;
-          result_id: string;
-          result_type: string;
-          version: number;
-        };
+          flagged: boolean
+          result_id: string
+          result_type: string
+          version: number
+        }
         Update: {
-          flagged?: boolean;
-          result_id?: string;
-          result_type?: string;
-          version?: number;
-        };
-        Relationships: [];
-      };
+          flagged?: boolean
+          result_id?: string
+          result_type?: string
+          version?: number
+        }
+        Relationships: []
+      }
       standard_cuts: {
         Row: {
-          age_group: string;
-          course: string;
-          event_code: string;
-          gender: string;
-          standard_id: string;
-          tier: string;
-          time_ms: number;
-        };
+          age_group: string
+          course: string
+          event_code: string
+          gender: string
+          standard_id: string
+          tier: string
+          time_ms: number
+        }
         Insert: {
-          age_group: string;
-          course: string;
-          event_code: string;
-          gender: string;
-          standard_id: string;
-          tier: string;
-          time_ms: number;
-        };
+          age_group: string
+          course: string
+          event_code: string
+          gender: string
+          standard_id: string
+          tier: string
+          time_ms: number
+        }
         Update: {
-          age_group?: string;
-          course?: string;
-          event_code?: string;
-          gender?: string;
-          standard_id?: string;
-          tier?: string;
-          time_ms?: number;
-        };
+          age_group?: string
+          course?: string
+          event_code?: string
+          gender?: string
+          standard_id?: string
+          tier?: string
+          time_ms?: number
+        }
         Relationships: [
           {
-            foreignKeyName: "standard_cuts_standard_id_fkey";
-            columns: ["standard_id"];
-            isOneToOne: false;
-            referencedRelation: "standards";
-            referencedColumns: ["id"];
+            foreignKeyName: "standard_cuts_standard_id_fkey"
+            columns: ["standard_id"]
+            isOneToOne: false
+            referencedRelation: "standards"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       standards: {
         Row: {
-          data: NonNullable<Json>;
-          id: string;
-        };
+          data: Json
+          id: string
+        }
         Insert: {
-          data: NonNullable<Json>;
-          id: string;
-        };
+          data: Json
+          id: string
+        }
         Update: {
-          data?: NonNullable<Json>;
-          id?: string;
-        };
-        Relationships: [];
-      };
+          data?: Json
+          id?: string
+        }
+        Relationships: []
+      }
       swims: {
         Row: {
-          athlete_id: string;
-          course: string;
-          data: NonNullable<Json>;
-          event_code: string;
-          id: string;
-          is_official: boolean;
-          is_relay: boolean;
-          meet_id: string;
-          parent_relay_result_id: string | null;
-          round: string;
-          status: string;
-          time_ms: number | null;
-        };
+          athlete_id: string
+          course: string
+          data: Json
+          event_code: string
+          id: string
+          is_official: boolean
+          is_relay: boolean
+          meet_id: string
+          parent_relay_result_id: string | null
+          round: string
+          status: string
+          time_ms: number | null
+        }
         Insert: {
-          athlete_id?: never;
-          course?: never;
-          data: NonNullable<Json>;
-          event_code?: never;
-          id: string;
-          is_official?: never;
-          is_relay?: never;
-          meet_id?: never;
-          parent_relay_result_id?: never;
-          round?: never;
-          status?: never;
-          time_ms?: never;
-        };
+          athlete_id?: string
+          course?: string
+          data: Json
+          event_code?: string
+          id: string
+          is_official?: boolean
+          is_relay?: boolean
+          meet_id?: string
+          parent_relay_result_id?: string | null
+          round?: string
+          status?: string
+          time_ms?: number | null
+        }
         Update: {
-          athlete_id?: never;
-          course?: never;
-          data?: NonNullable<Json>;
-          event_code?: never;
-          id?: string;
-          is_official?: never;
-          is_relay?: never;
-          meet_id?: never;
-          parent_relay_result_id?: never;
-          round?: never;
-          status?: never;
-          time_ms?: never;
-        };
+          athlete_id?: string
+          course?: string
+          data?: Json
+          event_code?: string
+          id?: string
+          is_official?: boolean
+          is_relay?: boolean
+          meet_id?: string
+          parent_relay_result_id?: string | null
+          round?: string
+          status?: string
+          time_ms?: number | null
+        }
         Relationships: [
           {
-            foreignKeyName: "swims_athlete_id_fkey";
-            columns: ["athlete_id"];
-            isOneToOne: false;
-            referencedRelation: "athletes";
-            referencedColumns: ["id"];
+            foreignKeyName: "swims_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "athletes"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "swims_meet_id_fkey";
-            columns: ["meet_id"];
-            isOneToOne: false;
-            referencedRelation: "meets";
-            referencedColumns: ["id"];
+            foreignKeyName: "swims_meet_id_fkey"
+            columns: ["meet_id"]
+            isOneToOne: false
+            referencedRelation: "meets"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "swims_parent_relay_result_id_fkey";
-            columns: ["parent_relay_result_id"];
-            isOneToOne: false;
-            referencedRelation: "relay_results";
-            referencedColumns: ["id"];
+            foreignKeyName: "swims_parent_relay_result_id_fkey"
+            columns: ["parent_relay_result_id"]
+            isOneToOne: false
+            referencedRelation: "relay_results"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       team_record_holders: {
         Row: {
-          age: number | null;
-          age_group: string;
-          athlete_id: string;
-          course: string;
-          event: string;
-          gender: string;
-          relay: boolean;
-          relay_age: string;
-          result_id: string;
-          result_type: string;
-          swim_date: string;
-          team: string;
-          time_ms: number;
-        };
+          age: number | null
+          age_group: string
+          athlete_id: string
+          course: string
+          event: string
+          gender: string
+          relay: boolean
+          relay_age: string
+          result_id: string
+          result_type: string
+          swim_date: string
+          team: string
+          time_ms: number
+        }
         Insert: {
-          age?: number | null;
-          age_group: string;
-          athlete_id: string;
-          course: string;
-          event: string;
-          gender: string;
-          relay: boolean;
-          relay_age: string;
-          result_id: string;
-          result_type: string;
-          swim_date: string;
-          team: string;
-          time_ms: number;
-        };
+          age?: number | null
+          age_group: string
+          athlete_id: string
+          course: string
+          event: string
+          gender: string
+          relay: boolean
+          relay_age: string
+          result_id: string
+          result_type: string
+          swim_date: string
+          team: string
+          time_ms: number
+        }
         Update: {
-          age?: number | null;
-          age_group?: string;
-          athlete_id?: string;
-          course?: string;
-          event?: string;
-          gender?: string;
-          relay?: boolean;
-          relay_age?: string;
-          result_id?: string;
-          result_type?: string;
-          swim_date?: string;
-          team?: string;
-          time_ms?: number;
-        };
-        Relationships: [];
-      };
+          age?: number | null
+          age_group?: string
+          athlete_id?: string
+          course?: string
+          event?: string
+          gender?: string
+          relay?: boolean
+          relay_age?: string
+          result_id?: string
+          result_type?: string
+          swim_date?: string
+          team?: string
+          time_ms?: number
+        }
+        Relationships: []
+      }
       team_record_refresh_state: {
         Row: {
-          id: boolean;
-          refreshed_at: string | null;
-        };
+          id: boolean
+          refreshed_at: string | null
+        }
         Insert: {
-          id?: boolean;
-          refreshed_at?: string | null;
-        };
+          id?: boolean
+          refreshed_at?: string | null
+        }
         Update: {
-          id?: boolean;
-          refreshed_at?: string | null;
-        };
-        Relationships: [];
-      };
+          id?: boolean
+          refreshed_at?: string | null
+        }
+        Relationships: []
+      }
       teams: {
         Row: {
-          data: NonNullable<Json>;
-          id: string;
-          name: string | null;
-        };
+          data: Json
+          id: string
+          name: string | null
+        }
         Insert: {
-          data: NonNullable<Json>;
-          id: string;
-          name?: never;
-        };
+          data: Json
+          id: string
+          name?: string | null
+        }
         Update: {
-          data?: NonNullable<Json>;
-          id?: string;
-          name?: never;
-        };
-        Relationships: [];
-      };
+          data?: Json
+          id?: string
+          name?: string | null
+        }
+        Relationships: []
+      }
       times_ranking_bookmarks: {
         Row: {
-          id: string;
-          user_id: string;
-          name: string;
-          filters: Json;
-          search: string;
-          created_at: string;
-        };
+          created_at: string
+          filters: Json
+          id: string
+          name: string
+          search: string
+          user_id: string
+        }
         Insert: {
-          id?: string;
-          user_id?: string;
-          name: string;
-          filters: Json;
-          search?: string;
-          created_at?: string;
-        };
+          created_at?: string
+          filters: Json
+          id?: string
+          name: string
+          search?: string
+          user_id?: string
+        }
         Update: {
-          id?: string;
-          user_id?: string;
-          name?: string;
-          filters?: Json;
-          search?: string;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
+          created_at?: string
+          filters?: Json
+          id?: string
+          name?: string
+          search?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       training_groups: {
         Row: {
-          id: string;
-          name: string;
-        };
+          id: string
+          name: string
+        }
         Insert: {
-          id: string;
-          name: string;
-        };
+          id: string
+          name: string
+        }
         Update: {
-          id?: string;
-          name?: string;
-        };
-        Relationships: [];
-      };
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       venues: {
         Row: {
-          data: NonNullable<Json>;
-          id: string;
-          team_id: string | null;
-        };
+          data: Json
+          id: string
+          team_id: string | null
+        }
         Insert: {
-          data: NonNullable<Json>;
-          id: string;
-          team_id?: never;
-        };
+          data: Json
+          id: string
+          team_id?: string | null
+        }
         Update: {
-          data?: NonNullable<Json>;
-          id?: string;
-          team_id?: never;
-        };
+          data?: Json
+          id?: string
+          team_id?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: "venues_team_id_fkey";
-            columns: ["team_id"];
-            isOneToOne: false;
-            referencedRelation: "teams";
-            referencedColumns: ["id"];
+            foreignKeyName: "venues_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       work_descriptions: {
         Row: {
-          data: NonNullable<Json>;
-          id: string;
-        };
+          data: Json
+          id: string
+        }
         Insert: {
-          data: NonNullable<Json>;
-          id: string;
-        };
+          data: Json
+          id: string
+        }
         Update: {
-          data?: NonNullable<Json>;
-          id?: string;
-        };
-        Relationships: [];
-      };
-      workshare_members: {
+          data?: Json
+          id?: string
+        }
+        Relationships: []
+      }
+      workshare_account_emails: {
         Row: {
-          family_id: string;
-          group_name: string;
-          id: string;
-          name: string;
-          source_ids: NonNullable<Json>;
-          updated_at: string;
-        };
+          account_id: string
+          email: string
+        }
         Insert: {
-          family_id: string;
-          group_name?: string;
-          id: string;
-          name: string;
-          source_ids?: NonNullable<Json>;
-          updated_at?: string;
-        };
+          account_id: string
+          email: string
+        }
         Update: {
-          family_id?: string;
-          group_name?: string;
-          id?: string;
-          name?: string;
-          source_ids?: NonNullable<Json>;
-          updated_at?: string;
-        };
+          account_id?: string
+          email?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "workshare_members_family_id_fkey";
-            columns: ["family_id"];
-            isOneToOne: false;
-            referencedRelation: "families";
-            referencedColumns: ["id"];
+            foreignKeyName: "workshare_account_emails_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "workshare_accounts"
+            referencedColumns: ["id"]
           },
-        ];
-      };
-    };
+        ]
+      }
+      workshare_account_requirements: {
+        Row: {
+          account_id: string
+          apple_capital_hours_required: number | null
+          general_hours_required: number | null
+          season_id: string
+          starlight_hours_required: number | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          apple_capital_hours_required?: number | null
+          general_hours_required?: number | null
+          season_id: string
+          starlight_hours_required?: number | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          apple_capital_hours_required?: number | null
+          general_hours_required?: number | null
+          season_id?: string
+          starlight_hours_required?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshare_account_requirements_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "workshare_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshare_account_requirements_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "workshare_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshare_accounts: {
+        Row: {
+          apple_capital_hours_required: number | null
+          current_season: string | null
+          full_name: string
+          general_hours_required: number | null
+          id: string
+          is_archived: boolean
+          starlight_hours_required: number | null
+          updated_at: string
+        }
+        Insert: {
+          apple_capital_hours_required?: number | null
+          current_season?: string | null
+          full_name: string
+          general_hours_required?: number | null
+          id?: string
+          is_archived?: boolean
+          starlight_hours_required?: number | null
+          updated_at?: string
+        }
+        Update: {
+          apple_capital_hours_required?: number | null
+          current_season?: string | null
+          full_name?: string
+          general_hours_required?: number | null
+          id?: string
+          is_archived?: boolean
+          starlight_hours_required?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      workshare_athletes: {
+        Row: {
+          account_id: string
+          full_name: string
+          id: string
+          is_archived: boolean
+          times_athlete_id: string | null
+          training_group: string
+        }
+        Insert: {
+          account_id: string
+          full_name: string
+          id?: string
+          is_archived?: boolean
+          times_athlete_id?: string | null
+          training_group?: string
+        }
+        Update: {
+          account_id?: string
+          full_name?: string
+          id?: string
+          is_archived?: boolean
+          times_athlete_id?: string | null
+          training_group?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshare_athletes_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "workshare_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshare_athletes_times_athlete_id_fkey"
+            columns: ["times_athlete_id"]
+            isOneToOne: false
+            referencedRelation: "athletes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshare_members: {
+        Row: {
+          family_id: string
+          group_name: string
+          id: string
+          name: string
+          source_ids: Json
+          updated_at: string
+        }
+        Insert: {
+          family_id: string
+          group_name?: string
+          id: string
+          name: string
+          source_ids?: Json
+          updated_at?: string
+        }
+        Update: {
+          family_id?: string
+          group_name?: string
+          id?: string
+          name?: string
+          source_ids?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshare_members_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshare_seasons: {
+        Row: {
+          copy_from_season_id: string | null
+          created_at: string
+          ends_on: string
+          id: string
+          name: string
+          starts_on: string
+        }
+        Insert: {
+          copy_from_season_id?: string | null
+          created_at?: string
+          ends_on: string
+          id: string
+          name: string
+          starts_on: string
+        }
+        Update: {
+          copy_from_season_id?: string | null
+          created_at?: string
+          ends_on?: string
+          id?: string
+          name?: string
+          starts_on?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshare_seasons_copy_from_season_id_fkey"
+            columns: ["copy_from_season_id"]
+            isOneToOne: false
+            referencedRelation: "workshare_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshare_ticket_create_keys: {
+        Row: {
+          id: string
+          payload_fingerprint: string
+        }
+        Insert: {
+          id: string
+          payload_fingerprint: string
+        }
+        Update: {
+          id?: string
+          payload_fingerprint?: string
+        }
+        Relationships: []
+      }
+      workshare_tickets: {
+        Row: {
+          account_id: string
+          category: string
+          completed_on: string
+          created_at: string
+          description: string
+          hours: number
+          id: string
+          season_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          category: string
+          completed_on: string
+          created_at?: string
+          description: string
+          hours: number
+          id: string
+          season_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          category?: string
+          completed_on?: string
+          created_at?: string
+          description?: string
+          hours?: number
+          id?: string
+          season_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshare_tickets_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "workshare_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshare_tickets_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "workshare_ticket_create_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshare_tickets_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "workshare_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
     Views: {
       app_records: {
         Row: {
-          data: Json | null;
-          path: string | null;
-        };
-        Relationships: [];
-      };
-      // This view selects required columns from collection_batches directly.
-      collection_batch_queue: {
-        Row: {
-          id: string;
-          division: string;
-          scope: string;
-          source_url: string;
-          captured_at: string;
-          received_at: string;
-          coverage: string;
-          status: string;
-          review_note: string | null;
-          reviewed_at: string | null;
-          writes: Json;
-          reads: Json;
-        };
-        Relationships: [];
-      };
+          data: Json | null
+          path: string | null
+        }
+        Relationships: []
+      }
       ies_times_races: {
         Row: {
-          age: number | null;
-          athlete_id: string | null;
-          athlete_name: string | null;
-          course: string | null;
-          date: string | null;
-          event: string | null;
-          gender: string | null;
-          id: string | null;
-          meet: string | null;
-          meet_id: string | null;
-          official: boolean | null;
-          relay: boolean | null;
-          relay_age: string | null;
-          relay_leg: number | null;
-          relay_name: string | null;
-          round: string | null;
-          split: boolean | null;
-          status: string | null;
-          team: string | null;
-          team_name: string | null;
-          time: number | null;
-          ies_times_json: Json | null;
-          race_moderation: Json | null;
-        };
-        Relationships: [];
-      };
+          age: number | null
+          athlete_id: string | null
+          athlete_name: string | null
+          course: string | null
+          date: string | null
+          event: string | null
+          gender: string | null
+          id: string | null
+          meet: string | null
+          meet_id: string | null
+          official: boolean | null
+          relay: boolean | null
+          relay_age: string | null
+          relay_leg: number | null
+          relay_name: string | null
+          round: string | null
+          split: boolean | null
+          status: string | null
+          team: string | null
+          team_name: string | null
+          time: number | null
+        }
+        Relationships: []
+      }
       unflagged_times_relays: {
         Row: {
-          data: Json | null;
-          id: string | null;
-          swim_date: string | null;
-          team_id: string | null;
-          times_course: string | null;
-          times_event: string | null;
-          times_meet: string | null;
-          times_time: number | null;
-        };
+          data: Json | null
+          id: string | null
+          swim_date: string | null
+          team_id: string | null
+          times_course: string | null
+          times_event: string | null
+          times_meet: string | null
+          times_time: number | null
+        }
         Insert: {
-          data?: Json | null;
-          id?: string | null;
-          swim_date?: string | null;
-          team_id?: string | null;
-          times_course?: string | null;
-          times_event?: string | null;
-          times_meet?: string | null;
-          times_time?: number | null;
-        };
+          data?: Json | null
+          id?: string | null
+          swim_date?: string | null
+          team_id?: string | null
+          times_course?: string | null
+          times_event?: string | null
+          times_meet?: string | null
+          times_time?: number | null
+        }
         Update: {
-          data?: Json | null;
-          id?: string | null;
-          swim_date?: string | null;
-          team_id?: string | null;
-          times_course?: string | null;
-          times_event?: string | null;
-          times_meet?: string | null;
-          times_time?: number | null;
-        };
+          data?: Json | null
+          id?: string | null
+          swim_date?: string | null
+          team_id?: string | null
+          times_course?: string | null
+          times_event?: string | null
+          times_meet?: string | null
+          times_time?: number | null
+        }
         Relationships: [
           {
-            foreignKeyName: "public_relay_results_id_fkey";
-            columns: ["id"];
-            isOneToOne: true;
-            referencedRelation: "relay_results";
-            referencedColumns: ["id"];
+            foreignKeyName: "public_relay_results_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "relay_results"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "public_relay_results_team_id_fkey";
-            columns: ["team_id"];
-            isOneToOne: false;
-            referencedRelation: "teams";
-            referencedColumns: ["id"];
+            foreignKeyName: "public_relay_results_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       unflagged_times_swims: {
         Row: {
-          athlete_id: string | null;
-          data: Json | null;
-          id: string | null;
-          swim_date: string | null;
-          times_age: number | null;
-          times_course: string | null;
-          times_event: string | null;
-          times_gender: string | null;
-          times_leg: number | null;
-          times_meet: string | null;
-          times_meet_name: string | null;
-          times_official: boolean | null;
-          times_relay: boolean | null;
-          times_split: boolean | null;
-          times_status: string | null;
-          times_team: string | null;
-          times_time: number | null;
-        };
-        Insert: {
-          athlete_id?: string | null;
-          data?: Json | null;
-          id?: string | null;
-          swim_date?: string | null;
-          times_age?: number | null;
-          times_course?: string | null;
-          times_event?: string | null;
-          times_gender?: string | null;
-          times_leg?: number | null;
-          times_meet?: string | null;
-          times_meet_name?: string | null;
-          times_official?: boolean | null;
-          times_relay?: boolean | null;
-          times_split?: boolean | null;
-          times_status?: string | null;
-          times_team?: string | null;
-          times_time?: number | null;
-        };
-        Update: {
-          athlete_id?: string | null;
-          data?: Json | null;
-          id?: string | null;
-          swim_date?: string | null;
-          times_age?: number | null;
-          times_course?: string | null;
-          times_event?: string | null;
-          times_gender?: string | null;
-          times_leg?: number | null;
-          times_meet?: string | null;
-          times_meet_name?: string | null;
-          times_official?: boolean | null;
-          times_relay?: boolean | null;
-          times_split?: boolean | null;
-          times_status?: string | null;
-          times_team?: string | null;
-          times_time?: number | null;
-        };
+          athlete_id: string | null
+          data: Json | null
+          id: string | null
+          swim_date: string | null
+          times_age: number | null
+          times_course: string | null
+          times_event: string | null
+          times_gender: string | null
+          times_leg: number | null
+          times_meet: string | null
+          times_meet_name: string | null
+          times_official: boolean | null
+          times_relay: boolean | null
+          times_split: boolean | null
+          times_status: string | null
+          times_team: string | null
+          times_time: number | null
+        }
         Relationships: [
           {
-            foreignKeyName: "public_swims_athlete_id_fkey";
-            columns: ["athlete_id"];
-            isOneToOne: false;
-            referencedRelation: "public_athletes";
-            referencedColumns: ["id"];
+            foreignKeyName: "public_swims_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "public_athletes"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "public_swims_id_fkey";
-            columns: ["id"];
-            isOneToOne: true;
-            referencedRelation: "swims";
-            referencedColumns: ["id"];
+            foreignKeyName: "public_swims_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "swims"
+            referencedColumns: ["id"]
           },
-        ];
-      };
-    };
+        ]
+      }
+    }
     Functions: {
-      has_account_password: { Args: Record<PropertyKey, never>; Returns: boolean };
-      list_workshare_seasons: { Args: Record<PropertyKey, never>; Returns: Json };
-      read_my_workshare_summary: { Args: { season_id?: string }; Returns: Json };
-      create_workshare_season: { Args: { input: Json }; Returns: Json };
-      list_workshare_account_summaries: { Args: { season_id: string }; Returns: Json };
-      save_workshare_requirements: { Args: { account_id: string; input: Json }; Returns: Json };
-      create_workshare_ticket: { Args: { input: Json }; Returns: Json };
-      update_workshare_ticket: { Args: { ticket_id: string; input: Json }; Returns: Json };
-      delete_workshare_ticket: { Args: { ticket_id: string; expected_version: string }; Returns: Json };
-      list_workshare_tickets: { Args: { input: Json }; Returns: Json };
-      list_workshare_accounts: { Args: Record<PropertyKey, never>; Returns: Json };
-      save_workshare_account: { Args: { input: Json }; Returns: Json };
-      import_workshare_accounts: { Args: { input: Json }; Returns: Json };
-      claim_shift_reminders: { Args: { dry_run?: boolean }; Returns: Json };
-      get_account_athletes: {
-        Args: { account_user_id: string };
-        Returns: {
-          id: string;
-          name: string;
-          team_name: string | null;
-          is_primary: boolean;
-        }[];
-      };
-      search_account_athletes: {
-        Args: { search_text: string };
-        Returns: { id: string; name: string; team_name: string | null }[];
-      };
-      save_account_athletes: {
-        Args: {
-          account_user_id: string;
-          primary_id?: string;
-          favorite_ids?: string[];
-        };
-        Returns: {
-          id: string;
-          name: string;
-          team_name: string | null;
-          is_primary: boolean;
-        }[];
-      };
-      collect_records: {
-        Args: { reads: Json; writes: Json };
-        Returns: undefined;
-      };
+      claim_shift_reminders: { Args: { dry_run?: boolean }; Returns: Json }
       commit_records: {
-        Args: { reads: Json; writes: Json };
-        Returns: undefined;
-      };
+        Args: { reads: Json; writes: Json }
+        Returns: undefined
+      }
+      create_workshare_season: { Args: { input: Json }; Returns: Json }
+      create_workshare_ticket: { Args: { input: Json }; Returns: Json }
+      delete_workshare_ticket: {
+        Args: { expected_version: string; ticket_id: string }
+        Returns: Json
+      }
       export_records: {
-        Args: { after_path?: string };
+        Args: { after_path?: string }
         Returns: {
-          data: Json;
-          path: string;
-        }[];
-      };
+          data: Json
+          path: string
+        }[]
+      }
       finish_shift_reminder: {
         Args: {
-          delivery_id?: string;
-          failure?: string;
-          registration_id: string;
-          reminder_date: string;
-        };
-        Returns: undefined;
-      };
-      ies_team_records: { Args: { team_id: string }; Returns: Json };
-      ies_team_records_board: { Args: { input?: Json }; Returns: Json };
+          delivery_id?: string
+          failure?: string
+          registration_id: string
+          reminder_date: string
+        }
+        Returns: undefined
+      }
+      get_account_athletes: {
+        Args: { account_user_id: string }
+        Returns: {
+          id: string
+          is_primary: boolean
+          name: string
+          team_name: string
+        }[]
+      }
+      has_account_password: { Args: never; Returns: boolean }
+      ies_meet_event_rows: {
+        Args: { meet_id: string }
+        Returns: {
+          age_group: string
+          course: string
+          event: string
+          event_key: string
+          event_number: number
+          gender: string
+          id: string
+          relay: boolean
+          round: string
+          status: string
+          team: string
+          time: number
+        }[]
+      }
+      ies_meet_navigation_query: {
+        Args: { input: Json; query_kind: string }
+        Returns: Json
+      }
+      ies_my_times: { Args: { input?: Json }; Returns: Json }
+      ies_my_times_all_time: { Args: { input?: Json }; Returns: Json }
+      ies_my_times_bests: { Args: { input?: Json }; Returns: Json }
+      ies_team_records: { Args: { team_id: string }; Returns: Json }
+      ies_team_records_board: { Args: { input?: Json }; Returns: Json }
       ies_times_age: {
-        Args: { age: number; relay: boolean; relay_age: string };
-        Returns: string;
-      };
+        Args: { age: number; relay: boolean; relay_age: string }
+        Returns: string
+      }
       ies_times_age_matches: {
-        Args: { age: number; groups: Json; relay: boolean; relay_age: string };
-        Returns: boolean;
-      };
-      ies_times_age_range: { Args: { age_group: string }; Returns: unknown };
+        Args: { age: number; groups: Json; relay: boolean; relay_age: string }
+        Returns: boolean
+      }
+      ies_times_age_range: { Args: { age_group: string }; Returns: unknown }
       ies_times_candidates: {
-        Args: { input: Json };
+        Args: { input: Json }
         Returns: {
-          athlete_id: string;
-          course: string;
-          date: string;
-          event: string;
-          id: string;
-          relay: boolean;
-          search_name: string;
-          time: number;
-        }[];
-      };
+          athlete_id: string
+          course: string
+          date: string
+          event: string
+          id: string
+          relay: boolean
+          search_name: string
+          time: number
+        }[]
+      }
       ies_times_filtered: {
-        Args: { input: Json };
+        Args: { input: Json }
         Returns: {
-          age: number | null;
-          athlete_id: string | null;
-          athlete_name: string | null;
-          course: string | null;
-          date: string | null;
-          event: string | null;
-          gender: string | null;
-          id: string | null;
-          meet: string | null;
-          meet_id: string | null;
-          official: boolean | null;
-          relay: boolean | null;
-          relay_age: string | null;
-          relay_leg: number | null;
-          relay_name: string | null;
-          round: string | null;
-          split: boolean | null;
-          status: string | null;
-          team: string | null;
-          team_name: string | null;
-          time: number | null;
-        }[];
+          age: number | null
+          athlete_id: string | null
+          athlete_name: string | null
+          course: string | null
+          date: string | null
+          event: string | null
+          gender: string | null
+          id: string | null
+          meet: string | null
+          meet_id: string | null
+          official: boolean | null
+          relay: boolean | null
+          relay_age: string | null
+          relay_leg: number | null
+          relay_name: string | null
+          round: string | null
+          split: boolean | null
+          status: string | null
+          team: string | null
+          team_name: string | null
+          time: number | null
+        }[]
         SetofOptions: {
-          from: "*";
-          to: "ies_times_races";
-          isOneToOne: false;
-          isSetofReturn: true;
-        };
-      };
+          from: "*"
+          to: "ies_times_races"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       ies_times_json: {
-        Args: { r: Database["public"]["Views"]["ies_times_races"]["Row"] };
-        Returns: Json;
-      };
-      ies_times_json_id: { Args: { race_id: string }; Returns: Json };
-      ies_times_ranking_years: { Args: { input?: Json }; Returns: Json };
-      ies_times_recent: { Args: { input?: Json }; Returns: Json };
-      ies_my_times: { Args: { input?: Json }; Returns: Json };
-      ies_my_times_all_time: { Args: { input?: Json }; Returns: Json };
-      ies_my_times_bests: { Args: { input?: Json }; Returns: Json };
+        Args: { r: Database["public"]["Views"]["ies_times_races"]["Row"] }
+        Returns: Json
+      }
+      ies_times_json_id: { Args: { race_id: string }; Returns: Json }
       ies_times_query: {
-        Args: { input?: Json; query_kind: string };
-        Returns: Json;
-      };
-      is_staff: { Args: Record<PropertyKey, never>; Returns: boolean };
-      is_workshare_staff: { Args: Record<PropertyKey, never>; Returns: boolean };
+        Args: { input?: Json; query_kind: string }
+        Returns: Json
+      }
+      ies_times_ranking_years: { Args: { input?: Json }; Returns: Json }
+      ies_times_recent: { Args: { input?: Json }; Returns: Json }
+      import_meet_results: { Args: { input: Json }; Returns: Json }
+      import_workshare_accounts: { Args: { input: Json }; Returns: Json }
+      is_staff: { Args: never; Returns: boolean }
+      is_workshare_staff: { Args: never; Returns: boolean }
       list_result_moderation: {
         Args: {
-          include_restored?: boolean;
-          page_from?: number;
-          page_size?: number;
-        };
-        Returns: Json;
-      };
-      meet_collection_queue: { Args: { input?: Json }; Returns: Json };
+          include_restored?: boolean
+          page_from?: number
+          page_size?: number
+        }
+        Returns: Json
+      }
+      list_workshare_account_summaries: {
+        Args: { season_id: string }
+        Returns: Json
+      }
+      list_workshare_accounts: { Args: never; Returns: Json }
+      list_workshare_seasons: { Args: never; Returns: Json }
+      list_workshare_tickets: { Args: { input: Json }; Returns: Json }
+      manage_result_records: { Args: { input: Json }; Returns: Json }
       moderate_result: {
         Args: {
-          action: string;
-          expected_version: number;
-          note: string;
-          reason: string;
-          result_id: string;
-          result_type: string;
-        };
-        Returns: Json;
-      };
-      projection_counts: { Args: Record<PropertyKey, never>; Returns: Json };
-      private_race_baseline_page: {
-        Args: {
-          collection_name?: string;
-          after_id?: string;
-          page_size?: number;
-          expected_revision?: string;
-        };
-        Returns: Json;
-      };
+          action: string
+          expected_version: number
+          note: string
+          reason: string
+          result_id: string
+          result_type: string
+        }
+        Returns: Json
+      }
+      projection_counts: { Args: never; Returns: Json }
       query_records: {
         Args: {
-          after_id?: string;
-          collection_path: string;
-          filters?: Json;
-          page_size?: number;
-          record_id?: string;
-        };
+          after_id?: string
+          collection_path: string
+          filters?: Json
+          page_size?: number
+          record_id?: string
+        }
         Returns: {
-          data: Json;
-          path: string;
-        }[];
-      };
+          data: Json
+          path: string
+        }[]
+      }
       race_moderation: {
-        Args: { r: Database["public"]["Views"]["ies_times_races"]["Row"] };
-        Returns: Json;
-      };
+        Args: { r: Database["public"]["Views"]["ies_times_races"]["Row"] }
+        Returns: Json
+      }
+      read_my_workshare_summary: { Args: { season_id?: string }; Returns: Json }
       read_result_moderation: {
-        Args: { result_id: string; result_type: string };
-        Returns: Json;
-      };
+        Args: { result_id: string; result_type: string }
+        Returns: Json
+      }
       result_is_excluded: {
-        Args: { kind: string; parent_id?: string; rid: string };
-        Returns: boolean;
-      };
-      review_collection: {
-        Args: { batch_id: string; decision: string; note?: string };
-        Returns: undefined;
-      };
-      stage_collection: {
-        Args: { batch: Json; worker_token: string };
-        Returns: string;
-      };
-      stage_velocity_import: {
-        Args: { batch: Json; worker_token: string };
-        Returns: Json;
-      };
+        Args: { kind: string; parent_id?: string; rid: string }
+        Returns: boolean
+      }
+      save_account_athletes: {
+        Args: {
+          account_user_id: string
+          favorite_ids?: string[]
+          primary_id?: string
+        }
+        Returns: {
+          id: string
+          is_primary: boolean
+          name: string
+          team_name: string
+        }[]
+      }
+      save_workshare_account: { Args: { input: Json }; Returns: Json }
+      save_workshare_requirements: {
+        Args: { account_id: string; input: Json }
+        Returns: Json
+      }
+      search_account_athletes: {
+        Args: { search_text: string }
+        Returns: {
+          id: string
+          name: string
+          team_name: string
+        }[]
+      }
       times_page: {
         Args: {
-          course_filter?: string;
-          event_filter?: string;
-          mode?: string;
-          page_from?: number;
-          page_size?: number;
-        };
-        Returns: Json;
-      };
-      approve_velocity_import: { Args: { selection_id: string }; Returns: Json };
-      reduce_velocity_import_approval_batch: { Args: { selection_id: string }; Returns: number | null };
-      resolve_velocity_import_swimmer: { Args: { input: Json }; Returns: Json };
-      velocity_held_observations: { Args: { input: Json }; Returns: Json };
-      velocity_import_detail: { Args: { input: Json }; Returns: Json };
-      velocity_import_issues: { Args: { input: Json }; Returns: Json };
-      velocity_import_queue: { Args: { input: Json }; Returns: Json };
-      velocity_import_selection: { Args: { input: Json }; Returns: Json };
-      velocity_import_swimmer_matches: { Args: { input: Json }; Returns: Json };
+          course_filter?: string
+          event_filter?: string
+          mode?: string
+          page_from?: number
+          page_size?: number
+        }
+        Returns: Json
+      }
+      update_workshare_ticket: {
+        Args: { input: Json; ticket_id: string }
+        Returns: Json
+      }
       workshare_action: {
-        Args: { input: Json; operation: string };
-        Returns: Json;
-      };
-    };
+        Args: { input?: Json; operation: string }
+        Returns: Json
+      }
+    }
     Enums: {
-      [_ in never]: never;
-    };
+      [_ in never]: never
+    }
     CompositeTypes: {
-      [_ in never]: never;
-    };
-  };
-};
+      [_ in never]: never
+    }
+  }
+}
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<
-  keyof Database,
-  "public"
->];
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R;
+      Row: infer R
     }
     ? R
     : never
@@ -1891,98 +1820,98 @@ export type Tables<
         DefaultSchema["Views"])
     ? (DefaultSchema["Tables"] &
         DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R;
+        Row: infer R
       }
       ? R
       : never
-    : never;
+    : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I;
+      Insert: infer I
     }
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I;
+        Insert: infer I
       }
       ? I
       : never
-    : never;
+    : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U;
+      Update: infer U
     }
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U;
+        Update: infer U
       }
       ? U
       : never
-    : never;
+    : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends (DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never;
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never;
+    : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },
-} as const;
+} as const

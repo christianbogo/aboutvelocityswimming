@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import styles from "../Store.module.css";
+import { scopedClasses } from "@/lib/styles";
 import { holdUpdates } from "@/lib/update-safety";
 
 interface Variant {
@@ -44,7 +46,7 @@ export default function ProductForm({ productId, productName, variants }: Produc
 
   return (
     <div className="product-form-container">
-      <div className="price">
+      <div className={scopedClasses(styles, "price")}>
         ${selectedVariant?.retail_price}
       </div>
       
@@ -60,15 +62,15 @@ export default function ProductForm({ productId, productName, variants }: Produc
         <input type="hidden" name="product_id" value={productId} />
         
         {variants.length > 1 && (
-          <div className="size-selector-container">
-            <div className="size-selector-label">
+          <div className={scopedClasses(styles, "size-selector-container")}>
+            <div className={scopedClasses(styles, "size-selector-label")}>
               <span>Size</span>
               {currentSizeLabel && (
-                <span className="selected-size-badge">{currentSizeLabel}</span>
+                <span className={scopedClasses(styles, "selected-size-badge")}>{currentSizeLabel}</span>
               )}
             </div>
             
-            <div className="size-chips-grid" role="radiogroup" aria-label="Available sizes">
+            <div className={scopedClasses(styles, "size-chips-grid")} role="radiogroup" aria-label="Available sizes">
               {variants.map((v) => {
                 const isSelected = v.id === selectedVariantId;
                 const sizeLabel = v.name
@@ -80,7 +82,7 @@ export default function ProductForm({ productId, productName, variants }: Produc
                   <button
                     key={v.id}
                     type="button"
-                    className={`size-chip ${isSelected ? "active" : ""}`}
+                    className={scopedClasses(styles, `size-chip ${isSelected ? "active" : ""}`)}
                     onClick={() => setSelectedVariantId(v.id)}
                     role="radio"
                     aria-checked={isSelected}
@@ -94,7 +96,7 @@ export default function ProductForm({ productId, productName, variants }: Produc
           </div>
         )}
         
-        <button type="submit" disabled={!selectedVariant || checkoutPending} className="btn btn-primary buy-button-large">
+        <button type="submit" disabled={!selectedVariant || checkoutPending} className={scopedClasses(styles, "btn btn-primary buy-button-large")}>
           {checkoutPending ? "Opening checkout…" : "Checkout with Stripe"}
         </button>
         {checkoutPending && (

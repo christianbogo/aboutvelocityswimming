@@ -1,0 +1,252 @@
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 2rem clamp(1rem, 3vw, 2.5rem) 4rem;
+  color: var(--text-primary, #182333);
+}
+.header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+.header h1 {
+  font-size: 2.4rem;
+  margin: 0.2rem 0;
+  letter-spacing: -0.04em;
+}
+.header p {
+  margin: 0.4rem 0;
+}
+.eyebrow {
+  color: var(--text-muted, #657080);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  border-bottom: 1px solid #cbd5e1;
+  padding-bottom: 0.8rem;
+  margin-bottom: 1.5rem;
+}
+.page button {
+  cursor: pointer;
+  padding: 0.6rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.45rem;
+  background: var(--surface, #fff);
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+}
+.page button:hover {
+  border-color: #48789b;
+}
+.page button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.tabs button[aria-current] {
+  background: #183d56;
+  color: white;
+  border-color: #183d56;
+}
+.page .primary {
+  background: #183d56;
+  color: #fff;
+  border-color: #183d56;
+  font-weight: 600;
+}
+.toolbar,
+.actions {
+  display: flex;
+  align-items: end;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+}
+.actions {
+  align-items: center;
+}
+.search {
+  flex: 1;
+  min-width: 180px;
+}
+.page label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.page input,
+.page select {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #b9c7d4;
+  background: var(--surface, #fff);
+  color: inherit;
+  border-radius: 0.35rem;
+  font: inherit;
+  font-weight: 400;
+  width: 100%;
+  min-width: 0;
+}
+.page input:focus-visible,
+.page select:focus-visible,
+.page button:focus-visible,
+.page summary:focus-visible {
+  outline: 3px solid #66a8cb;
+  outline-offset: 2px;
+}
+.scroll {
+  overflow: auto;
+  border: 1px solid #d7dfe7;
+  border-radius: 0.6rem;
+}
+.page table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.page th {
+  text-align: left;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #50667a;
+  background: #f2f6f8;
+}
+.page td,
+.page th {
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid #e0e7ed;
+}
+.page td {
+  vertical-align: middle;
+}
+.page tbody tr:last-child td {
+  border-bottom: 0;
+}
+.page td input {
+  min-width: 7rem;
+}
+.editor {
+  border: 1px solid #d7dfe7;
+  border-radius: 0.8rem;
+  padding: 1.5rem;
+}
+.editor h2 {
+  margin: 0 0 1.2rem;
+  font-size: 1.4rem;
+}
+.page fieldset {
+  border: 0;
+  padding: 0;
+  margin: 1rem 0;
+  min-width: 0;
+}
+.page legend {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.6rem;
+}
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1rem;
+}
+.page .picker {
+  padding: 0.8rem;
+  border: 1px solid #d7dfe7;
+  border-radius: 0.4rem;
+  margin: 0;
+}
+.picker input {
+  margin-bottom: 0.5rem;
+}
+.selected {
+  font-size: 0.8rem;
+  margin: 0.1rem 0 0.5rem;
+  overflow-wrap: anywhere;
+}
+.lineup {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  padding: 0.8rem 0;
+}
+.lineup .picker {
+  flex: 1;
+  min-width: 220px;
+}
+.page details {
+  margin: 1rem 0;
+  padding: 1rem 0;
+  border-top: 1px solid #d7dfe7;
+}
+.page summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.page .check {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+}
+.check input {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.muted {
+  color: var(--text-muted, #627488);
+  font-size: 0.85rem;
+}
+.error {
+  background: #fff1f1;
+  color: #9f2020;
+  padding: 0.8rem 1rem;
+  border-radius: 0.4rem;
+}
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.8rem;
+  margin: 1rem 0;
+}
+.stats div {
+  padding: 1rem;
+  background: #f0f5f8;
+  border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+}
+.stats strong {
+  font-size: 1.7rem;
+}
+.stats span {
+  font-size: 0.8rem;
+  text-transform: capitalize;
+}
+@media (max-width: 600px) {
+  .editor {
+    padding: 1rem;
+  }
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .page td,
+  .page th {
+    padding: 0.7rem;
+  }
+  .tabs button {
+    flex: 1;
+  }
+  .fields {
+    grid-template-columns: 1fr;
+  }
+}

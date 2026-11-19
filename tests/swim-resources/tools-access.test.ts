@@ -108,11 +108,11 @@ describe("temporary tools lock", () => {
   it.each([
     "/api/times/moderation",
     "/api/times/team-map",
-    "/api/collection/review",
-    "/api/collection/race-baseline",
+    "/api/times/manage",
+
     "/api/data",
     "/api/workshare",
-    "/api/swim-resources/admin/imports/prepared",
+    "/api/times/import",
   ])("locks the backing endpoint %s", async (path) => {
     expect(
       unstable_doesMiddlewareMatch({ config, nextConfig: {}, url: path }),
@@ -127,14 +127,14 @@ describe("temporary tools lock", () => {
     expect((await proxy(request(path))).status).toBe(403);
   });
 
-  it("validates bearer tokens for prepared imports", async () => {
+  it("requires cookie identity for file imports", async () => {
     mocks.getUser.mockResolvedValue({ data: { user: admin }, error: null });
     const response = await proxy(
-      request("/api/swim-resources/admin/imports/prepared", {
+      request("/api/times/import", {
         authorization: "Bearer admin-token",
       }),
     );
-    expect(mocks.getUser).toHaveBeenCalledWith("admin-token");
+    expect(mocks.getUser).toHaveBeenCalledWith();
     expect(response.headers.get("x-middleware-next")).toBe("1");
   });
 
@@ -269,7 +269,7 @@ describe("scoped staff Admin access", () => {
     "/tools/admin-other",
     "/tools/goals",
     "/tools/team-map",
-    "/api/collection/review",
+    "/api/times/manage",
     "/api/workshare",
     "/api/workshare/accounts-other",
     "/api/workshare/tickets-other",
@@ -341,7 +341,7 @@ describe("scoped staff Admin access", () => {
         )
       ).headers.get("x-middleware-next"),
     ).toBe("1");
-    expect(mocks.getUser).toHaveBeenCalledWith(undefined);
+    expect(mocks.getUser).toHaveBeenCalledWith();
     mocks.getUser.mockResolvedValue({ data: { user: null }, error: null });
     expect(
       (
@@ -419,7 +419,7 @@ describe("released tools for any verified email", () => {
     "/tools/goals",
     "/tools/team-map",
     "/api/times/team-map",
-    "/api/collection/imports",
+    "/api/times/import",
   ])("restricts %s to the owner even for staff", async (path) => {
     mocks.getUser.mockResolvedValue({ data: { user: staffUser }, error: null });
     mocks.rpc.mockResolvedValue({ data: true, error: null });

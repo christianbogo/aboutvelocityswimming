@@ -161,5 +161,70 @@ begin
   end;
 end;
 $$;
+reset role;
+do $$
+declare original jsonb; saved jsonb;
+begin
+  original := private.workshare_account_snapshot('summary-linked-a');
+  assert original->'requireWorkshare' = 'true'::jsonb and original->>'workshareNote' = '', 'Existing accounts default to required with no note';
+  saved := public.save_workshare_account(original || '{"requireWorkshare":false,"workshareNote":"  Waived for this account.  "}');
+  assert saved->'requireWorkshare' = 'false'::jsonb and saved->>'workshareNote' = 'Waived for this account.', 'Preferences persist and trim notes';
+  begin
+    perform public.save_workshare_account(original || '{"requireWorkshare":true}');
+    raise exception 'Expected stale preference version rejection';
+  exception when serialization_failure then null;
+  end;
+  saved := public.save_workshare_account(saved - array['requireWorkshare','workshareNote']);
+  assert saved->'requireWorkshare' = 'false'::jsonb and saved->>'workshareNote' = 'Waived for this account.', 'Older clients preserve new preferences';
+  begin
+    perform public.save_workshare_account(saved || '{"requireWorkshare":"false"}');
+    raise exception 'Expected boolean validation';
+  exception when check_violation then null;
+  end;
+  begin
+    perform public.save_workshare_account(saved || jsonb_build_object('workshareNote',repeat('x',2001)));
+    raise exception 'Expected note length validation';
+  exception when check_violation then null;
+  end;
+  assert (select general_hours_required from public.workshare_account_requirements where account_id='summary-linked-a' and season_id='95222222-bbbb-4bbb-8bbb-bbbbbbbbbbbb') = 12, 'Exemptions retain seasonal quotas';
+end;
+$$;
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"95111111-1111-4111-8111-111111111111","role":"authenticated"}',true);
+do $$
+declare result jsonb; item jsonb;
+begin
+  result := public.read_my_workshare_summary('95222222-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
+  select value into item from jsonb_array_elements(result->'accounts') where value->>'id'='summary-linked-a';
+  assert item->'requireWorkshare' = 'false'::jsonb and item->>'workshareNote' = 'Waived for this account.', 'Linked account can read the workshare note and exemption';
+  assert item->'requirements' = '{"generalHoursRequired":0,"starlightHoursRequired":0,"appleCapitalHoursRequired":0}'::jsonb, 'Exempt accounts have zero effective requirements';
+  assert item->'completed'->>'general' = '3.75', 'Exemptions preserve completed credit';
+  begin
+    perform public.save_workshare_account(jsonb_build_object('id','summary-linked-a','requireWorkshare',true));
+    raise exception 'Expected account-holder write denial';
+  exception when insufficient_privilege then null;
+  end;
+end;
+$$;
+select set_config('request.jwt.claims','{"sub":"95222222-2222-4222-8222-222222222222","role":"authenticated"}',true);
+do $$
+begin
+  assert position('Waived for this account.' in public.read_my_workshare_summary()::text)=0, 'Unrelated users cannot read the note';
+end;
+$$;
+
+reset role;
+select public.save_workshare_account(private.workshare_account_snapshot('summary-linked-a') || '{"requireWorkshare":true,"workshareNote":""}');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"95111111-1111-4111-8111-111111111111","role":"authenticated"}',true);
+do $$
+declare item jsonb;
+begin
+  select value into item from jsonb_array_elements(public.read_my_workshare_summary('95222222-bbbb-4bbb-8bbb-bbbbbbbbbbbb')->'accounts') where value->>'id'='summary-linked-a';
+  assert item->'requireWorkshare' = 'true'::jsonb and item->>'workshareNote' = '', 'Staff can restore the requirement and clear a note';
+  assert item->'requirements'->>'generalHoursRequired' = '12', 'Requiring workshare again restores saved quotas';
+end;
+$$;
+
 rollback;
 \echo 'Workshare account summaries association, privacy, verification, historical totals, categories and blank-versus-zero passed.'

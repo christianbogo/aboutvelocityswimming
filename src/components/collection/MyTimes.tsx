@@ -1,14 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, ChevronDown, UserRound } from "lucide-react";
-import {
-  useEffect,
-  useId,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { ArrowUpRight, UserRound } from "lucide-react";
+import { useEffect, useId, useState } from "react";
 import { useAuth } from "@/features/workshare/contexts/auth";
 import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
 import {
@@ -27,13 +21,15 @@ import type { useStandards } from "./use-standards";
 import { useTimesSelection } from "./use-times-selection";
 import { useTimesDisplay } from "./use-times-display";
 import { strokeColumns, eventColumn, compareEvents } from "./event-layout";
-import { MotivationalRankIcon, RankLegend } from "./MotivationalRankIcon";
+import { MotivationalRankIcon } from "./MotivationalRankIcon";
 import { motivationalRankForRace } from "./motivational-ranks";
 import grid from "./TimeStandards.module.css";
 import times from "./TimesDatabase.module.css";
 import s from "./MyTimes.module.css";
 import MyTimesSkeleton from "./MyTimesSkeleton";
 import { SkeletonText } from "./LoadingSkeleton";
+import SelectionDropdown from "./TimesSelectionDropdown";
+import selectionStyles from "./TimesSelectionDropdown.module.css";
 
 export type MyTimesRankingSelection = {
   event: string;
@@ -67,85 +63,6 @@ function swimAgeGroup(age: number | null | undefined) {
     ([, , min, max]) => age != null && age >= min && age <= max,
   );
   return group ? group[0].replace("-", "–") : "age unavailable";
-}
-
-function cohortLabel(ageGroup: string | null, gender?: string | null) {
-  return [
-    gender === "F" ? "Girls" : gender === "M" ? "Boys" : "",
-    ageGroups.find(([key]) => key === ageGroup)?.[1] ?? ageGroup,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
-
-function SelectionDropdown({
-  label,
-  selection,
-  children,
-}: {
-  label: string;
-  selection: string;
-  children: (close: () => void) => ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const id = useId();
-  return (
-    <div
-      className={s.dropdown}
-      onPointerEnter={(event) => {
-        if (event.pointerType === "mouse") setOpen(true);
-      }}
-      onPointerLeave={(event) => {
-        if (
-          event.pointerType === "mouse" &&
-          !event.currentTarget
-            .querySelector('[role="group"]')
-            ?.contains(document.activeElement)
-        )
-          setOpen(false);
-      }}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          setOpen(false);
-          event.currentTarget.querySelector("button")?.focus();
-        }
-      }}
-    >
-      <button
-        type="button"
-        className={s.selection}
-        aria-label={`${label}: ${selection}`}
-        aria-expanded={open}
-        aria-controls={id}
-        onClick={(event) => setOpen(event.detail === 0 ? !open : true)}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowDown") {
-            event.preventDefault();
-            setOpen(true);
-          }
-        }}
-      >
-        <span className={s.selectionLabel}>{label}</span>
-        <span className={s.selectionValue}>
-          {selection}
-          <ChevronDown size={16} aria-hidden="true" />
-        </span>
-      </button>
-      {open && (
-        <div
-          id={id}
-          className={s.dropdownOptions}
-          role="group"
-          aria-label={`${label} options`}
-        >
-          {children(() => setOpen(false))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function DisplayToggle({
@@ -185,7 +102,7 @@ function MyTimesResults({
   const cardId = useId();
   const [athleteId, setAthleteId] = useTimesSelection("myAthlete", "");
   const [filters, setFilters] = useTimesSelection("myFilters", defaultFilters);
-  const { show25s, showTeamRanks, showRankIcon, change, status, ready } =
+  const { show25s, showTimeStats, showDateAge, change, status, ready } =
     useTimesDisplay();
   const athletes = [
     ...(preferences.primaryAthlete ? [preferences.primaryAthlete] : []),
@@ -292,13 +209,6 @@ function MyTimesResults({
       event.race ? motivationalRankForRace(event.race, standards.sets) : null,
     ]),
   );
-  const rankCounts: Record<string, number> = {};
-  for (const result of eventRanks.values()) {
-    if (result) {
-      const tier = result.rank.tier;
-      rankCounts[tier] = (rankCounts[tier] ?? 0) + 1;
-    }
-  }
   function openRankings(event: MyTimesEvent) {
     if (!details) return;
     const race = event.race;
@@ -360,7 +270,10 @@ function MyTimesResults({
       aria-label="Athlete times"
       aria-busy={loading}
     >
-      <section className={s.filterPanel} aria-label="Times filters">
+      <section
+        className={selectionStyles.filterPanel}
+        aria-label="Times filters"
+      >
         <SelectionDropdown label="Athlete" selection={athlete.name}>
           {(close) => (
             <>
@@ -525,15 +438,15 @@ function MyTimesResults({
           disabled={!ready}
         />
         <DisplayToggle
-          label="Show team ranks"
-          checked={showTeamRanks}
-          onChange={(checked) => change("showTeamRanks", checked)}
+          label="Show time stats"
+          checked={showTimeStats}
+          onChange={(checked) => change("showTimeStats", checked)}
           disabled={!ready}
         />
         <DisplayToggle
-          label="Show rank icon"
-          checked={showRankIcon}
-          onChange={(checked) => change("showRankIcon", checked)}
+          label="Show date & age"
+          checked={showDateAge}
+          onChange={(checked) => change("showDateAge", checked)}
           disabled={!ready}
         />
       </div>
@@ -541,12 +454,6 @@ function MyTimesResults({
         <p className={s.preferenceStatus} role="status">
           {status}
         </p>
-      )}
-      {showRankIcon && (
-        <RankLegend
-          counts={rankCounts}
-          loading={loading || (standards.loading && !standards.sets.length)}
-        />
       )}
       {failedQuery.error && (
         <p role="alert" className={s.notice}>
@@ -572,8 +479,8 @@ function MyTimesResults({
           }
           full={false}
           hide25s={!show25s}
-          showTeamRanks={showTeamRanks}
-          showRankIcon={showRankIcon}
+          showTimeStats={showTimeStats}
+          showDateAge={showDateAge}
         />
       )}
       {!loading &&
@@ -619,94 +526,91 @@ function MyTimesResults({
                             key={event.event}
                             className={`${grid.chip} ${s.card}`}
                             data-rank={rank?.rank.tier}
-                            style={
-                              rank
-                                ? ({
-                                    "--rank-color": rank.rank.color,
-                                  } as CSSProperties)
-                                : undefined
-                            }
                             aria-label={`View ${eventLabel(event.event)} rankings`}
                             aria-describedby={[
                               `${cardId}-${event.event}-time`,
-                              `${cardId}-${event.event}-date`,
-                              ...(showTeamRanks
+                              ...(showDateAge
+                                ? [`${cardId}-${event.event}-date`]
+                                : []),
+                              ...(showTimeStats
                                 ? [`${cardId}-${event.event}-rank`]
                                 : []),
-                              ...(showRankIcon && rank
+                              ...(showTimeStats && rank
                                 ? [`${cardId}-${event.event}-motivational`]
                                 : []),
                             ].join(" ")}
                             onClick={() => openRankings(event)}
                           >
-                            <span className={s.cardHeading}>
-                              <span className={grid.distance}>
-                                {event.event.split("_")[0]}{" "}
-                                {stroke === "DST" ? "Free" : heading}
+                            <span className={s.cardHeader}>
+                              <span className={s.cardHeading}>
+                                <span className={grid.distance}>
+                                  {event.event.split("_")[0]}{" "}
+                                  {stroke === "DST" ? "Free" : heading}
+                                </span>
                               </span>
-                            </span>
-                            <span
-                              className={s.raceDate}
-                              id={`${cardId}-${event.event}-date`}
-                            >
-                              {event.race ? (
-                                <>
-                                  <time dateTime={event.race.date.slice(0, 10)}>
-                                    {swimDate(event.race.date)}
-                                  </time>{" "}
-                                  <span className={s.swimAge}>
-                                    ({swimAgeGroup(event.race.ageAtSwim)})
-                                  </span>
-                                </>
-                              ) : (
-                                "No time in this selection"
+                              {showTimeStats && (
+                                <span className={s.rankIcon}>
+                                  {standards.loading &&
+                                  !standards.sets.length ? (
+                                    <SkeletonText width="100%" height="100%" />
+                                  ) : (
+                                    rank && (
+                                      <>
+                                        <MotivationalRankIcon
+                                          tier={rank.rank.tier}
+                                          size={28}
+                                        />
+                                        <span
+                                          className="sr-only"
+                                          id={`${cardId}-${event.event}-motivational`}
+                                        >
+                                          {rank.rank.name} rank:{" "}
+                                          {rank.rank.tier} motivational standard
+                                        </span>
+                                      </>
+                                    )
+                                  )}
+                                </span>
                               )}
                             </span>
-                            {showRankIcon && (
-                              <span className={s.rankIcon}>
-                                {standards.loading && !standards.sets.length ? (
-                                  <SkeletonText width={22} height={22} />
-                                ) : (
-                                  rank && (
-                                    <>
-                                      <MotivationalRankIcon
-                                        tier={rank.rank.tier}
-                                        size={28}
-                                      />
-                                      <span
-                                        className="sr-only"
-                                        id={`${cardId}-${event.event}-motivational`}
-                                      >
-                                        {rank.rank.name} rank: {rank.rank.tier}{" "}
-                                        motivational standard
-                                      </span>
-                                    </>
-                                  )
-                                )}
-                              </span>
-                            )}
                             <strong id={`${cardId}-${event.event}-time`}>
-                              <span className="sr-only">Best time: </span>
+                              <span className="sr-only">
+                                {event.race
+                                  ? "Best time: "
+                                  : "No time in this selection: "}
+                              </span>
                               {event.race
                                 ? formatSwimTime(event.race.time)
                                 : "—"}
                             </strong>
-                            {showTeamRanks && (
+                            {showDateAge && (
+                              <span
+                                className={s.raceDate}
+                                id={`${cardId}-${event.event}-date`}
+                              >
+                                {event.race ? (
+                                  <>
+                                    <time
+                                      dateTime={event.race.date.slice(0, 10)}
+                                    >
+                                      {swimDate(event.race.date)}
+                                    </time>{" "}
+                                    <span className={s.swimAge}>
+                                      ({swimAgeGroup(event.race.ageAtSwim)})
+                                    </span>
+                                  </>
+                                ) : (
+                                  "No time in this selection"
+                                )}
+                              </span>
+                            )}
+                            {showTimeStats && (
                               <span
                                 className={s.teamRank}
                                 id={`${cardId}-${event.event}-rank`}
                               >
                                 {event.allTimeRank !== null ? (
-                                  <>
-                                    Rank {event.allTimeRank}
-                                    <span>
-                                      of {event.allTimeCount} ·{" "}
-                                      {cohortLabel(
-                                        event.rankAgeGroup,
-                                        event.rankGender,
-                                      )}
-                                    </span>
-                                  </>
+                                  <>Rank #{event.allTimeRank}</>
                                 ) : (
                                   <>
                                     {event.race?.ageAtSwim != null
@@ -726,7 +630,7 @@ function MyTimesResults({
             </>
           )
         ))}
-      {standards.error && showRankIcon && (
+      {standards.error && showTimeStats && (
         <p className={s.notice} role="alert">
           Motivational ranks are temporarily unavailable.{" "}
           <button
@@ -738,21 +642,12 @@ function MyTimesResults({
           </button>
         </p>
       )}
-      {(showTeamRanks || showRankIcon) && (
+      {showTimeStats && (
         <p className={s.explainer}>
-          {showTeamRanks && (
-            <>
-              Team ranks compare the displayed time with each swimmer’s all-time
-              best in that swim’s age group. Select a card for all-time rankings
-              of swimmers in the same age group, gender, event, and course.{" "}
-            </>
-          )}
-          {showRankIcon && (
-            <>
-              Icons use the USA Swimming standard in effect on the displayed
-              swim’s date.
-            </>
-          )}
+          Team ranks compare the displayed time with each swimmer’s all-time
+          best in that swim’s age group. Select a card for all-time rankings of
+          swimmers in the same age group, gender, event, and course. Icons use
+          the USA Swimming standard in effect on the displayed swim’s date.
         </p>
       )}
     </section>

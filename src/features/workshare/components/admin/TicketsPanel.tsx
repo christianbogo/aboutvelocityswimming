@@ -216,50 +216,54 @@ export function TicketsPanel({
             </select>
           </label>
         )}
-        <label className={`${fieldClass} w-full max-w-48`}>
-          <span>Ticket category</span>
-          <select
-            className={selectClass}
-            value={category}
-            onChange={(event) => {
-              setCategory(event.target.value as TicketCategory | "");
-              setPage(1);
-            }}
-          >
-            <option value="">All categories</option>
-            {ticketCategories.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={`${fieldClass} w-full max-w-44`}>
-          <span>From date</span>
-          <Input
-            type="date"
-            value={from}
-            min={season.startsOn}
-            max={to || season.endsOn}
-            onChange={(event) => {
-              setFrom(event.target.value);
-              setPage(1);
-            }}
-          />
-        </label>
-        <label className={`${fieldClass} w-full max-w-44`}>
-          <span>To date</span>
-          <Input
-            type="date"
-            value={to}
-            min={from || season.startsOn}
-            max={season.endsOn}
-            onChange={(event) => {
-              setTo(event.target.value);
-              setPage(1);
-            }}
-          />
-        </label>
+        {!accountId && (
+          <>
+            <label className={`${fieldClass} w-full max-w-48`}>
+              <span>Ticket category</span>
+              <select
+                className={selectClass}
+                value={category}
+                onChange={(event) => {
+                  setCategory(event.target.value as TicketCategory | "");
+                  setPage(1);
+                }}
+              >
+                <option value="">All categories</option>
+                {ticketCategories.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={`${fieldClass} w-full max-w-44`}>
+              <span>From date</span>
+              <Input
+                type="date"
+                value={from}
+                min={season.startsOn}
+                max={to || season.endsOn}
+                onChange={(event) => {
+                  setFrom(event.target.value);
+                  setPage(1);
+                }}
+              />
+            </label>
+            <label className={`${fieldClass} w-full max-w-44`}>
+              <span>To date</span>
+              <Input
+                type="date"
+                value={to}
+                min={from || season.startsOn}
+                max={season.endsOn}
+                onChange={(event) => {
+                  setTo(event.target.value);
+                  setPage(1);
+                }}
+              />
+            </label>
+          </>
+        )}
         {(category || from || to || search || filterAccountId) && (
           <Button
             type="button"

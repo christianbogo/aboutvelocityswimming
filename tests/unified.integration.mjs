@@ -51,7 +51,7 @@ const record = async (client, path) => {
   return data?.[0]?.data ?? null;
 };
 const collect = async (path, after) => {
-  const { error } = await admin.rpc("collect_records", {
+  const { error } = await admin.rpc("test_write_records", {
     reads: [],
     writes: [{ path, after }],
   });
@@ -65,7 +65,7 @@ await test("legacy Workshare storage and actions remain retired", async () => {
   }
   for (const root of ["postings", "registrations", "manual_hours", "work_descriptions"]) {
     assert.deepEqual(await query(staff, root), []);
-    const result = await admin.rpc("collect_records", {
+    const result = await admin.rpc("test_write_records", {
       reads: [],
       writes: [{ path: `${root}/retired-test`, after: { text: "Retired" } }],
     });
@@ -206,7 +206,7 @@ await test("private captures deny public access and immutable evidence prevents 
   assert.ok(denied.error);
   const allowed = await staff.storage.from("evidence").download(path);
   assert.ifError(allowed.error);
-  const overwrite = await admin.rpc("collect_records", {
+  const overwrite = await admin.rpc("test_write_records", {
     reads: [],
     writes: [{ path: revisionPath, after: { ...value, hash: "forged" } }],
   });
@@ -261,106 +261,6 @@ await test("Times roster edits preserve family contact records and update inacti
     writes: [{ path: "teams/no-reviewed-state", after: { name: "Forged" } }],
   });
   assert.ok(invalid.error);
-});
-await test("collection is staging-only, isolated, deduplicated and atomically reviewed", async () => {
-  const token = "local-collector-" + crypto.randomUUID();
-  const tokenHash = (await import("node:crypto")).createHash("sha256").update(token).digest("hex");
-  execFileSync("docker", ["exec", "supabase_db_aboutvelocityswimming", "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1", "-c",
-    `insert into private.collection_workers(name,token_hash,divisions) values('Synthetic collector','${tokenHash}',array['times','workshare','knowledge']);`], { stdio: "pipe" });
-  const base = { division: "knowledge", scope: "Synthetic test", sourceUrl: "https://example.test/meet/" + crypto.randomUUID(), capturedAt: new Date().toISOString(), coverage: "partial", evidence: { text: "Synthetic meet evidence" } };
-  const suffix = Date.now();
-  const id = "test-knowledge-" + suffix;
-  const batch = { ...base, writes: [{ path: "knowledge_entries/" + id, after: { kind: "meet", title: "Synthetic meet", sourceUrl: base.sourceUrl, startsOn: "2026-10-01", endsOn: "2026-10-02" } }] };
-  const stage = (value, worker_token = token) => anon.rpc("stage_collection", { worker_token, batch: value });
-  assert.ok((await stage(batch, "wrong-token")).error);
-  const staged = await stage(batch); assert.ifError(staged.error);
-  const queue = await staff.from("collection_batch_queue").select("*").eq("id", staged.data).single();
-  assert.ifError(queue.error);
-  assert.equal(queue.data.writes[0].after.title, "Synthetic meet");
-  assert.equal(queue.data.writes[0].after.sourceUrl, undefined);
-  assert.equal(queue.data.evidence, undefined);
-  assert.equal((await familyA.from("collection_batch_queue").select("id")).data.length, 0);
-  assert.ok((await anon.from("collection_batch_queue").select("id")).error);
-
-  assert.equal((await anon.from("knowledge_entries").select("id").eq("id", id)).data.length, 0);
-  assert.equal((await familyA.from("collection_batches").select("id")).data.length, 0);
-  assert.equal((await anon.from("collection_batches").select("id")).data?.length ?? 0, 0);
-  const duplicate = await stage(batch); assert.ifError(duplicate.error); assert.equal(duplicate.data, staged.data);
-  assert.ok((await familyA.rpc("review_collection", { batch_id: staged.data, decision: "approved", note: "" })).error);
-  assert.ifError((await staff.rpc("review_collection", { batch_id: staged.data, decision: "held", note: "Check source" })).error);
-  assert.equal((await anon.from("knowledge_entries").select("id").eq("id", id)).data.length, 0);
-  assert.ifError((await staff.rpc("review_collection", { batch_id: staged.data, decision: "approved", note: "Verified" })).error);
-  assert.equal((await anon.from("knowledge_entries").select("id").eq("id", id)).data.length, 1);
-  assert.ok((await staff.rpc("review_collection", { batch_id: staged.data, decision: "approved", note: "Again" })).error);
-  assert.ok((await stage({ ...batch, division: "workshare" })).error);
-  assert.ok((await stage({ ...batch, writes: [{ path: "knowledge_entries/" + id, after: null }] })).error);
-
-  const declined = await stage({ ...batch, writes: [{ ...batch.writes[0], path: "knowledge_entries/declined-" + suffix }] }); assert.ifError(declined.error);
-  assert.ifError((await staff.rpc("review_collection", { batch_id: declined.data, decision: "declined", note: "Wrong match" })).error);
-  const repeated = await stage({ ...batch, writes: [{ ...batch.writes[0], path: "knowledge_entries/declined-" + suffix }] });
-  assert.equal(repeated.data, declined.data);
-  assert.equal((await staff.from("collection_batches").select("status").eq("id", declined.data).single()).data.status, "declined");
-
-  const before = await record(staff, "teams/velocity-swimming");
-  const stale = await stage({ ...base, division: "times", writes: [
-    { path: "meets/stale-" + suffix, after: { name: "Must not be written" } },
-    { path: "teams/velocity-swimming", after: { ...before, name: "Collected name" } }
-  ] }); assert.ifError(stale.error);
-  await collect("teams/velocity-swimming", { ...before, name: "Edited since collection" });
-  const decision = await staff.rpc("review_collection", { batch_id: stale.data, decision: "approved", note: "" });
-  assert.equal(decision.error?.code, "PT409");
-  assert.equal(await record(staff, "meets/stale-" + suffix), null);
-  await collect("teams/velocity-swimming", before);
-
-  // A collector may supply writes in arbitrary order. Approval must insert
-  // parents first, and a missing parent must leave the whole batch pending.
-  const dependencyRace = await record(staff, "swims/test-race-1");
-  const dependencyId = "dependency-" + suffix;
-  const reversed = await stage({ ...base, division: "times", writes: [
-    { path: "swims/" + dependencyId, after: { ...dependencyRace, id: dependencyId, athleteId: dependencyId, meet: { ...dependencyRace.meet, id: dependencyId } } },
-    { path: "meets/" + dependencyId, after: { name: "Dependency meet", teamId: "velocity-swimming", venueId: dependencyId } },
-    { path: "athletes/" + dependencyId, after: { name: { first: "Dependency", last: "Swimmer" }, teamId: "velocity-swimming" } },
-    { path: "venues/" + dependencyId, after: { name: "Dependency pool", teamId: "velocity-swimming" } },
-  ] }); assert.ifError(reversed.error);
-  assert.ifError((await staff.rpc("review_collection", { batch_id: reversed.data, decision: "approved", note: "Reversed writes verified" })).error);
-  assert.equal((await record(staff, "swims/" + dependencyId)).meet.id, dependencyId);
-
-  const missingId = "missing-meet-" + suffix;
-  const missing = await stage({ ...base, division: "times", writes: [
-    { path: "meets/atomic-" + suffix, after: { name: "Must roll back" } },
-    { path: "swims/" + missingId, after: { ...dependencyRace, id: missingId, athleteId: dependencyId, meet: { ...dependencyRace.meet, id: missingId } } },
-  ] }); assert.ifError(missing.error);
-  const missingApproval = await staff.rpc("review_collection", { batch_id: missing.data, decision: "approved", note: "" });
-  assert.equal(missingApproval.error?.code, "23503");
-  assert.match(missingApproval.error.message, /Approve the meet batch/);
-  assert.equal(await record(staff, "meets/atomic-" + suffix), null);
-  assert.equal((await staff.from("collection_batches").select("status").eq("id", missing.data).single()).data.status, "pending");
-  const parent = await stage({ ...base, division: "times", writes: [{ path: "meets/" + missingId, after: { name: "Parent meet" } }] }); assert.ifError(parent.error);
-  assert.ifError((await staff.rpc("review_collection", { batch_id: parent.data, decision: "approved", note: "Parent first" })).error);
-  assert.equal((await staff.rpc("review_collection", { batch_id: missing.data, decision: "approved", note: "Parent now exists" })).error?.code, "PT409");
-  const original = await staff.from("collection_batches").select("writes").eq("id", missing.data).single(); assert.ifError(original.error);
-  // Existing collectors do not supply identityGuard. Their unchanged proposal
-  // must still refresh after an unrelated canonical prerequisite was approved.
-  const fresh = await stage({ ...base, division: "times", writes: original.data.writes }); assert.ifError(fresh.error);
-  assert.notEqual(fresh.data, missing.data);
-  assert.ifError((await staff.rpc("review_collection", { batch_id: fresh.data, decision: "approved", note: "Parent checked in fresh proposal" })).error);
-  for (const path of [
-    "swims/" + missingId, "swims/" + dependencyId,
-    "athletes/" + dependencyId, "public_athletes/" + dependencyId, "people/person_" + dependencyId,
-    "meets/" + missingId, "meets/" + dependencyId, "venues/" + dependencyId,
-    "meets/atomic-" + suffix,
-  ]) await collect(path, null);
-
-
-  const family = await record(staff, "families/family-a");
-  assert.ok((await stage({ ...base, division: "workshare", writes: [{ path: "families/family-a", after: { ...family, children: [] } }] })).error);
-  assert.ok((await stage({ ...base, division: "workshare", writes: [{ path: "families/family-a", after: { ...family, authorizedEmails: [] } }] })).error);
-  const members = await stage({ ...base, division: "workshare", writes: [{ path: "families/family-a", after: { ...family, accountName: "Reviewed household" } }] }); assert.ifError(members.error);
-  assert.ifError((await staff.rpc("review_collection", { batch_id: members.data, decision: "approved", note: "Verified roster" })).error);
-  assert.equal((await record(familyA, "families/family-a")).accountName, "Reviewed household");
-  await collect("families/family-a", family);
-  execFileSync("docker", ["exec", "supabase_db_aboutvelocityswimming", "psql", "-U", "postgres", "-c", `update private.collection_workers set revoked_at=now() where token_hash='${tokenHash}';`], { stdio: "pipe" });
-  assert.ok((await stage(batch)).error);
 });
 await test("public race history never exposes private source fields", async () => {
   const before = await record(staff, "swims/test-race-1");

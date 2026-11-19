@@ -10,7 +10,7 @@
 .heading {
   padding: 12px clamp(14px, 2vw, 22px);
   border-bottom: 1px solid var(--border);
-  justify-content: space-between;
+  justify-content: flex-end;
   min-height: 61px;
 }
 
@@ -28,7 +28,6 @@
   display: none;
 }
 
-.toggle,
 .save {
   display: inline-flex;
   align-items: center;
@@ -40,20 +39,10 @@
   font-weight: 650;
 }
 
-.toggle {
-  margin-inline-start: -10px;
-  color: var(--text-main);
-}
-
-.toggle[aria-expanded="false"] svg {
-  transform: rotate(-90deg);
-}
-
 .save {
   color: var(--accent);
   background: var(--background-alt);
   border: 1px solid var(--border);
-  min-width: 176px;
   justify-content: center;
 }
 

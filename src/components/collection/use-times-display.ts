@@ -5,7 +5,11 @@ import { useAuth } from "@/features/workshare/contexts/auth";
 import { browserClient } from "@/lib/supabase/client";
 import { withUpdateHold } from "@/lib/update-safety";
 
-const defaults = { show25s: false, showTeamRanks: false, showRankIcon: false };
+const defaults = {
+  show25s: false,
+  showTimeStats: false,
+  showDateAge: false,
+};
 type Display = typeof defaults;
 
 export function useTimesDisplay() {
@@ -34,6 +38,11 @@ export function useTimesDisplay() {
         const next = { ...defaults };
         for (const key of Object.keys(defaults) as (keyof Display)[]) {
           if (typeof saved?.[key] === "boolean") next[key] = saved[key];
+        }
+        // Keep stats enabled for profiles that used either previous toggle.
+        if (typeof saved?.showTimeStats !== "boolean") {
+          next.showTimeStats =
+            saved?.showTeamRanks === true || saved?.showRankIcon === true;
         }
         current.current = next;
         setDisplay(next);

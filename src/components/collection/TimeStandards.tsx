@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpRight, ChevronDown, X } from "lucide-react";
-import { useId, useRef, type CSSProperties } from "react";
+import { useId, useRef } from "react";
 import { hasBackendConfiguration } from "@/lib/supabase/client";
 import type { StandardSet } from "@/features/swim-resources/types/schema";
 import { useTimesSelection } from "./use-times-selection";
@@ -389,14 +389,7 @@ export default function TimeStandards({
               </div>
             </div>
           </section>
-          <div
-            className={s.grid}
-            style={
-              rank
-                ? ({ "--rank-color": rank.color } as CSSProperties)
-                : undefined
-            }
-          >
+          <div className={s.grid}>
             {strokeColumns.map(([stroke, heading, title]) => (
               <section key={stroke} className={s.column} aria-label={title}>
                 <h2 title={title}>{heading}</h2>

@@ -7,6 +7,13 @@
   margin: auto;
   padding: 24px 28px 80px;
 }
+.recordsContent {
+  --records-page-gutter: 28px;
+}
+.content.recordsContent {
+  max-width: none;
+  padding-top: 0;
+}
 .toolHeader {
   position: sticky;
   top: var(--tool-toolbar-height, 0px);
@@ -99,6 +106,53 @@
 }
 .rankingToolbar {
   background: var(--background-alt);
+}
+.rankingsPanel {
+  overflow: visible;
+}
+.rankingsPanel .rankingFilters {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--border);
+}
+.rankingsPanel .rankingFilters > div {
+  min-width: 0;
+  border: 0;
+  background: var(--surface);
+}
+.rankingsPanel .rankingFilters > div > button {
+  height: 100%;
+  border-radius: 0;
+}
+.rankingsPanel .rankingFilters > div:last-child > [role="group"] {
+  left: auto;
+  right: 0;
+}
+@container times-results (max-width: 1000px) {
+  .rankingsPanel .rankingFilters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .rankingsPanel .rankingFilters > div:nth-child(3n) > [role="group"] {
+    left: auto;
+    right: 0;
+  }
+}
+@container times-results (max-width: 550px) {
+  .rankingsPanel .rankingFilters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .rankingsPanel .rankingFilters > div:nth-child(odd) > [role="group"] {
+    left: 0;
+    right: auto;
+  }
+  .rankingsPanel .rankingFilters > div:nth-child(even) > [role="group"] {
+    left: auto;
+    right: 0;
+  }
 }
 .link {
   color: var(--accent);
@@ -220,6 +274,7 @@
 }
 @media (max-width: 820px) {
   .recordsContent {
+    --records-page-gutter: 12px;
     padding-inline: 12px;
   }
 }
@@ -228,6 +283,7 @@
     padding: 16px 16px 50px;
   }
   .recordsContent {
+    --records-page-gutter: 8px;
     padding-inline: 8px;
   }
   .filterSummary {
@@ -393,6 +449,12 @@
 .strokeSelector {
   width: 100%;
   max-width: 360px;
+}
+.eventDialog:has(> .strokeSelector) {
+  width: min(402px, calc(100vw - 32px));
+}
+.eventDialog > .strokeSelector {
+  max-width: none;
 }
 .strokeColumns {
   display: grid;

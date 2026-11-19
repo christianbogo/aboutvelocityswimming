@@ -1,29 +1,40 @@
 .records {
   --record-board-background: #0b665d;
+  --records-topbar-height: 110px;
   min-width: 0;
 }
 .controls {
+  position: sticky;
+  top: var(--tool-toolbar-height, 0px);
+  z-index: 20;
   scroll-margin-top: calc(var(--tool-toolbar-height, 0px) + 12px);
-  width: 100%;
-  max-width: 960px;
-  margin: 0 auto 24px;
+  width: calc(100% + 2 * var(--records-page-gutter));
+  margin: 0 calc(-1 * var(--records-page-gutter)) 16px;
+  padding: 4px var(--records-page-gutter) 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
   text-align: center;
+}
+.jumpLinks {
+  max-width: 960px;
+  margin-inline: auto;
 }
 .jumpLinks {
   display: grid;
   width: 100%;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
+  overflow-x: auto;
 }
 .jumpRow {
   display: grid;
-  grid-template-columns: 70px repeat(7, minmax(0, 1fr));
+  grid-template-columns: 70px repeat(7, minmax(48px, 1fr));
+  min-width: 406px;
   padding-block: 5px;
 }
 .jumpRow + .jumpRow {
   border-top: 1px solid var(--border);
+}
+.jumpRow > button {
+  white-space: nowrap;
 }
 .jumpLinks button {
   display: flex;
@@ -52,14 +63,17 @@
   color: var(--accent);
 }
 .jumpLinks .courseLink {
+  position: sticky;
+  left: 0;
+  z-index: 1;
   justify-content: center;
   padding-inline: 10px;
+  background: var(--surface);
   color: var(--accent);
   font-weight: 750;
 }
 .renderAll {
   display: inline-block;
-  margin-top: 12px;
   padding: 4px;
   border: 0;
   background: none;
@@ -69,9 +83,14 @@
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
+.footer {
+  text-align: center;
+}
 .course,
 .ageSection {
-  scroll-margin-top: calc(var(--tool-toolbar-height, 0px) + 12px);
+  scroll-margin-top: calc(
+    var(--tool-toolbar-height, 0px) + var(--records-topbar-height) + 12px
+  );
 }
 .course {
   width: 100%;
@@ -118,8 +137,8 @@
   margin-inline: auto;
 }
 .table {
-  --cell-padding-block: 6px;
-  --cell-padding-inline: 6px;
+  --cell-padding-block: 3px;
+  --cell-padding-inline: 3px;
   width: 100%;
   table-layout: fixed;
   border-collapse: collapse;
@@ -141,9 +160,17 @@ col.boysColumn {
   border: 0;
 }
 .recordCell {
+  /* Let the inner stack fill the row height determined by either record. */
+  height: 1px;
   vertical-align: middle;
 }
+.recordCell > div {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
 .table .recordBoard {
+  flex: 1;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 82px 36px;
   align-items: center;
@@ -159,7 +186,7 @@ col.boysColumn {
   text-align: left;
 }
 .recordBoard + .recordBoard {
-  margin-top: 6px;
+  margin-top: 3px;
 }
 .recordCell[data-relay="true"] .recordBoard {
   min-height: 66px;
@@ -233,25 +260,20 @@ col.boysColumn {
   text-align: right;
 }
 .event {
+  position: relative;
   text-align: center;
   font-weight: 750;
   color: white;
 }
 .event > span {
+  position: absolute;
+  inset: var(--cell-padding-block) var(--cell-padding-inline);
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 42px;
   padding: 10px 6px;
   border-radius: 7px;
   background: var(--primary-dark);
-}
-.relayEvent {
-  position: relative;
-}
-.relayEvent > span {
-  position: absolute;
-  inset: var(--cell-padding-block) var(--cell-padding-inline);
 }
 .table .missing {
   color: var(--text-muted);
@@ -265,21 +287,16 @@ col.boysColumn {
   font-size: 13px;
 }
 @container times-workspace (max-width: 820px) {
-  .course,
-  .ageSection {
-    scroll-margin-top: calc(var(--tool-toolbar-height, 0px) + 70px);
+  .records {
+    --records-topbar-height: 168px;
   }
   .genderToggle {
-    position: sticky;
-    top: var(--tool-toolbar-height, 0px);
-    z-index: 20;
+    max-width: 320px;
+    margin-inline: auto;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
     padding-block: 7px;
-    margin-bottom: 6px;
-    border-bottom: 1px solid var(--border);
-    background: var(--background);
   }
   .genderToggle button {
     min-height: 44px;
@@ -321,13 +338,6 @@ col.boysColumn {
   }
   .event {
     text-align: left;
-  }
-  .mobileEvent {
-    position: relative;
-  }
-  .mobileEvent > span {
-    position: absolute;
-    inset: var(--cell-padding-block) var(--cell-padding-inline);
   }
   .event > span {
     justify-content: flex-start;
@@ -382,14 +392,12 @@ col.boysColumn {
     margin-bottom: 12px;
   }
   .jumpRow {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-  .jumpLinks .courseLink {
-    grid-column: 1 / -1;
+    grid-template-columns: 48px repeat(7, minmax(48px, 1fr));
+    min-width: 384px;
   }
   .table {
-    --cell-padding-block: 4px;
-    --cell-padding-inline: 3px;
+    --cell-padding-block: 2px;
+    --cell-padding-inline: 2px;
   }
   .tableTitle h3 {
     font-size: 18px;

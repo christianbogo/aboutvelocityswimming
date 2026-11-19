@@ -156,7 +156,7 @@ const timesParams = (url) => {
   return pathname === "/api/times" ? searchParams : null;
 };
 try {
-  const seeded = await admin.rpc("collect_records", { reads: [], writes });
+  const seeded = await admin.rpc("test_write_records", { reads: [], writes });
   assert.ifError(seeded.error);
   console.log("Seeded isolated My Times browser fixtures.");
   assert.ifError(
@@ -960,7 +960,7 @@ try {
         athletes.map(({ id }) => id),
       );
     assert.ifError(people.error);
-    const cleaned = await admin.rpc("collect_records", {
+    const cleaned = await admin.rpc("test_write_records", {
       reads: [],
       writes: [
         ...writes

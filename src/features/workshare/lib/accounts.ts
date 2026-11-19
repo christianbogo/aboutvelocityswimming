@@ -13,6 +13,8 @@ export interface WorkshareAccount {
   fullName: string;
   emails: string[];
   athletes: RosterAthlete[];
+  requireWorkshare?: boolean;
+  workshareNote?: string;
   currentSeason: string | null;
   generalHoursRequired: number | null;
   starlightHoursRequired: number | null;
@@ -26,6 +28,8 @@ export function emptyAccount(): WorkshareAccount {
     fullName: "",
     emails: [],
     athletes: [],
+    requireWorkshare: true,
+    workshareNote: "",
     currentSeason: null,
     generalHoursRequired: null,
     starlightHoursRequired: null,
@@ -79,6 +83,8 @@ export function saveWorkshareAccount(account: WorkshareAccount) {
             isArchived: athlete.isArchived,
           })),
           isArchived: account.isArchived,
+          ...(account.requireWorkshare === undefined ? {} : { requireWorkshare: account.requireWorkshare }),
+          ...(account.workshareNote === undefined ? {} : { workshareNote: account.workshareNote }),
         }),
       });
     } catch {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateLeadOff } from '@/features/swim-resources/lib/domain/relay';
 import { canonicalSwim } from '@/features/swim-resources/lib/domain/swim';
-import { validateImportData } from '@/features/swim-resources/lib/domain/import-batch';
+import { validateRecord } from '@/lib/results/validate';
 import type { OfficialGoMotionLeadOffVerification } from '@/features/swim-resources/types/schema';
 
 const proof = (): OfficialGoMotionLeadOffVerification => ({
@@ -22,10 +22,24 @@ const swim = () => ({
 });
 
 describe('versioned official source lead-off validation', () => {
+  it('accepts original meet attestations and requires their reference and first-leg facts', () => {
+    const source = { ...swim(), leadOffVerification: {
+      method: 'Official meet result', attestationId: '33333333-3333-4333-8333-333333333333',
+      verified: true, flatStart: true, timingVerified: true, leadOffStatus: 'OK',
+      sourceUrl: 'https://example.test/original-results.pdf',
+    } };
+    expect(() => validateLeadOff(source)).not.toThrow();
+    expect(() => validateRecord('swim', source)).not.toThrow();
+    for (const patch of [{ attestationId: undefined }, { attestationId: 'unreviewed' }, { flatStart: false }, { sourceUrl: 'javascript:bad' }]) {
+      expect(() => validateLeadOff({ ...source, leadOffVerification: { ...source.leadOffVerification, ...patch } })).toThrow();
+    }
+    expect(() => validateLeadOff({ ...source, isSplit: true })).toThrow();
+    expect(() => validateLeadOff({ ...source, parentRelayResultId: 'invented-parent' })).toThrow();
+  });
   it('preserves the complete private proof through both canonical write validators', () => {
     const source = swim();
     expect(() => validateLeadOff(source)).not.toThrow();
-    expect(() => validateImportData('swim', source)).not.toThrow();
+    expect(() => validateRecord('swim', source)).not.toThrow();
     expect(canonicalSwim(source).leadOffVerification).toEqual(source.leadOffVerification);
     expect(canonicalSwim(source)).not.toHaveProperty('parentRelayResultId');
   });
@@ -40,7 +54,7 @@ describe('versioned official source lead-off validation', () => {
     for (const sourceUrl of ['http://example.test/official-result', 'https://example.test/official-result']) {
       const source = { ...swim(), leadOffVerification: { ...proof(), sourceUrl } };
       expect(() => validateLeadOff(source)).not.toThrow();
-      expect(() => validateImportData('swim', source)).not.toThrow();
+      expect(() => validateRecord('swim', source)).not.toThrow();
       expect(canonicalSwim(source).leadOffVerification?.sourceUrl).toBe(sourceUrl);
     }
   });
@@ -80,7 +94,7 @@ describe('versioned official source lead-off validation', () => {
       leadOffVerification: { verified: true, flatStart: true, timingVerified: true,
         leadOffStatus: 'OK', sourceUrl: 'http://example.test/official-result' } };
     expect(() => validateLeadOff(linked)).not.toThrow();
-    expect(() => validateImportData('swim', linked)).not.toThrow();
+    expect(() => validateRecord('swim', linked)).not.toThrow();
     expect(() => validateLeadOff({ ...linked, parentRelayStatus: 'DQ' })).not.toThrow();
     expect(() => validateLeadOff({ ...linked, parentRelayResultId: undefined })).toThrow();
   });

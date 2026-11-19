@@ -186,6 +186,8 @@ describe("ticket and requirement saves", () => {
       emails: [],
       athletes: [],
       isArchived: false,
+      requireWorkshare: true,
+      workshareNote: "",
     });
     await saveTicket({
       id: "ticket",

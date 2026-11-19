@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { ToolSidebarFocus } from "./ToolSidebarFocus";
 import Link from "next/link";
 import { Monitor, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
 import {
@@ -113,6 +114,7 @@ export default function ToolSidebar({
   const sidebar = useRef<HTMLElement>(null);
   const mobileToggle = useRef<HTMLButtonElement>(null);
   const expandButton = useRef<HTMLButtonElement>(null);
+  const [focused, setFocused] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsedOverride, setCollapsedOverride] = useState<boolean>();
   const [dragWidth, setDragWidth] = useState<number>();
@@ -128,7 +130,7 @@ export default function ToolSidebar({
     () => false,
   );
   const savedWidth = useSyncExternalStore(subscribeToWidth, getSavedWidth, () => defaultWidth);
-  const collapsed = collapsedOverride ?? savedCollapsed;
+  const collapsed = focused || (collapsedOverride ?? savedCollapsed);
   const width = dragWidth ?? savedWidth;
 
   useEffect(() => {
@@ -185,6 +187,7 @@ export default function ToolSidebar({
       const shortcut = event.key === "[" && !event.metaKey && !event.ctrlKey && !event.altKey;
       if (!shortcut && !((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "b")) return;
       event.preventDefault();
+      if (collapsed) setFocused(false);
       setCollapsedOverride(!collapsed);
       savePreference(collapseStorageKey, String(!collapsed));
       if (sidebar.current?.contains(document.activeElement)) {
@@ -203,6 +206,7 @@ export default function ToolSidebar({
   }, [collapsed, mobileOpen]);
 
   function setDesktopCollapsed(next: boolean) {
+    if (!next) setFocused(false);
     setCollapsedOverride(next);
     savePreference(collapseStorageKey, String(next));
     requestAnimationFrame(() => {
@@ -245,6 +249,7 @@ export default function ToolSidebar({
     </>
   );
   return (
+    <ToolSidebarFocus value={setFocused}>
     <div className={styles.frame} data-tool-sidebar data-drawer-open={mobileOpen}>
       <header className={styles.mobileHeader}>
         <button
@@ -344,5 +349,6 @@ export default function ToolSidebar({
       </aside>
       <div className={styles.content} inert={mobileOpen}>{children}</div>
     </div>
+    </ToolSidebarFocus>
   );
 }

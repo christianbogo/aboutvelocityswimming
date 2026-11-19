@@ -18,7 +18,7 @@ jobs:
         with:
           version: 2.117.0
       - run: npm ci
-      - run: supabase start -x studio,imgproxy,logflare,vector,supavisor
+      - run: node scripts/results/prepare-retirement-test.mjs
       - run: npm run seed:local
       - run: npm run verify
       - run: npx playwright install --with-deps chromium
@@ -29,12 +29,8 @@ jobs:
             curl --fail --silent http://127.0.0.1:3001/tools > /dev/null && break
             sleep 1
           done
-          node scripts/unified/import-fixture.mjs
           npm run test:browser
           npm run test:records:browser
-          npm run test:collection:browser
-          npm run test:baseline:browser
-          npm run test:imports:browser
       - name: Check database advisors
         run: supabase db advisors --local --type all --fail-on error
       - name: Stop local services

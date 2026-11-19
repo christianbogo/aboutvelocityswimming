@@ -182,7 +182,7 @@ const paramsFor = (url) =>
   new URL(url).pathname === "/api/times" ? new URL(url).searchParams : null;
 try {
   assert.ifError(
-    (await admin.rpc("collect_records", { reads: [], writes })).error,
+    (await admin.rpc("test_write_records", { reads: [], writes })).error,
   );
   seeded = true;
   console.log(
@@ -564,7 +564,7 @@ try {
         athletes.map(({ id }) => id),
       );
     assert.ifError(people.error);
-    const cleanup = await admin.rpc("collect_records", {
+    const cleanup = await admin.rpc("test_write_records", {
       reads: [],
       writes: [
         ...writes

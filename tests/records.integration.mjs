@@ -90,7 +90,7 @@ await test("Data API preserves staff, household, and anonymous record visibility
   assert.deepEqual(await query("familyA", "admins"), []);
   const family = (await query("staff", "families", "family-a"))[0].data;
   assert.ok(family.authorizedEmails.includes("family-a@example.test"));
-  assert.ok(family.children.some((child) => child.id === "test-swimmer-a" && child.name === "Avery Example"));
+  assert.deepEqual(family.children, []); // Retired Workshare child links are not inferred from swimmer profiles.
   const athlete = (await query("staff", "athletes", "test-swimmer-a"))[0].data;
   assert.equal(athlete.name.first, "Avery");
   assert.equal(athlete.personId, "person_test-swimmer-a");

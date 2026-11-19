@@ -5,6 +5,7 @@ import SearchableSelect, {
 } from "@/components/shared/SearchableSelect";
 import TimesEventSelector from "./TimesEventSelector";
 import s from "./TimesDatabase.module.css";
+import selection from "./TimesSelectionDropdown.module.css";
 
 export function FilterSummary({
   label,
@@ -40,11 +41,13 @@ export function PopupPicker({
   hideLabel = false,
   showChevron = true,
   searchPlaceholder,
+  compact = false,
 }: {
   label: string;
   hideLabel?: boolean;
   showChevron?: boolean;
   searchPlaceholder?: string;
+  compact?: boolean;
   value: string;
   onChange: (value: string) => void;
   options: [string, string][];
@@ -71,15 +74,21 @@ export function PopupPicker({
     );
   }
   return (
-    <div className={`${s.field} ${isEvent ? s.eventField : ""}`}>
+    <div
+      className={
+        compact
+          ? selection.dropdown
+          : `${s.field} ${isEvent ? s.eventField : ""}`
+      }
+    >
       <label
         id={`${id}-label`}
         htmlFor={id}
-        className={isEvent || hideLabel ? "sr-only" : undefined}
+        className={isEvent || hideLabel || compact ? "sr-only" : undefined}
       >
         {label}
       </label>
-      {isEvent && (
+      {isEvent && !compact && (
         <div
           className={s.inlineEventSelector}
           role="group"
@@ -98,7 +107,7 @@ export function PopupPicker({
       <button
         id={id}
         type="button"
-        className={s.eventTrigger}
+        className={compact ? selection.selection : s.eventTrigger}
         aria-haspopup="dialog"
         aria-describedby={`${id}-value`}
         onClick={() => {
@@ -108,12 +117,21 @@ export function PopupPicker({
             ?.focus();
         }}
       >
-        <span id={`${id}-value`}>
+        {compact && <span className={selection.selectionLabel}>{label}</span>}
+        <span
+          id={`${id}-value`}
+          className={compact ? selection.selectionValue : undefined}
+        >
           {options.find(([key]) => key === value)?.[1] ??
             all ??
             `Select ${label.toLowerCase()}`}
+          {compact && showChevron && (
+            <ChevronDown size={16} aria-hidden="true" />
+          )}
         </span>
-        {showChevron && <ChevronDown size={16} />}
+        {!compact && showChevron && (
+          <ChevronDown size={16} aria-hidden="true" />
+        )}
       </button>
       <dialog
         ref={dialog}

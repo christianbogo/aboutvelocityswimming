@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import Image from "next/image";
 import Footer from "@/components/Footer";
 import StoreProductGallery from "@/components/StoreProductGallery";
@@ -45,6 +46,8 @@ async function getProducts() {
 }
 
 export default async function StorePage() {
+  // Resolve credentials at request time, including deployments built without secrets.
+  await connection();
   const products = await getProducts();
   
   return (
@@ -122,7 +125,7 @@ export default async function StorePage() {
         {/* Product Sections */}
         {products.length === 0 ? (
           <section className={scopedClasses(styles, 'luxury-section')}>
-            <p style={{ color: "var(--text-muted)" }}>Collection arriving soon...</p>
+            <p style={{ color: "var(--text-muted)" }}>The collection is temporarily unavailable. Please try again shortly.</p>
           </section>
         ) : (
           products.map((p) => {

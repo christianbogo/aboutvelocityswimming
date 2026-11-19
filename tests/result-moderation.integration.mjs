@@ -35,6 +35,8 @@ INSERT INTO auth.users(id,email,email_confirmed_at) VALUES
  ('1f25093a-a2ed-4ea6-a3ae-e38fe783cb82','moderation-user@example.test',now()),
  ('1f25093a-a2ed-4ea6-a3ae-e38fe783cb83','moderation-unverified@example.test',null);
 INSERT INTO public.administrators(user_id) VALUES ('1f25093a-a2ed-4ea6-a3ae-e38fe783cb81'),('1f25093a-a2ed-4ea6-a3ae-e38fe783cb83');
+DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM auth.users WHERE email='christiancutter02@gmail.com') THEN INSERT INTO auth.users(id,email,email_confirmed_at) VALUES(gen_random_uuid(),'christiancutter02@gmail.com',now()); END IF; END $$;
+SELECT set_config('velocity.test_owner_id',(SELECT id::text FROM auth.users WHERE email='christiancutter02@gmail.com'),true);
 SELECT private.put_record('teams/velocity-swimming','{"name":"Atomic Swim Club fixture","lscCode":"IE"}');
 SELECT private.put_record('meets/mod-fixture-meet','{"name":"2026 IE PSA Pendleton Open fixture"}');
 SELECT private.put_record('athletes/mod-fixture-athlete','{"id":"mod-fixture-athlete","name":{"first":"Maison","last":"Velasquez"},"status":"active","teamId":"velocity-swimming"}');
@@ -54,7 +56,7 @@ SELECT private.refresh_team_records();
 CREATE FUNCTION pg_temp.query(kind text, extra jsonb default '{}') RETURNS jsonb LANGUAGE sql AS $$
  SELECT public.ies_times_query(kind,'{"team":"velocity-swimming","event":"100_FR","course":"LCM","mode":"bests","genders":["M"],"athleteId":"mod-fixture-athlete"}'::jsonb||extra); $$;
 SET LOCAL ROLE authenticated;
-SELECT set_config('request.jwt.claims','{"sub":"1f25093a-a2ed-4ea6-a3ae-e38fe783cb81","role":"authenticated"}',true);
+SELECT set_config('request.jwt.claims',jsonb_build_object('sub',current_setting('velocity.test_owner_id'),'role','authenticated')::text,true);
 `;
 const flag = (id, version = 0, kind = "swim") =>
   `SELECT public.moderate_result('${kind}','${id}','flag','incorrect_time','private-staff-note',${version});`;
@@ -75,6 +77,7 @@ test("flag excludes incorrect 26.15 from all calculations, retains flagged race 
  SELECT pg_temp.check_ok(pg_temp.query('rankings')#>>'{total}'='2','both valid athletes remain');
  SELECT pg_temp.check_ok(pg_temp.query('rankings')#>>'{rows,0,rank}'='1' AND pg_temp.query('rankings')#>>'{rows,1,rank}'='1','ties rerank');
  SELECT pg_temp.check_ok(NOT (pg_temp.query('records')::text LIKE '%mod-fixture-bad%'),'records exclude');
+ SELECT pg_temp.check_ok(public.ies_team_records_board('{"team":"velocity-swimming"}')->'races' @> '[{"id":"mod-fixture-next"},{"id":"mod-fixture-tie"}]','record board promotes tied replacements immediately');
  SELECT pg_temp.check_ok(EXISTS (
   SELECT 1 FROM jsonb_array_elements(public.ies_my_times_all_time('{"athleteId":"mod-fixture-athlete","course":"LCM"}')#>'{myTimes,events}') e
   WHERE e->>'event'='100_FR' AND e#>>'{race,id}'='mod-fixture-next'
@@ -128,7 +131,7 @@ test("relay exclusion propagates to lead-offs, child flags survive parent restor
  ${restore("mod-fixture-split")}
  SELECT pg_temp.check_ok(public.ies_times_json_id('mod-fixture-split')->>'calculationEligible'='false','restored split remains ineligible');
 `));
-test("anonymous, nonstaff and unverified staff cannot moderate or read private evidence", () =>
+test("anonymous, non-owner staff and unverified users cannot moderate or read private evidence", () =>
   check(`
  ${flag("mod-fixture-bad")}
  SET LOCAL ROLE anon;
@@ -137,7 +140,7 @@ test("anonymous, nonstaff and unverified staff cannot moderate or read private e
  DO $$ BEGIN PERFORM public.read_result_moderation('swim','mod-fixture-bad'); RAISE EXCEPTION 'Anonymous read accepted'; EXCEPTION WHEN insufficient_privilege THEN NULL; END; $$;
  DO $$ BEGIN PERFORM public.moderate_result('swim','mod-fixture-bad','restore','','checked',1); RAISE EXCEPTION 'Anonymous write accepted'; EXCEPTION WHEN insufficient_privilege THEN NULL; END; $$;
  SET LOCAL ROLE authenticated;
- SELECT set_config('request.jwt.claims','{"sub":"1f25093a-a2ed-4ea6-a3ae-e38fe783cb82","role":"authenticated"}',true);
+ SELECT set_config('request.jwt.claims','{"sub":"1f25093a-a2ed-4ea6-a3ae-e38fe783cb81","role":"authenticated"}',true);
  DO $$ BEGIN PERFORM public.read_result_moderation('swim','mod-fixture-bad'); RAISE EXCEPTION 'Nonstaff read accepted'; EXCEPTION WHEN insufficient_privilege THEN NULL; END; $$;
  DO $$ BEGIN PERFORM public.list_result_moderation(); RAISE EXCEPTION 'Nonstaff list accepted'; EXCEPTION WHEN insufficient_privilege THEN NULL; END; $$;
  DO $$ BEGIN PERFORM public.moderate_result('swim','mod-fixture-bad','restore','','checked',1); RAISE EXCEPTION 'Nonstaff write accepted'; EXCEPTION WHEN insufficient_privilege THEN NULL; END; $$;

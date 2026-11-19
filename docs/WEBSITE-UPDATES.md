@@ -47,7 +47,7 @@ For a real two-build browser regression:
 2. Run `VELOCITY_TEST_BUILD=true npm run build` for build B.
 3. Run `npm run test:updates:browser`.
 
-The test starts two local Next servers and a local switchable proxy. All external browser requests are blocked. OTP failures are intercepted locally and never send email or reach Supabase. Tests cover desktop Chromium and Android Chrome emulation, including actual A-to-B navigation, Later, Cancel/Escape, offline/failed checks, pending OTP and an action beginning during the final update check, navigation locking, URL/filter/hash preservation, cookie/local/session/IndexedDB preservation, success confirmation, and no repeat prompt. Screenshots are written to the ignored `backups/update-verification/` directory.
+The test starts two local Next servers and a local switchable proxy. All external browser requests are blocked. OTP failures are intercepted locally and never send email or reach Supabase. Tests cover desktop Chromium and Android Chrome emulation, including actual A-to-B navigation, Later, Cancel/Escape, offline/failed checks, pending OTP and an action beginning during the final update check, navigation locking, URL/filter/hash preservation, cookie/local/session/IndexedDB preservation, success confirmation, and no repeat prompt. Screenshots are written to a private temporary directory through `scripts/verification-artifacts.mjs`.
 
 The first rollout cannot notify an already-open tab that predates this feature. That tab needs an ordinary refresh once. Later releases are detected automatically. Sleeping/offline browsers check when they return online and foreground. A deployment-specific preview URL only sees its own deployment.
 

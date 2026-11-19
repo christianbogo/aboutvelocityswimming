@@ -68,12 +68,12 @@ export const toolDirectory = {
     icon: Shield,
     adminOnly: true,
   },
-  imports: {
-    title: "Imports",
+  data: {
+    title: "Data",
     description:
-      "Inspect swim and meet data, and review proposed changes before publication.",
-    href: "/tools/review",
-    homeHref: "/tools/review",
+      "Edit swimming data and add meet-result files.",
+    href: "/tools/data",
+    homeHref: "/tools/data",
     icon: ClipboardList,
     adminOnly: true,
   },

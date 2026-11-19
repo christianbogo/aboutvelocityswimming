@@ -280,17 +280,7 @@ export default function TeamRecords({
             </div>
           ))}
         </nav>
-        <button
-          type="button"
-          className={s.renderAll}
-          aria-pressed={showAll}
-          onClick={() => updateSelection({ showAll: true })}
-        >
-          Render all records
-        </button>
-      </div>
-      {(ready || loading) && (
-        <>
+        {(ready || loading) && (
           <div
             className={s.genderToggle}
             role="group"
@@ -307,6 +297,10 @@ export default function TeamRecords({
               </button>
             ))}
           </div>
+        )}
+      </div>
+      {(ready || loading) && (
+        <>
           {!loading && ready && !records.size && (
             <p className={s.empty}>
               No eligible Velocity Swimming records in the available results.
@@ -410,12 +404,11 @@ export default function TeamRecords({
                               .map((event) => {
                                 const label = eventLabel(event);
                                 const relay = event.endsWith("-R");
-                                const eventClass = `${s.event} ${relay ? s.relayEvent : ""}`;
                                 return (
                                   <tr key={event}>
                                     <th
                                       scope="row"
-                                      className={`${eventClass} ${s.mobileEvent}`}
+                                      className={`${s.event} ${s.mobileEvent}`}
                                     >
                                       <span>{shortEventLabel(event)}</span>
                                     </th>
@@ -439,7 +432,7 @@ export default function TeamRecords({
                                     />
                                     <th
                                       scope="row"
-                                      className={`${eventClass} ${s.desktopEvent}`}
+                                      className={`${s.event} ${s.desktopEvent}`}
                                     >
                                       <span>{label}</span>
                                     </th>
@@ -473,6 +466,16 @@ export default function TeamRecords({
             ))}
         </>
       )}
+      <div className={s.footer}>
+        <button
+          type="button"
+          className={s.renderAll}
+          aria-pressed={showAll}
+          onClick={() => updateSelection({ showAll: true })}
+        >
+          Render all records
+        </button>
+      </div>
     </section>
   );
 }

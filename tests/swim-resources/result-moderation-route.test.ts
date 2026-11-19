@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
   invalidate: vi.fn(),
 }));
+vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/server", () => ({
   serverClient: async () => ({
     auth: { getUser: mocks.getUser },
@@ -34,7 +35,13 @@ function post(body: unknown, origin = "https://example.test") {
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.getUser.mockResolvedValue({
-    data: { user: { id: "staff" } },
+    data: {
+      user: {
+        id: "owner",
+        email: "christiancutter02@gmail.com",
+        email_confirmed_at: "2026-01-01",
+      },
+    },
     error: null,
   });
   mocks.rpc.mockImplementation(async (name: string) =>
@@ -43,7 +50,7 @@ beforeEach(() => {
       : { data: { flagged: true, version: 1 }, error: null },
   );
 });
-it("checks origin and staff on writes and private reads", async () => {
+it("checks origin and owner identity on writes and private reads", async () => {
   expect((await POST(post(valid, "https://attacker.test"))).status).toBe(403);
   expect(mocks.getUser).not.toHaveBeenCalled();
   mocks.getUser.mockResolvedValue({ data: { user: null } });
@@ -52,7 +59,15 @@ it("checks origin and staff on writes and private reads", async () => {
     (await GET(new Request("https://example.test/api/times/moderation")))
       .status,
   ).toBe(401);
-  mocks.getUser.mockResolvedValue({ data: { user: { id: "nonstaff" } } });
+  mocks.getUser.mockResolvedValue({
+    data: {
+      user: {
+        id: "staff",
+        email: "coach@velocity-swimming.com",
+        email_confirmed_at: "2026-01-01",
+      },
+    },
+  });
   mocks.rpc.mockResolvedValue({ data: false });
   expect((await POST(post(valid))).status).toBe(403);
   expect(
@@ -72,9 +87,7 @@ it("validates reasons, restoration explanations and optimistic version before wr
   ]) {
     expect((await POST(post(body))).status).toBe(400);
   }
-  expect(mocks.rpc.mock.calls.every(([name]) => name === "is_staff")).toBe(
-    true,
-  );
+  expect(mocks.rpc).not.toHaveBeenCalled();
 });
 it("invalidates times only after a committed mutation, and never caches private evidence", async () => {
   const response = await POST(post(valid));
@@ -102,7 +115,7 @@ it("invalidates times only after a committed mutation, and never caches private 
   );
   expect(mocks.invalidate).not.toHaveBeenCalled();
 });
-it("reads result history or paginated staff queue with no shared cache", async () => {
+it("reads result history or paginated moderation history with no shared cache", async () => {
   const history = await GET(
     new Request(
       "https://example.test/api/times/moderation?resultType=relay&resultId=relay1",

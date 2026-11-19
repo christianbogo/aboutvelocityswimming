@@ -214,7 +214,7 @@ let accountsSeeded = false;
 const errors = [];
 try {
   assert.ifError(
-    (await admin.rpc("collect_records", { reads: [], writes })).error,
+    (await admin.rpc("test_write_records", { reads: [], writes })).error,
   );
   seeded = true;
   assert.ifError(
@@ -636,7 +636,7 @@ try {
     assert.ifError(people.error);
     assert.ifError(
       (
-        await admin.rpc("collect_records", {
+        await admin.rpc("test_write_records", {
           reads: [],
           writes: [
             ...writes

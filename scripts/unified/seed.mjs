@@ -147,7 +147,7 @@ const records = [
   ],
 ];
 for (const [path, after] of records) {
-  const { error } = await client.rpc("collect_records", {
+  const { error } = await client.rpc("test_write_records", {
     reads: [],
     writes: [{ path, after }],
   });
@@ -155,7 +155,7 @@ for (const [path, after] of records) {
 }
 for (let i = 0; i < 2; i++) {
   const id = "test-race-" + i;
-  const { error } = await client.rpc("collect_records", {
+  const { error } = await client.rpc("test_write_records", {
     reads: [],
     writes: [
       {
@@ -189,7 +189,7 @@ for (let i = 0; i < 2; i++) {
   });
   if (error) throw error;
 }
-const { error: standardError } = await client.rpc("collect_records", {
+const { error: standardError } = await client.rpc("test_write_records", {
   reads: [],
   writes: [
     {

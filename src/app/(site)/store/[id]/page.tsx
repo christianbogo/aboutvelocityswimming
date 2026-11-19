@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import Footer from "@/components/Footer";
 import ProductForm from "./ProductForm";
 import ProductDetailGallery from "@/components/ProductDetailGallery";
@@ -34,6 +35,7 @@ async function getProduct(id: string) {
 }
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await connection();
   const resolvedParams = await params;
   const productData = await getProduct(resolvedParams.id);
 

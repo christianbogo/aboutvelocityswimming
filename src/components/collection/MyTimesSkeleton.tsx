@@ -2,11 +2,11 @@ import { SkeletonStatus, SkeletonText } from "./LoadingSkeleton";
 import { strokeColumns, compareEvents, eventColumn } from "./event-layout";
 import { timesEvents } from "./times-data";
 import type { MyTimesEvent } from "./times-api";
-import { RankLegend } from "./MotivationalRankIcon";
 import grid from "./TimeStandards.module.css";
 import times from "./TimesDatabase.module.css";
 import loading from "./TimesLoading.module.css";
 import s from "./MyTimes.module.css";
+import selection from "./TimesSelectionDropdown.module.css";
 
 export function MyTimesPageSkeleton() {
   return (
@@ -29,15 +29,15 @@ export default function MyTimesSkeleton({
   events,
   full = true,
   hide25s = true,
-  showTeamRanks = false,
-  showRankIcon = false,
+  showTimeStats = false,
+  showDateAge = false,
 }: {
   course?: string;
   events?: MyTimesEvent[];
   full?: boolean;
   hide25s?: boolean;
-  showTeamRanks?: boolean;
-  showRankIcon?: boolean;
+  showTimeStats?: boolean;
+  showDateAge?: boolean;
 }) {
   const eventKeys = (
     events?.map(({ event }) => event) ?? timesEvents(course)
@@ -52,18 +52,31 @@ export default function MyTimesSkeleton({
       >
         {full && (
           <>
-            <div className={s.filterPanel}>
+            <div className={selection.filterPanel}>
               {["Athlete", "Course", "Best times from"].map((label) => (
                 <div
-                  className={`${s.dropdown} ${s.skeletonFilter}`}
+                  className={`${selection.dropdown} ${selection.skeletonFilter}`}
                   key={label}
                 >
-                  <span className={s.selectionLabel}>{label}</span>
+                  <span className={selection.selectionLabel}>{label}</span>
                   <SkeletonText width={label === "Athlete" ? "10ch" : "14ch"} />
                 </div>
               ))}
             </div>
-            {showRankIcon && <RankLegend loading />}
+            <div className={s.displayOptions}>
+              {["Show 25s", "Show time stats", "Show date & age"].map(
+                (label) => (
+                  <span className={s.displayToggle} key={label}>
+                    <SkeletonText
+                      width="2.25rem"
+                      height="1.25rem"
+                      style={{ borderRadius: "999px", flexShrink: 0 }}
+                    />
+                    {label}
+                  </span>
+                ),
+              )}
+            </div>
           </>
         )}
         <div className={grid.grid}>
@@ -85,41 +98,37 @@ export default function MyTimesSkeleton({
                     className={`${grid.chip} ${s.card} ${s.skeletonCard}`}
                     data-loading-card=""
                   >
-                    <span className={s.cardHeading}>
-                      <span className={grid.distance}>
-                        {event.split("_")[0]}{" "}
-                        {stroke === "DST" ? "Free" : heading}
+                    <span className={s.cardHeader}>
+                      <span className={s.cardHeading}>
+                        <span className={grid.distance}>
+                          {event.split("_")[0]}{" "}
+                          {stroke === "DST" ? "Free" : heading}
+                        </span>
                       </span>
+                      {showTimeStats && (
+                        <span className={s.rankIcon}>
+                          <SkeletonText
+                            width="100%"
+                            height="100%"
+                            style={{ borderRadius: 6 }}
+                          />
+                        </span>
+                      )}
                     </span>
-                    <span className={s.raceDate}>
-                      <SkeletonText width="8ch" />{" "}
-                      <span className={s.swimAge}>
-                        <SkeletonText width="6ch" />
-                      </span>
-                    </span>
-                    {showRankIcon && (
-                      <span className={s.rankIcon}>
-                        <SkeletonText
-                          width={22}
-                          height={22}
-                          style={{ borderRadius: 6 }}
-                        />
-                      </span>
-                    )}
                     <strong>
                       <SkeletonText width="6ch" />
                     </strong>
-                    {showTeamRanks && (
-                      <span className={s.teamRank}>
-                        <b>
+                    {showDateAge && (
+                      <span className={s.raceDate}>
+                        <SkeletonText width="8ch" />{" "}
+                        <span className={s.swimAge}>
                           <SkeletonText width="6ch" />
-                        </b>
-                        <span>
-                          <SkeletonText
-                            width="90%"
-                            className={s.skeletonCohort}
-                          />
                         </span>
+                      </span>
+                    )}
+                    {showTimeStats && (
+                      <span className={s.teamRank}>
+                        <SkeletonText width="7ch" />
                       </span>
                     )}
                   </div>

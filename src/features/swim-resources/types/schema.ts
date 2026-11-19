@@ -83,10 +83,15 @@ export interface OfficialGoMotionLeadOffVerification extends LeadOffVerification
   sourceRow: number;
   memberIdHash: string;
 }
+export interface OfficialMeetLeadOffVerification extends LeadOffVerification {
+  method: 'Official meet result';
+  attestationId: string;
+}
 export interface RelayMember {
   leg: 1 | 2 | 3 | 4;
   athleteId?: string;
   name: string;
+  ageAtSwim?: number;
   gender?: 'F' | 'M' | 'X';
   stroke?: 'FR' | 'BK' | 'BR' | 'FL';
   timeMs?: number;
@@ -103,6 +108,8 @@ export interface RelayResult {
   course: 'SCY' | 'SCM' | 'LCM';
   gender: 'F' | 'M' | 'X';
   ageGroup: string;
+  /** Reviewed record band; an empty string excludes a mixed-band relay. */
+  recordAgeGroup?: string;
   round: 'F' | 'P' | 'S' | 'TT';
   status: 'OK' | 'DQ' | 'DFS' | 'NS';
   timeMs: number;
@@ -122,7 +129,7 @@ export interface Swim {
   externalResult?: { namespace: string; id: string }; // Stable source race identity, including repeated swim-offs.
   resultOrigin?: 'relay_leadoff';
   parentRelayResultId?: string;
-  leadOffVerification?: LeadOffVerification | OfficialGoMotionLeadOffVerification;
+  leadOffVerification?: LeadOffVerification | OfficialGoMotionLeadOffVerification | OfficialMeetLeadOffVerification;
   splitCoverage?: SplitCoverage;
   athleteName: {
     first: string;
@@ -276,7 +283,7 @@ export interface StandardTierCut {
 export interface StandardSet {
   standardType?: "age-group" | "single-age" | "para";
   sourceUrl?: string; // Official public source; collection evidence remains private.
-  category?: 'motivational' | 'championship'; // Required by fresh reviewed imports.
+  category?: 'motivational' | 'championship'; // Time-standard category.
   id: string;                         // e.g. "usas_motivational_2024_2028", "pnw_age_group_champs_2026"
   name: string;                       // "2024-2028 USA Swimming Motivational Standards"
   governingBody: 'USA_Swimming' | 'LSC' | 'High_School' | 'YMCA' | 'Team' | (string & {});

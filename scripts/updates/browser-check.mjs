@@ -1,3 +1,4 @@
+import { artifactPath } from "../verification-artifacts.mjs";
 // Build A: npm run build. Build B: VELOCITY_TEST_BUILD=true npm run build.
 // Uses only local servers and synthetic browser storage. All external requests
 // are blocked; mocked auth failures never reach Supabase or send any email.
@@ -17,7 +18,7 @@ assert.notEqual(
   "Build twice before running the deployment test.",
 );
 const processes = [];
-const artifactDir = "backups/update-verification";
+const artifactDir = artifactPath("update-verification");
 mkdirSync(artifactDir, { recursive: true });
 let browser, proxy;
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

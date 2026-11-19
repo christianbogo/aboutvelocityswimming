@@ -1,7 +1,7 @@
 # Admin: Accounts, seasons, and Workshare tickets
 
 The **Admin** link opens `/tools/admin`. The **Accounts** tab retains registration
-accounts, athletes, archive filters, and JSON export. Click an account row to edit
+accounts, athletes, archive filters, and column controls. Click an account row to edit
 it; account details, athletes, and seasonal requirements autosave. **Done** waits
 for pending saves before closing. The **Tickets** tab lists completed work across
 accounts with account, category, date-range, description, and pagination controls.
@@ -10,7 +10,7 @@ Verified `christiancutter02@gmail.com` and verified addresses on the exact
 `velocity-swimming.com` domain can access Admin and their own Account page.
 Existing explicit staff grants remain valid. The scoped `is_workshare_staff`
 authority protects the Workshare API and tables; it does not grant broader staff
-permissions for Imports or other data tools. Other Tools remain restricted to the
+permissions for Data or other data tools. Other Tools remain restricted to the
 existing owner account. Eligibility creates no grants or invitations. Sign-in
 sends staff to Admin and preserves account-linking returns.
 
@@ -59,11 +59,11 @@ completed / required totals for the registration accounts whose contact emails
 match the user's current verified sign-in email. A season picker provides past
 totals; before first-season setup, existing requirements appear with zero
 completed hours. Archived linked accounts remain visible. This read-only summary
-does not expose contact emails, athlete rosters, individual tickets, or editing
+includes associated contact emails, athletes, and tickets, with no editing
 controls. Selecting an athlete to track does not establish a Workshare association.
 
 Google Sheet history, scheduled jobs, and old volunteer records are not imported.
-Family-facing ticket history and ticket editing remain separate work. Retired
+Account holders can read their ticket history; editing remains staff-only. Retired
 Workshare URLs continue to redirect to Admin.
 
 ## Data model and staff editing API
@@ -198,3 +198,29 @@ and seasons, cleans its fixtures, and refuses hosted service URLs. It covers sco
 staff access, repeated credits, idempotent retries, Undo/deletion, autosave corrections,
 season copying, totals, filters, and mobile layout. Ticket database tests run in a
 transaction that rolls back its fixtures. No production release is performed here.
+
+## Account editor and workshare preferences
+
+The Accounts table has a Columns menu for Athletes, General, Starlight, and Apple
+Capital. Choices are remembered in this browser. Edit opens a persistent form on
+the right and temporarily collapses navigation. The editor fills the screen height
+and scrolls independently. Drag its divider, use Left/Right arrows, or press Enter
+to reset the split. The left table becomes a clickable account picker with only
+search; hidden archive and training-group filters do not limit that picker. Selecting
+another account flushes both account and required-hours edits first. Invalid drafts
+stay open. Done closes the editor and restores the full table and sidebar preference.
+On narrow screens the picker and editor stack vertically. Add account stays beside
+the Accounts and Tickets tabs. An account’s tickets appear first in its editor,
+without category or date filters; those filters remain on the all-accounts Tickets tab.
+
+Require Workshare defaults to Yes for existing and new accounts. No makes the
+account exempt across seasons, with zero effective required hours on the table and
+account page. Stored seasonal quotas and ticket history remain intact, so switching
+back to Yes restores the saved requirements. Note to Account supports up to 2,000
+characters and appears as plain text beside that account's Workshare totals.
+Both values are account-version protected. Only staff can edit them; the existing
+verified-email association controls which account holders can read the note.
+
+Account writes accept `requireWorkshare` (boolean) and `workshareNote` (text).
+Older clients may omit them without resetting either field. Apply migration
+`20261119202705_workshare_account_preferences.sql` before releasing the UI.

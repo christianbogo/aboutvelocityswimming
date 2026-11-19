@@ -487,37 +487,17 @@ try {
   });
   assert.equal(await toolsLink.getAttribute("href"), "/tools");
   const sidebarBounds = await timesNav.boundingBox();
-  const headerBounds = await page
-    .locator("[data-times-page] > header")
+  const rankingBounds = await page
+    .getByRole("region", { name: "Rankings", exact: true })
     .boundingBox();
-  assert.ok(sidebarBounds.x + sidebarBounds.width <= headerBounds.x);
-  assert.equal(headerBounds.x + headerBounds.width, 1440);
-  const summary = page.getByLabel("Selected times filters");
-  async function checkCenteredSummary() {
-    assert.equal(
-      await summary.evaluate((node) => getComputedStyle(node).justifyContent),
-      "center",
-    );
-    assert.equal(
-      await summary
-        .locator("..")
-        .evaluate((node) => getComputedStyle(node).position),
-      "sticky",
-    );
-  }
-  await checkCenteredSummary();
+  assert.ok(sidebarBounds.x + sidebarBounds.width <= rankingBounds.x);
+  assert.ok(rankingBounds.x + rankingBounds.width <= 1440);
+  assert.equal(await page.getByLabel("Selected times filters").count(), 0);
+  assert.equal(await page.locator("[data-times-page] > header").count(), 0);
   await toolsLink.press("[");
   await timesNav.waitFor({ state: "hidden" });
   await page.getByRole("button", { name: "Open navigation sidebar" }).click();
   await timesNav.waitFor();
-  assert.equal(
-    await summary
-      .locator("dt")
-      .first()
-      .evaluate((node) => getComputedStyle(node).position),
-    "absolute",
-    "Ranking filter labels remain accessible but are visually hidden",
-  );
   assert.equal(await page.getByText("R = relay", { exact: true }).count(), 0);
   assert.equal(
     await page
@@ -529,23 +509,29 @@ try {
     "Event selector label is visually hidden",
   );
 
-  assert.deepEqual(await summary.locator("dd").allTextContents(), [
-    "SCY",
-    "100 Freestyle",
-    "All ages",
-    "Female",
-  ]);
   await page
-    .getByRole("button", { name: "Event filters", exact: true })
-    .click();
+    .getByRole("button", { name: "Course: SCY", exact: true })
+    .waitFor();
+  await page
+    .getByRole("button", { name: "Age group: All ages", exact: true })
+    .waitFor();
+  await page
+    .getByRole("button", { name: "Gender: Female", exact: true })
+    .waitFor();
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Event filters", exact: true })
+      .count(),
+    0,
+  );
   const bookmarkSelection = page.getByRole("button", {
-    name: "Bookmark Selection",
+    name: "Add Bookmark",
     exact: true,
   });
   await bookmarkSelection.waitFor();
   await bookmarkSelection.click();
   const bookmarkDialog = page.getByRole("dialog", {
-    name: "Bookmark Selection",
+    name: "Add Bookmark",
     exact: true,
   });
   const suggestedName = "100 Freestyle · SCY · Girls · All ages · All-time";
@@ -580,9 +566,12 @@ try {
     iconSpace.width,
     "Hovering edit preserves bookmark width",
   );
-  await page
-    .getByRole("button", { name: "Event filters", exact: true })
-    .click();
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Event filters", exact: true })
+      .count(),
+    0,
+  );
   const rankedTable = page.getByRole("table").first();
   assert.deepEqual(
     await rankedTable.getByRole("columnheader").allTextContents(),
@@ -608,11 +597,13 @@ try {
     await page.getByRole("button", { name: "Team", exact: true }).count(),
     0,
   );
-  await page.getByRole("button", { name: "Age group", exact: true }).click();
+  await page.getByRole("button", { name: /^Age group:/ }).click();
   assert.deepEqual(
-    await page.getByRole("dialog").getByRole("button").allTextContents(),
+    await page
+      .getByRole("group", { name: "Age group options", exact: true })
+      .getByRole("button")
+      .allTextContents(),
     [
-      "",
       "All ages",
       "8 & under",
       "9–10",
@@ -621,18 +612,19 @@ try {
       "15–16",
       "17–18",
       "19 & over",
-      "Done",
     ],
   );
 
   await page
-    .getByRole("dialog")
+    .getByRole("group", { name: "Age group options", exact: true })
     .getByRole("button", { name: "11–12", exact: true })
     .click();
   await page
-    .getByRole("dialog", { name: "Age group", exact: true })
+    .getByRole("group", { name: "Age group options", exact: true })
     .waitFor({ state: "hidden" });
-  await summary.getByText("11–12", { exact: true }).waitFor();
+  await page
+    .getByRole("button", { name: "Age group: 11–12", exact: true })
+    .waitFor();
   await rankedTable.getByText("Swimmer 00 Fixture", { exact: true }).waitFor();
   const diamondBoundary = rankedTable
     .getByRole("row")
@@ -669,27 +661,30 @@ try {
     .getByRole("navigation", { name: "Result pages" })
     .getByRole("button", { name: "Previous", exact: true })
     .click();
-  await page.getByRole("button", { name: "Age group", exact: true }).click();
+  await page.getByRole("button", { name: /^Age group:/ }).click();
   await page
-    .getByRole("dialog", { name: "Age group", exact: true })
+    .getByRole("group", { name: "Age group options", exact: true })
     .getByRole("button", { name: "All ages", exact: true })
     .click();
   await page
-    .getByRole("dialog", { name: "Age group", exact: true })
+    .getByRole("group", { name: "Age group options", exact: true })
     .waitFor({ state: "hidden" });
-  await summary.getByText("All ages", { exact: true }).waitFor();
   await page
-    .getByRole("button", { name: "Reset filters", exact: true })
-    .click();
+    .getByRole("button", { name: "Age group: All ages", exact: true })
+    .waitFor();
+  await page.getByRole("button", { name: suggestedName, exact: true }).click();
   const female = page.getByRole("button", { name: "Female", exact: true }),
     male = page.getByRole("button", { name: "Male", exact: true });
+  await page.getByRole("button", { name: /^Gender:/ }).click();
   await female.click();
+  await page.getByRole("button", { name: /^Gender:/ }).click();
   assert.equal(await female.getAttribute("aria-pressed"), "true");
   await male.click();
   await page
     .getByRole("table")
     .getByText("Male Fixture", { exact: true })
     .waitFor();
+  await page.getByRole("button", { name: /^Gender:/ }).click();
   assert.equal(await female.getAttribute("aria-pressed"), "true");
   assert.equal(await male.getAttribute("aria-pressed"), "true");
   await male.click();
@@ -998,20 +993,32 @@ try {
     0,
   );
   assert.equal(
+    await page
+      .getByRole("button", { name: "Event filters", exact: true })
+      .count(),
+    0,
+  );
+  await page.getByRole("button", { name: /^Gender:/ }).click();
+  assert.equal(
     await page.getByRole("button", { name: "Mixed", exact: true }).count(),
     1,
   );
-  await page
-    .getByRole("button", { name: "Reset filters", exact: true })
-    .click();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: suggestedName, exact: true }).click();
+  await page.getByRole("button", { name: /^Course:/ }).click();
   await Promise.all([
     page.waitForRequest(
       (r) =>
         r.url().includes("view=rankings") && r.url().includes("course=LCM"),
     ),
-    page.getByRole("button", { name: "LCM", exact: true }).click(),
+    page
+      .getByRole("button", { name: "Long Course Meters", exact: true })
+      .click(),
   ]);
-  await page.getByRole("button", { name: "SCY", exact: true }).click();
+  await page.getByRole("button", { name: /^Course:/ }).click();
+  await page
+    .getByRole("button", { name: "Short Course Yards", exact: true })
+    .click();
   await page
     .getByRole("table")
     .getByText("Swimmer 00 Fixture", { exact: true })
@@ -1021,8 +1028,15 @@ try {
     .getByRole("table")
     .getByText("Swimmer 00 Fixture", { exact: true })
     .waitFor();
-  // Wide results panels expose the six-column selector without a popup.
-  const eventSelector = page.getByRole("group", { name: "Event", exact: true });
+  // The event selector opens on command on both desktop and mobile.
+  const eventTrigger = page.getByRole("button", { name: "Event", exact: true });
+  const eventSelector = page.getByRole("dialog", {
+    name: "Event",
+    exact: true,
+  });
+  await eventTrigger.hover();
+  assert.equal(await eventSelector.isVisible(), false);
+  await eventTrigger.click();
   await eventSelector.waitFor();
   await eventSelector
     .getByRole("button", { name: "200 Medley relay", exact: true })
@@ -1032,7 +1046,7 @@ try {
       path: "/tmp/velocity-selector-desktop.png",
     });
   assert.equal(
-    await page.getByRole("button", { name: "Event", exact: true }).count(),
+    await page.getByRole("group", { name: "Event", exact: true }).count(),
     0,
   );
   await eventSelector
@@ -1043,9 +1057,10 @@ try {
     0,
   );
   await page
-    .getByLabel("Selected times filters")
-    .getByText("200 Freestyle relay", { exact: true })
+    .getByRole("button", { name: "Event", exact: true })
+    .filter({ hasText: "200 Freestyle relay" })
     .waitFor();
+  await page.getByRole("button", { name: /^Gender:/ }).click();
   await page.getByRole("button", { name: "Mixed", exact: true }).click();
   await page.getByText("2:00.00", { exact: true }).waitFor();
   assert.equal(
@@ -1081,7 +1096,8 @@ try {
       .then((href) => new URL(href, base).searchParams.get("myAthlete")),
     "athlete0",
   );
-  await page.getByRole("button", { name: "LCM", exact: true }).click();
+  await eventTrigger.click();
+  await eventSelector.getByRole("button", { name: "LCM", exact: true }).click();
   assert.equal(
     await eventSelector
       .getByRole("button", { name: "100 Freestyle relay", exact: true })
@@ -1089,18 +1105,17 @@ try {
     0,
   );
   await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: suggestedName, exact: true }).click();
   await page
-    .getByRole("button", { name: "Reset filters", exact: true })
-    .click();
-  await page
-    .getByLabel("Selected times filters")
-    .getByText("100 Freestyle", { exact: true })
+    .getByRole("button", { name: "Event", exact: true })
+    .filter({ hasText: "100 Freestyle" })
     .waitFor();
   assert.equal(
     await page.getByRole("button", { name: "Mixed", exact: true }).count(),
     0,
   );
   // An eligible lead-off remains an individual PB when the parent team is disqualified.
+  await eventTrigger.click();
   await eventSelector
     .getByRole("button", { name: "50 Freestyle", exact: true })
     .click();
@@ -1122,9 +1137,7 @@ try {
       url.searchParams.get("myAthlete") === "athlete0",
   );
   await page.goBack();
-  await page
-    .getByRole("button", { name: "Reset filters", exact: true })
-    .click();
+  await page.getByRole("button", { name: suggestedName, exact: true }).click();
   await page
     .getByRole("table")
     .getByText("Swimmer 00 Fixture", { exact: true })
@@ -1136,11 +1149,7 @@ try {
       .count(),
     0,
   );
-  const mobileHeaderBounds = await page
-    .locator("[data-times-page] > header")
-    .boundingBox();
-  assert.equal(mobileHeaderBounds.x, 0);
-  assert.equal(mobileHeaderBounds.width, 390);
+  assert.equal(await page.locator("[data-times-page] > header").count(), 0);
   await page.getByRole("button", { name: "Event", exact: true }).click();
   const dialog = page.getByRole("dialog");
   assert.deepEqual(
@@ -1163,20 +1172,22 @@ try {
     .getByRole("button", { name: "200 Freestyle relay", exact: true })
     .click();
   await page
-    .getByLabel("Selected times filters")
-    .getByText("200 Freestyle relay", { exact: true })
+    .getByRole("button", { name: "Event", exact: true })
+    .filter({ hasText: "200 Freestyle relay" })
     .waitFor();
   await page.getByRole("button", { name: "Event", exact: true }).click();
   await page.keyboard.press("Tab");
   await page.keyboard.press("Escape");
   assert.equal(await page.getByRole("dialog").count(), 0);
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await eventTrigger.click();
   assert.equal(
     await eventSelector
       .getByRole("button", { name: "200 Freestyle relay", exact: true })
       .getAttribute("aria-pressed"),
     "true",
   );
+  await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 390, height: 844 });
   assert.ok(
     await page.evaluate(
@@ -1184,11 +1195,7 @@ try {
     ),
   );
   await page.evaluate(() => window.scrollTo(0, 450));
-  const summaryBounds = await summary.boundingBox();
-  assert.ok(
-    summaryBounds.y >= 0 && summaryBounds.y + summaryBounds.height < 250,
-    "The filter summary stays visible under the mobile toolbar while scrolling",
-  );
+  assert.equal(await page.getByLabel("Selected times filters").count(), 0);
   await page.getByRole("button", { name: "Open navigation sidebar" }).click();
   await timesNav.getByRole("link", { name: "Records", exact: true }).click();
   await timesNav.waitFor({ state: "hidden" });

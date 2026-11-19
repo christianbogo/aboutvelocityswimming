@@ -130,6 +130,29 @@ test("public callers cannot write the board or invoke the background worker", ()
   SELECT pg_temp.check_ok((SELECT count(*)=1 FROM cron.job WHERE jobname='refresh-team-records' AND schedule='*/5 * * * *' AND active),'scheduled refresh exists');
 `));
 
+test("reviewed relay bands preserve source categories, exclude mixed bands, and retain older swims", () => check(`
+  SELECT pg_temp.check_ok(public.ies_times_age_range('8 & Under')=int4range(0,9),'long under label');
+  SELECT pg_temp.check_ok(public.ies_times_age_range('19 & Over')=int4range(19,null),'long over label');
+  SELECT private.put_record('relay_results/record-band-relay','{
+    "id":"record-band-relay","relayName":"Band fixture","teamId":"velocity-swimming","eventCode":"200_FR-R_SCY",
+    "distance":200,"stroke":"FR","course":"SCY","timeMs":120000,"status":"OK","round":"F",
+    "isRelay":true,"isOfficial":true,"gender":"F","ageGroup":"10 & Under","recordAgeGroup":"9-10","splitCoverage":"unavailable",
+    "meet":{"id":"record-cache-meet","name":"Record fixture","date":"2009-07-01"},
+    "members":[{"leg":1,"athleteId":"record-cache-a","name":"First Fixture"}]
+  }');
+  SELECT pg_temp.swim('record-before-2010','record-cache-a',50000,'{"meet":{"id":"record-cache-meet","name":"Record fixture","date":"2009-07-01"}}');
+  SELECT private.refresh_team_records();
+  SET LOCAL ROLE anon;
+  SELECT pg_temp.check_ok(pg_temp.board()#>>'{records,SCY:9-10:200_FR-R:F,0}'='record-band-relay','reviewed band survives cache freshness guard');
+  SELECT pg_temp.check_ok(pg_temp.board()#>>'{records,SCY:11-12:100_FR:F,0}'='record-before-2010','older eligible time remains included');
+  RESET ROLE;
+  UPDATE public.relay_results SET data=jsonb_set(data,'{recordAgeGroup}','""') WHERE id='record-band-relay';
+  SELECT private.refresh_team_records();
+  SET LOCAL ROLE anon;
+  SELECT pg_temp.check_ok(NOT (pg_temp.board()::text LIKE '%record-band-relay%'),'mixed-band relay excluded even from open records');
+  RESET ROLE;
+`));
+
 test("failed refreshes keep the previous board and retryable work", () => check(`
   SELECT pg_temp.swim('record-cache-faster','record-cache-a',55000);
   ALTER TABLE public.team_record_holders ADD CONSTRAINT simulated_refresh_failure CHECK(team<>'velocity-swimming') NOT VALID;

@@ -6,6 +6,8 @@ import type {
 export interface AccountWorkshareSummary {
   id: string;
   fullName: string;
+  requireWorkshare?: boolean;
+  workshareNote?: string;
   isArchived: boolean;
   emails: string[];
   athletes: {

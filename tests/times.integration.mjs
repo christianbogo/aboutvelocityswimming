@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -264,7 +263,7 @@ const normalized = [...races, ...nativeRelays].map((row) => ({
 try {
   // Only public projections are hidden; canonical seed rows and the shared team remain intact.
   localSql("delete from public.public_swims; delete from public.public_relay_results;");
-  const collected = await admin.rpc("collect_records", { reads: [], writes });
+  const collected = await admin.rpc("test_write_records", { reads: [], writes });
   assert.ifError(collected.error);
   await test("the database rejects non-Velocity teams, results and retired directory entries", async () => {
     for (const [table, data] of [
@@ -273,7 +272,7 @@ try {
       ["relay_results", { ...nativeRelays[0].data, id: outside, teamId: outside, raceIdentity: { ...nativeRelays[0].data.raceIdentity, occurrence: "rejected-outside-relay" } }],
       ["knowledge_entries", { kind: "team", title: "Other team", sourceUrl: "https://example.test/team" }],
     ]) {
-      const rejected = await admin.rpc("collect_records", { reads: [], writes: [{ path: table + "/" + outside, after: data }] });
+      const rejected = await admin.rpc("test_write_records", { reads: [], writes: [{ path: table + "/" + outside, after: data }] });
       assert.equal(rejected.error?.code, "23514", table + " must reject out-of-scope data");
     }
   });
@@ -529,7 +528,7 @@ try {
       { athleteId: prefix + "1" },
       { isSplit: true },
     ]) {
-      const denied = await admin.rpc("collect_records", {
+      const denied = await admin.rpc("test_write_records", {
         reads: [],
         writes: [
           {
@@ -540,7 +539,7 @@ try {
       });
       assert.ok(denied.error);
     }
-    const duplicate = await admin.rpc("collect_records", {
+    const duplicate = await admin.rpc("test_write_records", {
       reads: [],
       writes: [
         {
@@ -573,233 +572,8 @@ try {
       [prefix + "unofficial"],
     );
   });
-  await test("relay staging compares supplied baseline reads and approval inserts relay parents first", async () => {
-    const staff = createClient(config.API_URL, config.PUBLISHABLE_KEY, {
-      auth: { persistSession: false },
-    });
-    assert.ifError(
-      (
-        await staff.auth.signInWithPassword({
-          email: "coach@velocity-swimming.com",
-          password: "Velocity-local-test-2026!",
-        })
-      ).error,
-    );
-    const token = "local-relay-collector-" + crypto.randomUUID();
-    const tokenHash = createHash("sha256").update(token).digest("hex");
-    execFileSync(
-      "docker",
-      [
-        "exec",
-        "supabase_db_aboutvelocityswimming",
-        "psql",
-        "-U",
-        "postgres",
-        "-v",
-        "ON_ERROR_STOP=1",
-        "-c",
-        `insert into private.collection_workers(name,token_hash,divisions) values('Relay test collector','${tokenHash}',array['times']);`,
-      ],
-      { stdio: "pipe" },
-    );
-    const batchIds = [];
-    const base = {
-      division: "times",
-      scope: "Relay fixture",
-      sourceUrl: "https://example.test/relay/" + tokenHash,
-      capturedAt: new Date().toISOString(),
-      coverage: "partial",
-      evidence: { text: "Official relay fixture" },
-    };
-    const stage = (batch) =>
-      anon.rpc("stage_collection", {
-        worker_token: token,
-        batch: { ...base, ...batch },
-      });
-    try {
-      const before = races.find((r) => r.id === prefix + "a").data;
-      const stale = await stage({
-        reads: [
-          {
-            path: "swims/" + before.id,
-            before: { ...before, timeMs: before.timeMs + 1 },
-          },
-        ],
-        writes: [
-          {
-            path: "swims/" + before.id,
-            after: {
-              ...before,
-              splits: [{ distance: 100, cumulativeMs: before.timeMs }],
-            },
-          },
-        ],
-      });
-      assert.equal(stale.error?.code, "40001");
-      const relay = { ...dqRelay, id: prefix + "review-relay", raceIdentity: { ...dqRelay.raceIdentity, occurrence: "synthetic-review-relay" } };
-      const lead = {
-        ...races.find((r) => r.id === prefix + "verified-leadoff").data,
-        id: prefix + "review-leadoff",
-        raceIdentity: { occurrence: "synthetic-review-leadoff", reviewed: true, basis: "Distinct synthetic relay start", sourceUrl: "https://example.test/fixture-starts" },
-        parentRelayResultId: relay.id,
-      };
-      const reverseWrites = [
-        { path: "swims/" + lead.id, after: lead },
-        { path: "relay_results/" + relay.id, after: relay },
-      ];
-      const staged = await stage({ writes: reverseWrites });
-      assert.ifError(staged.error);
-      batchIds.push(staged.data);
-      const repeated = await stage({ writes: reverseWrites });
-      assert.equal(repeated.data, staged.data);
-      assert.equal(
-        (
-          await admin
-            .from("collection_batches")
-            .select("review_priority")
-            .eq("id", staged.data)
-            .single()
-        ).data.review_priority,
-        2,
-      );
-      assert.equal((await query("race", { raceId: relay.id })).total, 0);
-      assert.ifError(
-        (
-          await staff.rpc("review_collection", {
-            batch_id: staged.data,
-            decision: "approved",
-            note: "Verified fixture",
-          })
-        ).error,
-      );
-      writes.push(
-        { path: "relay_results/" + relay.id, after: relay },
-        { path: "swims/" + lead.id, after: lead },
-      );
-      assert.equal(
-        (await query("race", { raceId: lead.id })).rows[0].race
-          .parentRelayResultId,
-        relay.id,
-      );
-      const raceBefore = races.find((r) => r.id === prefix + "a").data;
-      const bestsBefore = await anon
-        .from("athlete_bests")
-        .select("event_code,data")
-        .eq("athlete_id", prefix + "0")
-        .order("event_code");
-      assert.ifError(bestsBefore.error);
-      const detailed = {
-        ...raceBefore,
-        splits: [
-          { distance: 50, cumulativeMs: 30000, lapMs: 30000 },
-          { distance: 100, cumulativeMs: 60000, lapMs: 30000 },
-        ],
-        splitCoverage: "complete",
-        sourceObservation: { evidence: "private-approved-split-evidence" },
-      };
-      const detailsBatch = await stage({
-        reads: [{ path: "swims/" + raceBefore.id, before: raceBefore }],
-        writes: [{ path: "swims/" + raceBefore.id, after: detailed }],
-      });
-      assert.ifError(detailsBatch.error);
-      batchIds.push(detailsBatch.data);
-      assert.ifError(
-        (
-          await staff.rpc("review_collection", {
-            batch_id: detailsBatch.data,
-            decision: "approved",
-            note: "Split details verified",
-          })
-        ).error,
-      );
-      const publishedDetails = (await query("race", { raceId: raceBefore.id }))
-        .rows[0].race;
-      assert.equal(publishedDetails.splits.length, 2);
-      assert.equal(publishedDetails.splitCoverage, "complete");
-      assert.ok(
-        !JSON.stringify(publishedDetails).includes(
-          "private-approved-split-evidence",
-        ),
-      );
-      const bestsAfter = await anon
-        .from("athlete_bests")
-        .select("event_code,data")
-        .eq("athlete_id", prefix + "0")
-        .order("event_code");
-      assert.ifError(bestsAfter.error);
-      assert.deepEqual(bestsAfter.data, bestsBefore.data);
-      const faster = {
-        ...detailed,
-        timeMs: 57000,
-        splits: [
-          { distance: 50, cumulativeMs: 30000, lapMs: 30000 },
-          { distance: 100, cumulativeMs: 57000, lapMs: 27000 },
-        ],
-      };
-      const timeBatch = await stage({
-        reads: [{ path: "swims/" + raceBefore.id, before: detailed }],
-        writes: [{ path: "swims/" + raceBefore.id, after: faster }],
-      });
-      assert.ifError(timeBatch.error);
-      batchIds.push(timeBatch.data);
-      assert.ifError(
-        (
-          await staff.rpc("review_collection", {
-            batch_id: timeBatch.data,
-            decision: "approved",
-            note: "Time correction verified",
-          })
-        ).error,
-      );
-      const updatedBest = await anon
-        .from("athlete_bests")
-        .select("data")
-        .eq("athlete_id", prefix + "0")
-        .eq("event_code", "100_FR_SCY")
-        .single();
-      assert.ifError(updatedBest.error);
-      assert.equal(updatedBest.data.data.bestTimeMs, 57000);
-      assert.equal(updatedBest.data.data.swimId, raceBefore.id);
-      assert.ifError(
-        (
-          await admin.rpc("collect_records", {
-            reads: [],
-            writes: [{ path: "swims/" + raceBefore.id, after: raceBefore }],
-          })
-        ).error,
-      );
-    } finally {
-      if (batchIds.length) {
-        assert.ifError(
-          (
-            await admin
-              .from("collection_reviews")
-              .delete()
-              .in("batch_id", batchIds)
-          ).error,
-        );
-        assert.ifError(
-          (await admin.from("collection_batches").delete().in("id", batchIds))
-            .error,
-        );
-      }
-      execFileSync(
-        "docker",
-        [
-          "exec",
-          "supabase_db_aboutvelocityswimming",
-          "psql",
-          "-U",
-          "postgres",
-          "-c",
-          `delete from private.collection_workers where token_hash='${tokenHash}';`,
-        ],
-        { stdio: "pipe" },
-      );
-    }
-  });
   await test("approved team changes update the projection and corrections update rankings", async () => {
-    const change = await admin.rpc("collect_records", {
+    const change = await admin.rpc("test_write_records", {
       reads: [],
       writes: [
         {
@@ -842,7 +616,7 @@ try {
       .reverse()
       .filter((write) => !write.path.startsWith("teams/"))
       .map((write) => ({ path: write.path, after: null }));
-    const cleanup = await admin.rpc("collect_records", {
+    const cleanup = await admin.rpc("test_write_records", {
       reads: [],
       writes: [
         ...reversed,
@@ -854,7 +628,7 @@ try {
     });
     assert.ifError(cleanup.error);
   } finally {
-    const restored = await admin.rpc("collect_records", {
+    const restored = await admin.rpc("test_write_records", {
       reads: [],
       writes: [{ path: "teams/" + team, after: seedTeam.data.data }],
     });

@@ -10,91 +10,6 @@
 .accountLink:hover {
   text-decoration: underline;
 }
-.filterPanel {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: 0;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
-  position: relative;
-  z-index: 5;
-}
-.dropdown {
-  position: relative;
-  flex: 1 1 10rem;
-  min-width: 0;
-}
-.dropdown + .dropdown {
-  border-left: 1px solid var(--border);
-}
-.selection {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  width: 100%;
-  min-height: 72px;
-  padding: 0.85rem 1rem;
-  background: transparent;
-  border: 0;
-  border-radius: 12px;
-  color: var(--text-main);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.selection:hover,
-.selection[aria-expanded="true"] {
-  background: var(--background-alt);
-}
-.selection:focus-visible,
-.dropdownOptions button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -3px;
-}
-.selectionLabel {
-  color: var(--text-muted);
-  font-size: 0.65rem;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-.selectionValue {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-.selectionValue svg {
-  flex-shrink: 0;
-}
-.dropdownOptions {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 10;
-  display: grid;
-  gap: 0.2rem;
-  width: max-content;
-  min-width: 100%;
-  max-width: min(22rem, calc(100vw - 3rem));
-  max-height: 60vh;
-  overflow-y: auto;
-  padding: 0.4rem;
-  border: 1px solid var(--border);
-  border-radius: 0.65rem;
-  background: var(--surface);
-  box-shadow: 0 12px 28px #0002;
-}
-.dropdown:last-of-type .dropdownOptions {
-  left: auto;
-  right: 0;
-}
-.dropdownOptions > button,
 .manage {
   display: flex;
   align-items: center;
@@ -112,14 +27,8 @@
   text-decoration: none;
   cursor: pointer;
 }
-.dropdownOptions > button:hover,
 .manage:hover {
   background: var(--background-alt);
-}
-.dropdownOptions > button[aria-pressed="true"] {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
-  font-weight: 650;
 }
 .manage {
   color: var(--accent);
@@ -226,11 +135,27 @@
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
 }
-.page button.card[data-rank] {
-  background: color-mix(in srgb, var(--rank-color) 8%, var(--surface));
+.page .card > strong {
+  margin-block: 0.75rem;
+}
+.page .card > strong:has(+ .raceDate) {
+  margin-bottom: 0;
+}
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  min-width: 0;
+  text-align: left;
+}
+.cardHeader:not(:has(.rankIcon)) {
+  justify-content: center;
+  text-align: center;
 }
 .cardHeading {
   display: block;
+  min-width: 0;
   line-height: 1.15;
   font-size: 0.9rem;
   font-weight: 700;
@@ -240,12 +165,20 @@
 }
 .rankIcon {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
-  justify-content: center;
-  min-height: 30px;
+  justify-content: flex-end;
+  width: clamp(14px, 14cqi, 22px);
+  height: clamp(14px, 14cqi, 22px);
+}
+.rankIcon > img {
+  width: 100%;
+  height: 100%;
 }
 .raceDate {
   display: block;
+  margin-bottom: 0.75rem;
+  text-align: center;
   color: var(--text-muted);
   font-size: 0.65rem;
   min-height: 1.5em;
@@ -255,18 +188,11 @@
 }
 .teamRank {
   display: block;
-  padding-top: 0.5rem;
+  padding-top: 0.4rem;
   border-top: 1px solid var(--border);
   color: var(--accent);
   font-size: 0.8rem;
   font-weight: 650;
-}
-.teamRank > span {
-  display: block;
-  margin-top: 0.2rem;
-  font-size: 0.6rem;
-  color: var(--text-muted);
-  font-weight: 400;
 }
 .notice {
   padding: 1rem;
@@ -323,44 +249,7 @@
 .skeletonCard strong {
   min-height: 1.2em;
 }
-.skeletonCard .skeletonCohort {
-  height: 0.8em;
-}
-.skeletonFilter {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  min-height: 72px;
-  padding: 0.85rem 1rem;
-  text-align: center;
-}
-@container (max-width: 120px) {
-  .skeletonCard .skeletonCohort {
-    height: 3em;
-  }
-}
 @container times-workspace (max-width: 550px) {
-  .dropdown {
-    flex-basis: 50%;
-  }
-  .dropdown:nth-of-type(odd) {
-    border-left: 0;
-  }
-  .dropdown:nth-of-type(n + 3) {
-    border-top: 1px solid var(--border);
-  }
-  .dropdown:nth-of-type(even) .dropdownOptions {
-    left: auto;
-    right: 0;
-  }
-  .selection {
-    padding: 0.75rem;
-  }
-  .selectionValue {
-    font-size: 0.75rem;
-  }
   .page .cardHeading {
     font-size: 0.8rem;
   }

@@ -1,4 +1,4 @@
-/** Shared by the collector and tests; the database independently enforces these rules. */
+/** Shared by the Data editor and tests; the database independently enforces these rules. */
 export function validateStandard(value: unknown, id?: string): void {
   const obj = (v: unknown): Record<string, unknown> => {
     if (!v || typeof v !== "object" || Array.isArray(v))

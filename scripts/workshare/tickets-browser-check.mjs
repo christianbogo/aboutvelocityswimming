@@ -1,3 +1,4 @@
+import { artifactPath } from "../verification-artifacts.mjs";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
@@ -27,7 +28,7 @@ const errors = [];
 let browser;
 let page;
 let season;
-const evidence = "backups/workshare/tickets-browser";
+const evidence = artifactPath("workshare/tickets-browser");
 mkdirSync(evidence, { recursive: true });
 
 async function rpc(name, input) {
@@ -262,7 +263,7 @@ try {
   ]);
   for (const path of [
     "/api/times",
-    "/api/collection/review",
+    "/api/times/manage?kind=swim",
     "/api/workshare/accounts-other",
   ]) {
     assert.equal(

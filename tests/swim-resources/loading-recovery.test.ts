@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { loadTimes } from "@/components/collection/load-times";
-import { saveReviewDecision } from "@/components/collection/save-review-decision";
 
 const fetchMock = vi.fn();
 beforeEach(() => {
@@ -66,58 +65,5 @@ it("cancels a pending retry when the user leaves or changes filters", async () =
   controller.abort();
   await failed;
   await vi.advanceTimersByTimeAsync(1000);
-  expect(fetchMock).toHaveBeenCalledTimes(1);
-});
-it("never retries an approval whose response was lost", async () => {
-  fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
-  await expect(
-    saveReviewDecision("batch", "approved", "private note", vi.fn()),
-  ).rejects.toThrow("Refresh the queue");
-  expect(fetchMock).toHaveBeenCalledTimes(1);
-  expect(JSON.stringify(vi.mocked(console.info).mock.calls)).not.toContain(
-    "private note",
-  );
-});
-it("handles a non-JSON gateway response without hiding the recovery action", async () => {
-  fetchMock.mockResolvedValue(
-    new Response("<html>timeout</html>", { status: 504 }),
-  );
-  await expect(
-    saveReviewDecision("batch", "approved", "", vi.fn()),
-  ).rejects.toThrow("Refresh the queue");
-  expect(fetchMock).toHaveBeenCalledTimes(1);
-});
-it("shows the stale batch recovery instruction immediately without resubmitting", async () => {
-  const message = "Canonical baseline changed after staging. Export and revalidate this batch before approval.";
-  fetchMock.mockResolvedValue(response(409, { error: message }));
-  const onSlow = vi.fn();
-  await expect(saveReviewDecision("batch", "approved", "", onSlow)).rejects.toThrow(message);
-  await vi.advanceTimersByTimeAsync(10000);
-  expect(onSlow).not.toHaveBeenCalled();
-  expect(fetchMock).toHaveBeenCalledTimes(1);
-});
-it("shows slow approval feedback and bounds a hung approval without resubmitting", async () => {
-  vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
-    const controller = new AbortController();
-    setTimeout(
-      () => controller.abort(new DOMException("Timed out", "TimeoutError")),
-      ms,
-    );
-    return controller.signal;
-  });
-  fetchMock.mockImplementation(
-    (_url, init) =>
-      new Promise((_resolve, reject) => {
-        init.signal.addEventListener("abort", () => reject(init.signal.reason));
-      }),
-  );
-  const onSlow = vi.fn();
-  const failed = expect(
-    saveReviewDecision("batch", "approved", "", onSlow),
-  ).rejects.toThrow("Refresh the queue");
-  await vi.advanceTimersByTimeAsync(10000);
-  expect(onSlow).toHaveBeenCalledTimes(1);
-  await vi.advanceTimersByTimeAsync(80000);
-  await failed;
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });

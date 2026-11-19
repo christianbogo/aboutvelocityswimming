@@ -78,7 +78,7 @@ try {
   );
 } finally {
   if (mutated) {
-    const cleanup = await admin.rpc("collect_records", {
+    const cleanup = await admin.rpc("test_write_records", {
       reads: [],
       writes: [{ path: "swims/" + original.id, after: original }],
     });

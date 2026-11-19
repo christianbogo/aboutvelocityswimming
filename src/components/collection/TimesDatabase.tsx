@@ -1,15 +1,9 @@
 "use client";
 
-import { Fragment, Suspense, useId, useRef } from "react";
+import { Fragment, Suspense } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import {
-  ChevronDown,
-  X,
-  ChevronLeft,
-  ChevronRight,
-  Search,
-} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { hasBackendConfiguration } from "@/lib/supabase/client";
 import type { TimesView } from "@/lib/tool-directory";
 import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
@@ -32,7 +26,7 @@ import TimeStandards, {
   TimeStandardsSkeleton,
   useTimeStandardsSelection,
 } from "./TimeStandards";
-import { FilterChips, FilterSummary, PopupPicker } from "./TimesFilters";
+import { PopupPicker } from "./TimesFilters";
 import RankingFilters, { RankingFiltersSkeleton } from "./RankingFilters";
 import { ModerationNotice } from "./ResultModeration";
 import RelayLineup from "./RelayLineup";
@@ -42,7 +36,8 @@ import TeamRecords, {
   TeamRecordsSkeleton,
   type RecordSelection,
 } from "./TeamRecords";
-import { strokeColumns, eventColumn } from "./event-layout";
+import SelectionDropdown from "./TimesSelectionDropdown";
+import selectionStyles from "./TimesSelectionDropdown.module.css";
 import MyTimes, { type MyTimesRankingSelection } from "./MyTimes";
 import { MyTimesPageSkeleton } from "./MyTimesSkeleton";
 import {
@@ -106,74 +101,51 @@ function AgeGroupPicker({
   onChange: (value: string[]) => void;
   options?: [string, string][];
 }) {
-  const id = useId();
-  const dialog = useRef<HTMLDialogElement>(null);
-  function selectGroups(groups: string[]) {
-    onChange(groups);
-    dialog.current?.close();
-  }
   return (
-    <div className={s.field}>
-      <label htmlFor={id}>Age group</label>
-      <button
-        id={id}
-        className={s.eventTrigger}
-        aria-haspopup="dialog"
-        onClick={() => dialog.current?.showModal()}
-      >
-        <span>
-          {value.length
-            ? options
-                .filter(([key]) => value.includes(key))
-                .map(([, text]) => text)
-                .join(", ")
-            : "All ages"}
-        </span>
-        <ChevronDown size={16} />
-      </button>
-      <dialog
-        ref={dialog}
-        className={s.eventDialog}
-        aria-labelledby={`${id}-title`}
-      >
-        <div className={s.popupHead}>
-          <h2 id={`${id}-title`}>Age group</h2>
+    <SelectionDropdown
+      label="Age group"
+      selection={
+        options
+          .filter(([key]) => value.includes(key))
+          .map(([, text]) => text)
+          .join(", ") || "All ages"
+      }
+    >
+      {(close) => (
+        <>
           <button
-            className={s.button}
-            aria-label="Close age group picker"
-            onClick={() => dialog.current?.close()}
+            type="button"
+            aria-pressed={!value.length}
+            onClick={() => {
+              onChange([]);
+              close();
+            }}
           >
-            <X size={18} />
-          </button>
-        </div>
-        <p className={s.muted}>Select one or more recorded age groups.</p>
-        <div className={s.eventGrid}>
-          <button aria-pressed={!value.length} onClick={() => selectGroups([])}>
             All ages
           </button>
           {options.map(([key, text]) => (
             <button
               key={key}
+              type="button"
               aria-pressed={value.includes(key)}
-              onClick={() =>
-                selectGroups(
+              onClick={() => {
+                onChange(
                   value.includes(key)
                     ? value.filter((age) => age !== key)
                     : [...value, key],
-                )
-              }
+                );
+                close();
+              }}
             >
               {text}
             </button>
           ))}
-        </div>
-        <button className={s.button} onClick={() => dialog.current?.close()}>
-          Done
-        </button>
-      </dialog>
-    </div>
+        </>
+      )}
+    </SelectionDropdown>
   );
 }
+
 function Pager({
   page,
   total,
@@ -359,70 +331,20 @@ function RankingsLoadingRows({
 }
 
 function RankingsFilterSkeleton() {
-  const events = [...timesEvents("SCY"), ...timesEvents("SCY", true)];
   return (
     <div aria-hidden="true" className={loadingStyles.pulse}>
-      <div className={s.filters}>
-        <div className={`${s.field} ${s.eventField}`}>
-          <div className={s.inlineEventSelector}>
-            <div className={s.strokeSelector}>
-              <div className={s.strokeColumns}>
-                {strokeColumns.map(([stroke]) => (
-                  <section key={stroke}>
-                    <h3>
-                      <SkeletonText width={24} height={10} />
-                    </h3>
-                    {events
-                      .filter((event) => eventColumn(event) === stroke)
-                      .map((event) => (
-                        <span key={event} className={s.strokeSkeletonChoice}>
-                          <SkeletonText width={22} height={12} />
-                        </span>
-                      ))}
-                    {["FL", "BK", "BR"].includes(stroke) && (
-                      <span className={s.strokeSkeletonChoice}>
-                        <SkeletonText width={22} height={12} />
-                      </span>
-                    )}
-                  </section>
-                ))}
-              </div>
+      <div className={`${selectionStyles.filterPanel} ${s.rankingFilters}`}>
+        {["Event", "Course", "Gender", "Age group", "Results", "Year"].map(
+          (label) => (
+            <div
+              className={`${selectionStyles.dropdown} ${selectionStyles.skeletonFilter}`}
+              key={label}
+            >
+              <span className={selectionStyles.selectionLabel}>{label}</span>
+              <SkeletonText width="70%" height={13} />
             </div>
-          </div>
-          <span className={s.eventTrigger}>
-            <SkeletonText width="70%" height={13} />
-          </span>
-        </div>
-        <div className={s.secondaryFilters}>
-          {["Gender", "Age group", "Results", "Year"].map((label) =>
-            label === "Gender" || label === "Results" ? (
-              <fieldset className={s.courseField} key={label}>
-                <legend>
-                  <SkeletonText width={56} height={10} />
-                </legend>
-                <div className={s.chips}>
-                  {Array.from(
-                    { length: label === "Gender" ? 2 : 3 },
-                    (_, index) => (
-                      <span className={s.filterControlSkeleton} key={index}>
-                        <SkeletonText width={44} height={12} />
-                      </span>
-                    ),
-                  )}
-                </div>
-              </fieldset>
-            ) : (
-              <div className={s.field} key={label}>
-                <span className={s.filterSkeletonLabel}>
-                  <SkeletonText width={56} height={10} />
-                </span>
-                <span className={s.eventTrigger}>
-                  <SkeletonText width="60%" height={13} />
-                </span>
-              </div>
-            ),
-          )}
-        </div>
+          ),
+        )}
       </div>
       <div className={`${s.toolbar} ${s.rankingToolbar}`}>
         <span className={`${s.eventTrigger} ${s.searchSkeleton}`}>
@@ -438,16 +360,12 @@ export function RankingsSkeleton() {
   return (
     <main className={s.page} aria-busy="true">
       <SkeletonStatus>Loading rankings…</SkeletonStatus>
-      <header className={s.toolHeader} aria-hidden="true">
-        <div className={`${s.filterSummary} ${s.summarySkeleton}`}>
-          {[28, 90, 50, 48].map((width, index) => (
-            <SkeletonText key={index} width={width} height={13} />
-          ))}
-        </div>
-      </header>
       <div className={s.content}>
         <div className={s.main}>
-          <section className={s.panel} aria-label="Rankings">
+          <section
+            className={`${s.panel} ${s.rankingsPanel}`}
+            aria-label="Rankings"
+          >
             <RankingFiltersSkeleton />
             <RankingsFilterSkeleton />
             <div className={s.tableWrap}>
@@ -503,7 +421,6 @@ export default function TimesDatabase({ view }: { view: TimesView }) {
 
 function TimesDatabaseContent({ view }: { view: TimesView }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const standards = useStandards(view !== "records");
   const standardSelection = useTimeStandardsSelection(
     standards.sets,
@@ -579,11 +496,6 @@ function TimesDatabaseContent({ view }: { view: TimesView }) {
     ...timesEvents(filters.course),
     ...timesEvents(filters.course, true),
   ].filter((event) => !hide25s || !event.startsWith("25_"));
-  const selectedAgeLabels =
-    ageOptions
-      .filter(([key]) => filters.ageGroups.includes(key))
-      .map(([, label]) => label)
-      .join(", ") || "All ages";
   const selectedGenderLabels =
     filters.genders
       .map((gender) => ({ F: "Female", M: "Male", X: "Mixed" })[gender])
@@ -626,27 +538,23 @@ function TimesDatabaseContent({ view }: { view: TimesView }) {
     setPage(0);
     setSearch("");
   }
-  function openRankings(next: Filters, collapseFilters = false) {
+  function openRankings(next: Filters) {
     const url = new URL(
       timesViewHref("rankings", window.location.search, "#times-rankings"),
       window.location.origin,
     );
-    if (collapseFilters) url.searchParams.set("eventFilters", "closed");
     router.push(writeTimesSelection(url, "filters", next, initialFilters));
   }
   function openRecord(selection: RecordSelection) {
-    openRankings(
-      {
-        ...initialFilters,
-        course: selection.course,
-        event: selection.event,
-        genders: [selection.gender],
-        ageGroups: [selection.ageGroup],
-        mode: selection.relay ? "performances" : "bests",
-        relay: selection.relay ?? false,
-      },
-      true,
-    );
+    openRankings({
+      ...initialFilters,
+      course: selection.course,
+      event: selection.event,
+      genders: [selection.gender],
+      ageGroups: [selection.ageGroup],
+      mode: selection.relay ? "performances" : "bests",
+      relay: selection.relay ?? false,
+    });
   }
   function openMyTimesRankings(selection: MyTimesRankingSelection) {
     openRankings({
@@ -658,6 +566,8 @@ function TimesDatabaseContent({ view }: { view: TimesView }) {
     });
   }
   const tableRelay = Boolean(filters.relay);
+  const resultMode =
+    tableRelay && filters.mode === "bests" ? "performances" : filters.mode;
   const showRank = filters.mode !== "recent";
   const searchField = (
     <label className={s.field}>
@@ -803,28 +713,12 @@ function TimesDatabaseContent({ view }: { view: TimesView }) {
   );
   return (
     <main className={s.page} data-times-page="">
-      {view !== "records" && view !== "my-times" && (
+      {view === "standards" && (
         <header className={s.toolHeader}>
-          {view === "standards" ? (
-            standards.loading && !standardSelection.set ? (
-              <TimeStandardsSummarySkeleton />
-            ) : (
-              <TimeStandardsSummary state={standardSelection} />
-            )
+          {standards.loading && !standardSelection.set ? (
+            <TimeStandardsSummarySkeleton />
           ) : (
-            <FilterSummary
-              label="Selected times filters"
-              compact
-              items={[
-                ["Course", filters.course || "All courses"],
-                [
-                  "Event",
-                  filters.event ? eventLabel(filters.event) : "All events",
-                ],
-                ["Age group", selectedAgeLabels],
-                ["Gender", selectedGenderLabels],
-              ]}
-            />
+            <TimeStandardsSummary state={standardSelection} />
           )}
         </header>
       )}
@@ -861,7 +755,7 @@ function TimesDatabaseContent({ view }: { view: TimesView }) {
               <>
                 <section
                   id="times-rankings"
-                  className={s.panel}
+                  className={`${s.panel} ${s.rankingsPanel}`}
                   aria-label="Rankings"
                 >
                   {(filters.startDate || filters.endDate) && (
@@ -895,11 +789,13 @@ function TimesDatabaseContent({ view }: { view: TimesView }) {
                     filters={filters}
                     search={search}
                     onApply={applyRankingFilters}
-                    initialOpen={searchParams.get("eventFilters") !== "closed"}
                   >
-                    <div className={s.filters}>
+                    <div
+                      className={`${selectionStyles.filterPanel} ${s.rankingFilters}`}
+                    >
                       <PopupPicker
                         label="Event"
+                        compact
                         course={filters.course}
                         onCourseChange={(course) =>
                           updateFilter("course", course)
@@ -911,67 +807,125 @@ function TimesDatabaseContent({ view }: { view: TimesView }) {
                         }}
                         options={rankingEvents.map((e) => [e, eventLabel(e)])}
                       />
-                      <div className={s.secondaryFilters}>
-                        <fieldset className={s.courseField}>
-                          <legend>Gender</legend>
-                          <div className={s.chips}>
-                            {[
-                              ["F", "Female"],
-                              ["M", "Male"],
-                              ...(filters.relay ? [["X", "Mixed"]] : []),
-                            ].map(([id, label]) => (
+                      <SelectionDropdown
+                        label="Course"
+                        selection={filters.course || "All courses"}
+                      >
+                        {(close) =>
+                          [
+                            ["SCY", "Short Course Yards"],
+                            ["LCM", "Long Course Meters"],
+                            ["SCM", "Short Course Meters"],
+                          ].map(([course, label]) => (
+                            <button
+                              key={course}
+                              type="button"
+                              aria-pressed={filters.course === course}
+                              onClick={() => {
+                                updateFilter("course", course);
+                                close();
+                              }}
+                            >
+                              {label}
+                            </button>
+                          ))
+                        }
+                      </SelectionDropdown>
+                      <SelectionDropdown
+                        label="Gender"
+                        selection={selectedGenderLabels}
+                      >
+                        {(close) =>
+                          [
+                            ["F", "Female"],
+                            ["M", "Male"],
+                            ...(filters.relay ? [["X", "Mixed"]] : []),
+                          ].map(([id, label]) => (
+                            <button
+                              key={id}
+                              type="button"
+                              aria-pressed={filters.genders.includes(id)}
+                              onClick={() => {
+                                const current = filters.genders;
+                                const next = current.includes(id)
+                                  ? current.filter((gender) => gender !== id)
+                                  : [...current, id];
+                                if (next.length) updateFilter("genders", next);
+                                close();
+                              }}
+                            >
+                              {label}
+                            </button>
+                          ))
+                        }
+                      </SelectionDropdown>
+                      <AgeGroupPicker
+                        value={filters.ageGroups}
+                        onChange={(value) => updateFilter("ageGroups", value)}
+                      />
+                      <SelectionDropdown
+                        label="Results"
+                        selection={
+                          rankingResultModes.find(
+                            ([mode]) => mode === resultMode,
+                          )?.[1] || "Bests"
+                        }
+                      >
+                        {(close) =>
+                          rankingResultModes
+                            .filter(
+                              ([mode]) => !filters.relay || mode !== "bests",
+                            )
+                            .map(([mode, label]) => (
                               <button
-                                key={id}
-                                aria-pressed={filters.genders.includes(id)}
+                                key={mode}
+                                type="button"
+                                aria-pressed={mode === resultMode}
                                 onClick={() => {
-                                  const current = filters.genders;
-                                  const next = current.includes(id)
-                                    ? current.filter((g) => g !== id)
-                                    : [...current, id];
-                                  if (next.length)
-                                    updateFilter("genders", next);
+                                  updateFilter("mode", mode);
+                                  close();
                                 }}
                               >
                                 {label}
                               </button>
-                            ))}
-                          </div>
-                        </fieldset>
-                        <AgeGroupPicker
-                          options={ageOptions}
-                          value={filters.ageGroups}
-                          onChange={(v) => updateFilter("ageGroups", v)}
-                        />
-                        <FilterChips
-                          label="Results"
-                          value={
-                            filters.relay && filters.mode === "bests"
-                              ? "performances"
-                              : filters.mode
-                          }
-                          onChange={(value) =>
-                            updateFilter("mode", value as Filters["mode"])
-                          }
-                          options={rankingResultModes.filter(
-                            ([mode]) => !filters.relay || mode !== "bests",
-                          )}
-                        />
-                        <PopupPicker
-                          label="Year"
-                          value={filters.year}
-                          onChange={(v) => updateFilter("year", v)}
-                          all="All years"
-                          options={years.map((y) => [y, y])}
-                        />
-                      </div>
+                            ))
+                        }
+                      </SelectionDropdown>
+                      <SelectionDropdown
+                        label="Year"
+                        selection={filters.year || "All years"}
+                      >
+                        {(close) =>
+                          [
+                            ["", "All years"],
+                            ...years.map((year) => [year, year]),
+                          ].map(([year, label]) => (
+                            <button
+                              key={year}
+                              type="button"
+                              aria-pressed={filters.year === year}
+                              onClick={() => {
+                                updateFilter("year", year);
+                                close();
+                              }}
+                            >
+                              {label}
+                            </button>
+                          ))
+                        }
+                      </SelectionDropdown>
                     </div>
                     <div className={`${s.toolbar} ${s.rankingToolbar}`}>
                       {searchField}
                       <button
+                        type="button"
                         className={s.link}
-                        onClick={() => applyRankingFilters(initialFilters, "")}
+                        onClick={() => {
+                          setSearch("");
+                          setPage(0);
+                        }}
                       >
-                        Reset filters
+                        Clear Search
                       </button>
                     </div>
                   </RankingFilters>

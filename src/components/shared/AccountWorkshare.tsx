@@ -58,6 +58,21 @@ function AccountHours({ account }: { account: AccountWorkshareSummary }) {
           )}
         </div>
       </div>
+      {account.requireWorkshare === false && (
+        <p className="mb-3 rounded-lg bg-hover-bg p-3 text-sm font-medium">
+          Workshare is not required for this account.
+        </p>
+      )}
+      {account.workshareNote && (
+        <div className="mb-4 rounded-lg border border-border bg-hover-bg p-4">
+          <h4 className="text-sm font-semibold">
+            Note about your workshare hours
+          </h4>
+          <p className="mt-1 whitespace-pre-wrap break-words text-sm">
+            {account.workshareNote}
+          </p>
+        </div>
+      )}
       <dl className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
         {categories.map(([label, completedKey, requiredKey]) => (
           <div
@@ -67,11 +82,13 @@ function AccountHours({ account }: { account: AccountWorkshareSummary }) {
             <dt className="text-sm text-text-secondary">{label}</dt>
             <dd className="mt-1 text-xl font-semibold tabular-nums">
               <span
-                aria-label={`${account.completed[completedKey]} completed hours, ${account.requirements[requiredKey] === null ? "requirement unset" : `${account.requirements[requiredKey]} required hours`}`}
+                aria-label={`${account.completed[completedKey]} completed hours, ${(account.requireWorkshare === false ? 0 : account.requirements[requiredKey]) === null ? "requirement unset" : `${account.requireWorkshare === false ? 0 : account.requirements[requiredKey]} required hours`}`}
               >
                 {workshareHours(
                   account.completed[completedKey],
-                  account.requirements[requiredKey],
+                  account.requireWorkshare === false
+                    ? 0
+                    : account.requirements[requiredKey],
                 )}
               </span>
             </dd>

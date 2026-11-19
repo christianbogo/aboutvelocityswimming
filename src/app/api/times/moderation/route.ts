@@ -1,4 +1,5 @@
-import { serverClient } from "@/lib/supabase/server";
+import { dataOwner } from "@/lib/results/server";
+export const maxDuration = 60;
 import { sameOrigin } from "@/lib/same-origin";
 import { invalidateTimes } from "@/lib/times/server";
 import { moderationReasons } from "@/components/collection/result-moderation";
@@ -6,28 +7,6 @@ import { moderationReasons } from "@/components/collection/result-moderation";
 const headers = { "Cache-Control": "private, no-store" };
 const response = (body: unknown, status = 200) =>
   Response.json(body, { status, headers });
-async function staffClient() {
-  const client = await serverClient();
-  const {
-    data: { user },
-    error,
-  } = await client.auth.getUser();
-  if (error || !user)
-    return {
-      denied: response({ error: "Sign in with your staff account." }, 401),
-    };
-  const { data, error: staffError } = await client.rpc("is_staff");
-  if (staffError)
-    return {
-      denied: response(
-        { error: "Could not verify staff access. Try again." },
-        503,
-      ),
-    };
-  if (data !== true)
-    return { denied: response({ error: "Staff access is required." }, 403) };
-  return { client };
-}
 function failure(code: string) {
   if (["PGRST202", "42P01", "42883"].includes(code))
     return response(
@@ -45,7 +24,7 @@ function failure(code: string) {
     );
   if (code === "P0002") return response({ error: "Result not found." }, 404);
   if (code === "42501")
-    return response({ error: "Staff access is required." }, 403);
+    return response({ error: "Only the data owner can review results." }, 403);
   if (code === "22023")
     return response(
       { error: "Check the result, reason, and explanation." },
@@ -65,7 +44,7 @@ function validReference(kind: unknown, id: unknown): kind is "swim" | "relay" {
   );
 }
 export async function GET(request: Request) {
-  const auth = await staffClient();
+  const auth = await dataOwner();
   if (auth.denied) return auth.denied;
   const params = new URL(request.url).searchParams;
   const kind = params.get("resultType"),
@@ -92,7 +71,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   if (!sameOrigin(request))
     return response({ error: "Invalid request origin." }, 403);
-  const auth = await staffClient();
+  const auth = await dataOwner();
   if (auth.denied) return auth.denied;
   let body;
   try {

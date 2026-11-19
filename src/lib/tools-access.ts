@@ -17,8 +17,6 @@ export function isToolsApi(pathname: string) {
     "/api/data",
     "/api/workshare",
     "/api/times",
-    "/api/collection",
-    "/api/swim-resources",
   ].some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"));
 }
 

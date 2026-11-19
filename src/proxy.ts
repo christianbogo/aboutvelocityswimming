@@ -58,18 +58,13 @@ export async function proxy(request: NextRequest) {
   if (restricted) {
     try {
       // Read the current, server-confirmed identity rather than trusting cookie data
-      // or user-editable metadata. Prepared imports also support bearer auth.
-      // Staff endpoints use the same cookie-bound identity as their route
-      // handlers. A bearer lookup must never borrow staff status from cookies.
+      // or user-editable metadata. Use the same cookie-bound identity as the
+      // management and staff route handlers.
       const staffPath = isStaffToolsPath(request.nextUrl.pathname);
-      const token =
-        toolApi && !staffPath
-          ? request.headers.get("authorization")?.match(/^Bearer (\S+)$/i)?.[1]
-          : undefined;
       const {
         data: { user },
         error,
-      } = await client.auth.getUser(token);
+      } = await client.auth.getUser();
       if (error || !user) return deny(401);
       if (user.is_anonymous || !user.email_confirmed_at) return deny(403);
       if (
@@ -99,7 +94,5 @@ export const config = {
     "/api/data/:path*",
     "/api/workshare/:path*",
     "/api/times/:path*",
-    "/api/collection/:path*",
-    "/api/swim-resources/:path*",
   ],
 };

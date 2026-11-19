@@ -49,7 +49,7 @@ describe("independent times tools", () => {
       "records",
       "standards",
       "admin",
-      "imports",
+      "data",
       "goals",
       "team-map",
     ]);
@@ -60,9 +60,9 @@ describe("independent times tools", () => {
     ).not.toContain("goals");
     expect(
       getAvailableTools({ allTools: true, staff: true }).find(
-        ([id]) => id === "imports",
+        ([id]) => id === "data",
       )?.[1].title,
-    ).toBe("Imports");
+    ).toBe("Data");
     expect(
       getAvailableTools({ allTools: true, staff: true }).map(([id]) => id),
     ).toContain("team-map");
@@ -153,7 +153,7 @@ it("shows released tools to members and reserves drafts for the owner", () => {
     "rankings",
     "records",
     "standards",
-    "imports",
+    "data",
     "goals",
     "team-map",
   ]);

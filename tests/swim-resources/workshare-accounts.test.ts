@@ -28,6 +28,14 @@ function request(method: "POST" | "PUT", value: unknown, extraHeaders: Record<st
 const getRequest = () => new Request("https://velocity.example/api/workshare/accounts");
 
 describe("Workshare account writes", () => {
+  it("validates workshare preferences while preserving omitted legacy-client fields", () => {
+    expect(parseAccount(account({ requireWorkshare: false, workshareNote: "  Waived for this account.  " }))).toMatchObject({requireWorkshare:false,workshareNote:"Waived for this account."});
+    expect(parseAccount(account())).not.toHaveProperty("requireWorkshare");
+    expect(() => parseAccount(account({requireWorkshare:"false"}))).toThrow("Require Workshare");
+    expect(() => parseAccount(account({workshareNote:"x".repeat(2001)}))).toThrow("2000");
+    expect(() => parseAccount(account({workshareNote:null}))).toThrow("Note to Account");
+  });
+
   it("normalizes contact data while keeping unknown hours distinct from zero", () => {
     const parsed = parseAccount(account({
       fullName: "  Example Account  ", emails: [" PARENT@Example.com ", "parent@example.com", "athlete@example.com"],

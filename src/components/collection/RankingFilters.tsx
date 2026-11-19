@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { BookmarkPlus, ChevronDown, Pencil } from "lucide-react";
+import { Bookmark as BookmarkIcon, Pencil } from "lucide-react";
 import { useAuth } from "@/features/workshare/contexts/auth";
 import { browserClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
@@ -22,7 +22,6 @@ interface Props {
   search: string;
   onApply: (filters: Filters, search: string) => void;
   children: ReactNode;
-  initialOpen?: boolean;
 }
 
 function filterKey(filters: Filters, search: string) {
@@ -67,11 +66,8 @@ export default function RankingFilters(props: Props) {
 export function RankingFiltersSkeleton() {
   return (
     <div className={s.heading} aria-hidden="true">
-      <span className={s.toggle}>
-        <SkeletonText width={100} height={13} />
-      </span>
       <span className={s.save}>
-        <SkeletonText width={152} height={13} />
+        <SkeletonText width={112} height={13} />
       </span>
     </div>
   );
@@ -82,11 +78,9 @@ function RankingFilterPanel({
   search,
   onApply,
   children,
-  initialOpen = true,
   userId,
   authLoading,
 }: Props & { userId?: string; authLoading: boolean }) {
-  const [open, setOpen] = useState(initialOpen);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [listStatus, setListStatus] = useState<"loading" | "ready" | "error">(
     "loading",
@@ -100,7 +94,7 @@ function RankingFilterPanel({
   const id = useId();
   const dialog = useRef<HTMLDialogElement>(null);
   const nameInput = useRef<HTMLInputElement>(null);
-  const toggle = useRef<HTMLButtonElement>(null);
+  const addBookmark = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -170,7 +164,7 @@ function RankingFilterPanel({
             : "Bookmark saved.",
       );
       dialog.current?.close();
-      if (remove) toggle.current?.focus();
+      if (remove) addBookmark.current?.focus();
     } catch {
       setError(
         remove
@@ -201,17 +195,6 @@ function RankingFilterPanel({
         </p>
       )}
       <div className={s.heading}>
-        <button
-          ref={toggle}
-          type="button"
-          className={s.toggle}
-          aria-expanded={open}
-          aria-controls={`${id}-controls`}
-          onClick={() => setOpen(!open)}
-        >
-          <ChevronDown size={17} aria-hidden="true" />
-          Event filters
-        </button>
         <div className={s.bookmarkActions}>
           {bookmarks.length > 0 && (
             <ul className={s.bookmarks} aria-label="Bookmarked selections">
@@ -245,13 +228,14 @@ function RankingFilterPanel({
           )}
           {authLoading || userId ? (
             <button
+              ref={addBookmark}
               type="button"
               className={s.save}
               disabled={authLoading || listStatus !== "ready"}
               onClick={() => openEditor(null)}
             >
-              <BookmarkPlus size={16} aria-hidden="true" />
-              Bookmark Selection
+              <BookmarkIcon size={16} fill="currentColor" aria-hidden="true" />
+              Add Bookmark
             </button>
           ) : (
             <Link className={times.link} href="/login">
@@ -260,9 +244,7 @@ function RankingFilterPanel({
           )}
         </div>
       </div>
-      <div id={`${id}-controls`} hidden={!open}>
-        {children}
-      </div>
+      {children}
       <p role="status" className="sr-only">
         {notice}
       </p>
@@ -281,7 +263,7 @@ function RankingFilterPanel({
           }}
         >
           <h2 id={`${id}-title`}>
-            {editing ? "Rename bookmark" : "Bookmark Selection"}
+            {editing ? "Rename bookmark" : "Add Bookmark"}
           </h2>
           <label className={times.field}>
             Bookmark name

@@ -1,0 +1,336 @@
+.workspace {
+  max-width: 1600px;
+  margin-inline: auto;
+  padding: 1.5rem;
+}
+.workspaceEditing {
+  display: grid;
+  grid-template-columns:
+    clamp(340px, var(--account-list-width, 45%), calc(100% - 388px))
+    8px minmax(0, 1fr);
+  height: calc(100dvh - var(--tool-toolbar-height, 0px));
+  min-width: 0;
+  overflow: hidden;
+}
+.browserPane {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  min-height: 0;
+}
+.workspaceEditing > .browserPane {
+  padding: 1.25rem;
+}
+.tabs {
+  display: inline-flex;
+  align-items: stretch;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--surface);
+}
+.tabButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: 40px;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.tabButton:hover {
+  background: var(--background-alt);
+}
+.tabButton[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--primary-ink);
+}
+.tabButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.tabPanel {
+  min-width: 0;
+  min-height: 0;
+}
+.workspaceEditing .tabPanel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+.listPane {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  min-height: 0;
+}
+.workspaceEditing .listPane {
+  flex: 1;
+}
+.workspaceEditing .tableScroll {
+  flex: 1;
+  min-height: 0;
+}
+.paneDivider {
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+  background: var(--background-alt);
+  border-inline: 1px solid var(--border);
+  z-index: 4;
+}
+.paneDivider > span {
+  position: absolute;
+  inset: 50% 1px auto;
+  height: 2.5rem;
+  border-radius: 3px;
+  background: var(--text-muted);
+  opacity: 0.5;
+  transform: translateY(-50%);
+}
+.paneDivider:hover,
+.paneDivider[data-dragging="true"],
+.paneDivider:focus-visible {
+  background: color-mix(in srgb, var(--accent) 25%, var(--surface));
+}
+.paneDivider:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.workspaceEditing:has(.paneDivider[data-dragging="true"]) {
+  user-select: none;
+  cursor: col-resize;
+}
+.tableScroll {
+  min-width: 0;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-surface);
+}
+.table {
+  width: 100%;
+  text-align: left;
+  font-size: 0.875rem;
+}
+.table td {
+  padding: 1rem;
+  vertical-align: top;
+}
+.accountRow {
+  border-top: 1px solid var(--color-border);
+}
+.accountRow:hover {
+  background: var(--color-bg);
+}
+.accountRow[data-selected="true"] {
+  background: color-mix(in srgb, var(--accent) 9%, var(--color-surface));
+  box-shadow: inset 3px 0 var(--accent);
+}
+.accountSelect {
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  min-width: 10rem;
+  overflow-wrap: anywhere;
+}
+.accountSelect:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+.accountSelect:disabled {
+  cursor: wait;
+}
+.rowActions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  width: max-content;
+}
+.rowAction {
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-height: 44px;
+  gap: 0.5rem;
+  padding-inline: 1rem;
+}
+.compactTable {
+  table-layout: fixed;
+}
+.compactTable td {
+  padding: 0.875rem;
+}
+.compactTable .accountSelect {
+  min-width: 0;
+}
+.table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.editorPane {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--surface);
+  container-type: inline-size;
+  scroll-margin-top: var(--tool-toolbar-height, 0px);
+}
+.editorForm {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.editorForm fieldset {
+  min-inline-size: 0;
+}
+.editorForm > fieldset {
+  padding: 1.25rem;
+}
+.editorHeader {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 1rem 1.25rem;
+  display: grid;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+.requireToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  min-width: 5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.requireToggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 0.25rem;
+}
+.switchTrack {
+  width: 2rem;
+  height: 1.125rem;
+  padding: 2px;
+  border-radius: 1rem;
+  background: var(--color-text-secondary);
+}
+.switchTrack > span {
+  display: block;
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 50%;
+  background: white;
+  transition: transform 0.15s;
+}
+.requireToggle[aria-checked="true"] .switchTrack {
+  background: var(--accent);
+}
+.requireToggle[aria-checked="true"] .switchTrack > span {
+  transform: translateX(0.875rem);
+}
+.columns {
+  position: relative;
+  font-size: 0.875rem;
+}
+.columns summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+  cursor: pointer;
+  list-style: none;
+}
+.columns summary::-webkit-details-marker {
+  display: none;
+}
+.columnMenu {
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  width: 13rem;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+}
+.columnMenu label {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 40px;
+  padding: 0.5rem;
+  cursor: pointer;
+}
+.columnMenu input {
+  accent-color: var(--accent);
+  width: 1rem;
+  height: 1rem;
+}
+@media (min-width: 1500px) {
+  .rowActions {
+    flex-direction: row;
+  }
+}
+@media (max-width: 900px) {
+  .workspaceEditing {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+  }
+  .workspaceEditing > .browserPane {
+    padding: 1rem;
+  }
+  .workspaceEditing .tableScroll {
+    flex: auto;
+    max-height: 13rem;
+  }
+  .paneDivider {
+    display: none;
+  }
+  .editorPane {
+    height: calc(100dvh - var(--tool-toolbar-height, 0px));
+    border-top: 1px solid var(--border);
+  }
+  .workspace {
+    padding: 1rem;
+  }
+}
+@container (max-width: 500px) {
+  .editorForm :global(.sm\:grid-cols-2),
+  .editorForm :global(.sm\:grid-cols-3) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 480px) {
+  .editorForm > fieldset {
+    padding: 1rem;
+  }
+  .editorHeader {
+    padding: 1rem;
+  }
+}

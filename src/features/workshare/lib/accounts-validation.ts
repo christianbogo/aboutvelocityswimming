@@ -11,6 +11,8 @@ export interface WorkshareAccountInput {
   fullName: string;
   emails: string[];
   athletes: WorkshareAthleteInput[];
+  requireWorkshare?: boolean;
+  workshareNote?: string;
   currentSeason: string | null;
   generalHoursRequired: number | null;
   starlightHoursRequired: number | null;
@@ -88,7 +90,7 @@ export function parseAccount(
   const account = record(value, "Account");
   knownFields(account, [
     "id", "fullName", "emails", "athletes", "currentSeason", "generalHoursRequired",
-    "starlightHoursRequired", "appleCapitalHoursRequired", "isArchived", "updatedAt",
+    "starlightHoursRequired", "appleCapitalHoursRequired", "isArchived", "updatedAt", "requireWorkshare", "workshareNote",
   ], "Account");
 
   let version: { id?: string; updatedAt?: string } = {};
@@ -127,6 +129,8 @@ export function parseAccount(
     fullName: text(account.fullName, "Account full name", 200, true),
     emails,
     athletes,
+    ...(account.requireWorkshare === undefined ? {} : { requireWorkshare: archived(account.requireWorkshare, "Require Workshare") }),
+    ...(account.workshareNote === undefined ? {} : { workshareNote: text(account.workshareNote, "Note to Account", 2000) }),
     currentSeason,
     generalHoursRequired: hours(account.generalHoursRequired, "General hours required"),
     starlightHoursRequired: hours(account.starlightHoursRequired, "Starlight hours required"),
