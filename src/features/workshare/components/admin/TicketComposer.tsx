@@ -26,8 +26,7 @@ import {
 import { TicketModal } from "./TicketModal";
 
 interface TargetState {
-  key: string;
-  ticket?: WorkshareTicket;
+  tickets: WorkshareTicket[];
   busy?: boolean;
   error?: string;
 }
@@ -68,6 +67,8 @@ export function TicketComposer({
   );
   const [selected, setSelected] = useState(accountId ?? "");
   const [query, setQuery] = useState("");
+  const [quantity, setQuantity] = useState("1");
+  const initialRemaining = useRef<number | null>(null);
   const [committed, setCommitted] = useState<SavedFields | null>(null);
   const [targets, setTargets] = useState<Record<string, TargetState>>({});
   const [initialBusy, setInitialBusy] = useState(false);
@@ -93,9 +94,10 @@ export function TicketComposer({
     (account) => !term || matchesAccount(account, term),
   );
   const visible = matches.slice(0, 25);
-  const addedCount = Object.values(targets).filter(
-    (target) => target.ticket,
-  ).length;
+  const addedCount = Object.values(targets).reduce(
+    (total, target) => total + target.tickets.length,
+    0,
+  );
 
   function keyFor(id: string) {
     let key = keys.current.get(id);
@@ -107,12 +109,17 @@ export function TicketComposer({
   }
 
   async function add(id: string, details: SavedFields) {
-    if (inFlight.current.has(id) || targets[id]?.ticket) return;
+    if (inFlight.current.has(id)) return;
     inFlight.current.add(id);
     const key = keyFor(id);
     setTargets((previous) => ({
       ...previous,
-      [id]: { ...previous[id], key, busy: true, error: "" },
+      [id]: {
+        ...previous[id],
+        tickets: previous[id]?.tickets ?? [],
+        busy: true,
+        error: "",
+      },
     }));
     try {
       const ticket = await createTicket({
@@ -121,7 +128,11 @@ export function TicketComposer({
         seasonId: season.id,
         ...details,
       });
-      setTargets((previous) => ({ ...previous, [id]: { key, ticket } }));
+      keys.current.delete(id);
+      setTargets((previous) => ({
+        ...previous,
+        [id]: { tickets: [...(previous[id]?.tickets ?? []), ticket] },
+      }));
       onChanged();
       return ticket;
     } catch (cause) {
@@ -129,7 +140,12 @@ export function TicketComposer({
         cause instanceof Error ? cause.message : "Unable to add this ticket.";
       setTargets((previous) => ({
         ...previous,
-        [id]: { ...previous[id], key, busy: false, error: message },
+        [id]: {
+          ...previous[id],
+          tickets: previous[id]?.tickets ?? [],
+          busy: false,
+          error: message,
+        },
       }));
       throw cause;
     } finally {
@@ -146,11 +162,22 @@ export function TicketComposer({
       setError(validation || "Choose the account receiving this ticket.");
       return;
     }
+    const count = Number(quantity);
+    if (!Number.isSafeInteger(count) || count < 1) {
+      setError("Quantity must be a whole number of at least 1.");
+      return;
+    }
+    initialRemaining.current ??= count;
     setInitialBusy(true);
     setInitialLocked(true);
     setError("");
     try {
-      const ticket = await add(selectedAccount.id!, details);
+      let ticket: WorkshareTicket | undefined;
+      while (initialRemaining.current > 0) {
+        ticket = await add(selectedAccount.id!, details);
+        if (!ticket) return;
+        initialRemaining.current -= 1;
+      }
       if (ticket) {
         setCommitted({
           completedOn: ticket.completedOn,
@@ -165,9 +192,11 @@ export function TicketComposer({
         cause instanceof WorkshareRequestError &&
         cause.status >= 400 &&
         cause.status < 500 &&
-        cause.status !== 409
+        cause.status !== 409 &&
+        initialRemaining.current === count
       ) {
         setInitialLocked(false);
+        initialRemaining.current = null;
       }
       setError(
         cause instanceof Error ? cause.message : "Unable to add the ticket.",
@@ -179,20 +208,19 @@ export function TicketComposer({
 
   async function undo(id: string) {
     const target = targets[id];
-    if (!target?.ticket || inFlight.current.has(id)) return;
+    const ticket = target?.tickets.at(-1);
+    if (!ticket || inFlight.current.has(id) || keys.current.has(id)) return;
     inFlight.current.add(id);
     setTargets((previous) => ({
       ...previous,
       [id]: { ...target, busy: true, error: "" },
     }));
     try {
-      await deleteTicket(target.ticket);
-      keys.current.delete(id);
-      setTargets((previous) => {
-        const next = { ...previous };
-        delete next[id];
-        return next;
-      });
+      await deleteTicket(ticket);
+      setTargets((previous) => ({
+        ...previous,
+        [id]: { tickets: previous[id].tickets.slice(0, -1) },
+      }));
       onChanged();
     } catch (cause) {
       setTargets((previous) => ({
@@ -218,6 +246,8 @@ export function TicketComposer({
         : defaultTicketFields(season),
     );
     setCommitted(null);
+    setQuantity("1");
+    initialRemaining.current = null;
     setSelected(accountId ?? "");
     setQuery("");
     setTargets({});
@@ -245,11 +275,11 @@ export function TicketComposer({
               {committed.hours === 1 ? "hour" : "hours"}
             </p>
             <p role="status" className="text-xs text-accent">
-              Added to {addedCount} {addedCount === 1 ? "account" : "accounts"}
+              Added {addedCount} {addedCount === 1 ? "ticket" : "tickets"}
             </p>
           </div>
           <p className="text-sm text-text-secondary">
-            Add this same ticket to other accounts.
+            Add this same ticket to accounts. Click Add again for another copy.
           </p>
           <label className={`${fieldClass} w-full max-w-sm`}>
             <span>Find an account</span>
@@ -268,7 +298,7 @@ export function TicketComposer({
               const target = targets[account.id!];
               return (
                 <li key={account.id} className="p-3">
-                  <div className="grid grid-cols-[minmax(0,1fr)_9rem] items-center gap-3">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold">
                         {account.fullName}
@@ -282,29 +312,34 @@ export function TicketComposer({
                         {account.emails.join(", ")}
                       </p>
                     </div>
-                    {target?.ticket ? (
-                      <div className="flex items-center justify-end gap-2">
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-accent">
-                          <Check className="size-3" aria-hidden="true" />
-                          Added
-                        </span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          disabled={target.busy}
-                          aria-label={`Undo ticket for ${account.fullName}`}
-                          onClick={() => void undo(account.id!)}
-                        >
-                          {target.busy ? "Undoing…" : "Undo"}
-                        </Button>
-                      </div>
-                    ) : (
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      {!!target?.tickets.length && (
+                        <>
+                          <span
+                            role="status"
+                            className="inline-flex items-center gap-1 text-xs font-medium text-accent"
+                          >
+                            <Check className="size-3" aria-hidden="true" />
+                            {target.tickets.length} added
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={
+                              target.busy || keys.current.has(account.id!)
+                            }
+                            aria-label={`Undo ticket for ${account.fullName}`}
+                            onClick={() => void undo(account.id!)}
+                          >
+                            Undo
+                          </Button>
+                        </>
+                      )}
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="justify-self-end"
                         disabled={target?.busy}
                         aria-label={`Add ticket to ${account.fullName}`}
                         onClick={() => {
@@ -312,9 +347,13 @@ export function TicketComposer({
                         }}
                       >
                         <Plus className="mr-1 size-3" aria-hidden="true" />
-                        {target?.busy ? "Adding…" : "Add"}
+                        {target?.busy
+                          ? "Adding…"
+                          : target?.error
+                            ? "Retry"
+                            : "Add"}
                       </Button>
-                    )}
+                    </div>
                   </div>
                   {target?.error && (
                     <p role="alert" className="mt-2 text-xs text-red-600">
@@ -433,6 +472,17 @@ export function TicketComposer({
                 </div>
               )}
             </div>
+            <label className={`${fieldClass} w-full max-w-sm`}>
+              <span>Quantity</span>
+              <Input
+                type="number"
+                min="1"
+                step="1"
+                required
+                value={quantity}
+                onChange={(event) => setQuantity(event.target.value)}
+              />
+            </label>
             <TicketFields
               value={fields}
               onChange={(changes) =>
@@ -448,7 +498,8 @@ export function TicketComposer({
           )}
           {error && initialLocked && (
             <p className="text-xs text-text-secondary">
-              Retry to confirm this ticket before changing its details.
+              Retry to finish adding tickets before changing the details.
+              Tickets already saved will be kept.
             </p>
           )}
           <div className="flex gap-2">

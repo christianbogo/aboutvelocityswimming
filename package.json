@@ -19,6 +19,7 @@
     "test:workshare:database": "node --test tests/workshare-accounts.integration.mjs",
     "test:workshare:browser": "node scripts/workshare/accounts-browser-check.mjs",
     "test:workshare:tickets:browser": "node scripts/workshare/tickets-browser-check.mjs",
+    "test:workshare:tickets:quantity:browser": "node scripts/workshare/ticket-quantity-browser-check.mjs",
     "test:workshare:tickets:database": "node --test tests/workshare-tickets.integration.mjs",
     "test:workshare:summary:database": "node --test tests/workshare-account-summary.integration.mjs",
     "test:workshare:staff:database": "node --test tests/workshare-domain-staff.integration.mjs",
