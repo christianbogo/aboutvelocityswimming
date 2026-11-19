@@ -85,6 +85,10 @@ const records = [
     athlete("test-swimmer-b", "Blake", "Example", "M"),
   ],
   [
+    "athletes/test-swimmer-c",
+    athlete("test-swimmer-c", "Casey", "Example", "F"),
+  ],
+  [
     "families/family-a",
     {
       accountName: "Example Family A",
