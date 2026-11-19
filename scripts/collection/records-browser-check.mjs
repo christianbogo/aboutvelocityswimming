@@ -5,9 +5,10 @@ const base = process.env.VELOCITY_TEST_URL ?? "http://127.0.0.1:3001";
 assert.ok(["127.0.0.1", "localhost"].includes(new URL(base).hostname));
 const browser = await chromium.launch({ headless: true });
 try {
-  const page = await browser.newPage({
+  const context = await browser.newContext({
     viewport: { width: 1440, height: 1000 },
   });
+  const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("**/auth/v1/**", (route) => {
@@ -159,14 +160,14 @@ try {
     JSON.parse(new URL(page.url()).searchParams.get("filters")).mode,
     "bests",
   );
-  const eventFilters = page.getByRole("button", {
-    name: "Event filters",
+  const courseFilter = page.getByRole("button", {
+    name: "Course: SCY",
     exact: true,
   });
-  await eventFilters.waitFor();
-  assert.equal(await eventFilters.getAttribute("aria-expanded"), "false");
-  await eventFilters.click();
-  assert.equal(await eventFilters.getAttribute("aria-expanded"), "true");
+  await courseFilter.waitFor();
+  assert.equal(await courseFilter.getAttribute("aria-expanded"), "false");
+  await courseFilter.click();
+  assert.equal(await courseFilter.getAttribute("aria-expanded"), "true");
   await page.goto(base + "/tools/times?view=records");
   await records
     .getByRole("button", {
