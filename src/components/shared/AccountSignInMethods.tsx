@@ -8,6 +8,7 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useUpdateBlocker } from "@/hooks/useUpdateBlocker";
 import {
   accountProviders,
@@ -170,6 +171,14 @@ export default function AccountSignInMethods({
           );
         })}
       </div>
+      <p className="mt-3 max-w-sm text-xs leading-relaxed text-text-secondary">
+        Linking Google shares your basic profile and email to identify this
+        account.{" "}
+        <Link href="/privacy#google-user-data" className="underline">
+          Google data use, access revocation, and deletion
+        </Link>
+        .
+      </p>
       {!identities && !identityError && (
         <p className="mt-2 text-xs text-text-secondary" role="status">
           Loading linked sign-ins…

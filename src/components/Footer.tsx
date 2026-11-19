@@ -81,6 +81,13 @@ export default function Footer() {
             <p className={scopedClasses(styles, 'footer-mission')}>
               Promoting the development of life skills through the sport of swimming in the greater Wenatchee Valley.
             </p>
+            <p className={scopedClasses(styles, 'footer-mission')}>
+              Our website provides team schedules, swimming times and rankings,
+              volunteer tracking, and a team store. Sign in with an email code
+              or optionally Google to access your account and authorized team
+              tools. Google sign-in uses your basic profile and email to
+              identify your account.
+            </p>
           </div>
 
           <div className={scopedClasses(styles, 'footer-links')}>

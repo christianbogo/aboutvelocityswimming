@@ -7,7 +7,8 @@ import { scopedClasses } from "@/lib/styles";
 export const metadata: Metadata = {
   title: "Privacy Policy | Velocity Swimming",
   description:
-    "Privacy Policy and data protection guidelines for Velocity Swimming in the Wenatchee Valley.",
+    "How Velocity Swimming collects, uses, stores, and shares personal information, including Google sign-in data, and how to request deletion.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPolicy() {
@@ -39,7 +40,7 @@ export default function PrivacyPolicy() {
               </span>
               <h1>Privacy Policy</h1>
               <p className={scopedClasses(styles, "last-updated")}>
-                Last Updated: October 13, 2026
+                Last Updated: November 19, 2026
               </p>
             </div>
           </div>
@@ -53,7 +54,9 @@ export default function PrivacyPolicy() {
                 adult aquatics organization serving the Wenatchee Valley and
                 North Central Washington. This policy describes information
                 handled through our website, accounts, team tools, and online
-                store.
+                store at aboutvelocityswimming.com. Velocity Swimming operates
+                these services and is responsible for the information described
+                in this policy.
               </p>
             </section>
             <section className={scopedClasses(styles, "legal-section")}>
@@ -61,17 +64,19 @@ export default function PrivacyPolicy() {
               <ul>
                 <li>
                   <strong>Accounts and inquiries:</strong> Email address,
-                  account identifiers, sign-in and verification information, and
-                  information you provide when contacting us. If you choose
-                  Google sign-in, we receive the account information needed to
-                  authenticate you.
+                  account identifiers, profile and contact details you save,
+                  sign-in and verification information, and information you
+                  provide when contacting us. If you choose Google sign-in, we
+                  receive the information described in the Google sign-in
+                  section below.
                 </li>
                 <li>
                   <strong>Team and household records:</strong> Names, contact
                   details, household and athlete associations, team membership,
                   volunteer shift signups, workshare hours, and related
                   administrative records supplied by families or authorized
-                  staff.
+                  staff. We also store the primary and favorite athletes you
+                  choose to follow in your account.
                 </li>
                 <li>
                   <strong>Swimming records:</strong> Athlete names, age or age
@@ -94,8 +99,98 @@ export default function PrivacyPolicy() {
                 </li>
               </ul>
             </section>
+            <section
+              id="google-user-data"
+              className={scopedClasses(styles, "legal-section")}
+            >
+              <h2>3. Google Sign-In and Google User Data</h2>
+              <p>
+                Google sign-in is optional. You can use an email code instead.
+                When you choose to sign in with Google or link Google to an
+                existing account, we request basic identity permissions (openid,
+                email, and profile). Google supplies a unique account
+                identifier, email address and verification status, and basic
+                profile information such as your name and profile picture, when
+                available. We do not receive your Google password or request
+                access to your Gmail messages, Google Drive files, contacts, or
+                private calendars. The public team calendar does not require
+                access to your personal Google Calendar.
+              </p>
+              <p>
+                <strong>Use:</strong> We use Google identity data to create or
+                identify your website account, verify your email, link your
+                sign-in method, maintain secure access, and connect you to
+                account features and household records you are authorized to
+                use. Google sign-in does not grant staff permissions or team
+                membership.
+              </p>
+              <p>
+                <strong>Storage and security:</strong> Supabase processes and
+                stores Google identity and profile data with your authentication
+                record. Authentication tokens are handled by Supabase and your
+                browser as part of sign-in and session management. We do not use
+                Google access tokens to retrieve data from other Google
+                services. Our website uses HTTPS, authenticated sessions, and
+                access controls to protect account information. Google identity
+                data is retained while needed to provide your account and is
+                subject to the retention and deletion process below.
+              </p>
+              <p>
+                <strong>Sharing and Limited Use:</strong> Velocity Swimming
+                follows the{" "}
+                <a
+                  href="https://developers.google.com/terms/api-services-user-data-policy"
+                  className={scopedClasses(styles, "legal-link")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Google API Services User Data Policy
+                </a>
+                , including its Limited Use requirements, when using or
+                transferring information received from Google APIs. We share
+                Google identity data with Supabase to provide the account
+                features you choose. Other disclosures are limited to security
+                needs or legal obligations. We do not sell Google user data, use
+                it for advertising, credit or lending decisions, or use it to
+                train generalized artificial intelligence or machine learning
+                models. Human access is limited to your consent, security
+                investigations, or legal obligations. The registration, store,
+                and social-media services described below do not receive your
+                Google identity record from us; they handle information you
+                separately provide when using those services.
+              </p>
+              <p>
+                <strong>Revoke access or request deletion:</strong> You can
+                remove Velocity Swimming&rsquo;s access from your{" "}
+                <a
+                  href="https://myaccount.google.com/connections"
+                  className={scopedClasses(styles, "legal-link")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Google Account connections
+                </a>
+                . Revocation prevents future Google authorization until you
+                reconnect; it does not automatically delete your website
+                account, previously stored information, or an existing website
+                session. Sign out to end your current website session. To delete
+                your website account and stored Google identity data, email{" "}
+                <a
+                  href="mailto:execboard@velocity-swimming.com?subject=Account%20and%20Google%20data%20deletion%20request"
+                  className={scopedClasses(styles, "legal-link")}
+                >
+                  execboard@velocity-swimming.com
+                </a>{" "}
+                with the subject &ldquo;Account and Google data deletion
+                request.&rdquo; Include the email address associated with your
+                account, but do not send passwords or sign-in codes. We verify
+                your identity before processing the request. See the retention
+                section for records we may need to keep independently of your
+                Google connection.
+              </p>
+            </section>
             <section className={scopedClasses(styles, "legal-section")}>
-              <h2>3. How We Use Information</h2>
+              <h2>4. How We Use Information</h2>
               <p>
                 We use information to provide and secure accounts, connect users
                 with their household and authorized tools, administer team and
@@ -106,7 +201,7 @@ export default function PrivacyPolicy() {
               </p>
             </section>
             <section className={scopedClasses(styles, "legal-section")}>
-              <h2>4. Service Providers and Information Sharing</h2>
+              <h2>5. Service Providers and Information Sharing</h2>
               <p>
                 We use service providers to operate the site and deliver the
                 services you request:
@@ -116,6 +211,12 @@ export default function PrivacyPolicy() {
                   <strong>Account and data services:</strong> Supabase supports
                   authentication and storage of website and team-tool records.
                   Google supports optional Google sign-in.
+                </li>
+                <li>
+                  <strong>Hosting and email delivery:</strong> Vercel hosts the
+                  website, and Resend delivers account emails through our
+                  authentication service. These providers process the technical
+                  or contact information needed to deliver those services.
                 </li>
                 <li>
                   <strong>Registration:</strong> SportsEngine handles official
@@ -132,9 +233,9 @@ export default function PrivacyPolicy() {
                 <li>
                   <strong>Social media:</strong> Instagram embeds connect your
                   browser to Meta services after you select “Load Instagram
-                  posts.” Those services may receive technical
-                  information and use cookies when embedded posts load, even if
-                  you do not click a post.
+                  posts.” Those services may receive technical information and
+                  use cookies when embedded posts load, even if you do not click
+                  a post.
                 </li>
               </ul>
               <p>
@@ -186,7 +287,7 @@ export default function PrivacyPolicy() {
               </p>
             </section>
             <section className={scopedClasses(styles, "legal-section")}>
-              <h2>5. Cookies, Browser Storage, and Your Choices</h2>
+              <h2>6. Cookies, Browser Storage, and Your Choices</h2>
               <p>
                 Sign-in uses cookies to maintain your session. Browser storage
                 remembers preferences such as your theme and tool layout. You
@@ -197,7 +298,7 @@ export default function PrivacyPolicy() {
               </p>
             </section>
             <section className={scopedClasses(styles, "legal-section")}>
-              <h2>6. Young Athletes and Team Media</h2>
+              <h2>7. Young Athletes and Team Media</h2>
               <p>
                 Parents or guardians should manage registration and household
                 information for children. We handle information about young
@@ -224,7 +325,7 @@ export default function PrivacyPolicy() {
               </p>
             </section>
             <section className={scopedClasses(styles, "legal-section")}>
-              <h2>7. Retention, Security, and Requests</h2>
+              <h2>8. Retention, Security, and Requests</h2>
               <p>
                 Records are retained for team operations, account
                 administration, order support, recordkeeping, and applicable
@@ -239,16 +340,25 @@ export default function PrivacyPolicy() {
                 its use. We may need to verify your identity or authority to act
                 for an athlete or household. Some records may need to be
                 retained for legal, financial, safety, or recordkeeping reasons.
-                Requests concerning another provider&rsquo;s independent records
-                should also be directed to that provider.
+                Account deletion removes the authentication record and linked
+                Google identity data from the active account system. Separate
+                order, volunteer, and historical competition records may remain
+                where needed for the purposes above. Any residual backup copies
+                remain subject to the service provider&rsquo;s backup retention
+                cycle and are not used to restore a deleted account to ordinary
+                use. Requests concerning another provider&rsquo;s independent
+                records should also be directed to that provider.
               </p>
             </section>
             <section className={scopedClasses(styles, "legal-section")}>
-              <h2>8. Updates and Contact</h2>
+              <h2>9. Updates and Contact</h2>
               <p>
                 We may update this policy as our services or practices change.
-                The date above identifies the latest revision. For privacy
-                questions, record requests, or photo removal requests, contact:
+                The date above identifies the latest revision. Before accessing
+                additional Google data or using Google data for a new purpose,
+                we will update these disclosures and obtain your consent. For
+                privacy questions, record requests, or photo removal requests,
+                contact:
               </p>
               <div className={scopedClasses(styles, "contact-card")}>
                 <p>

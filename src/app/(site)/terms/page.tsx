@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   title: "Terms of Service | Velocity Swimming",
   description:
     "Terms of Service and website usage policies for Velocity Swimming.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsOfService() {
@@ -39,7 +40,7 @@ export default function TermsOfService() {
               </span>
               <h1>Terms of Service</h1>
               <p className={scopedClasses(styles, "last-updated")}>
-                Last Updated: October 13, 2026
+                Last Updated: November 19, 2026
               </p>
             </div>
           </div>
@@ -48,9 +49,10 @@ export default function TermsOfService() {
             <section className={scopedClasses(styles, "legal-section")}>
               <h2>1. Agreement and Scope</h2>
               <p>
-                By using the Velocity Swimming website, accounts, team tools, or
-                online store, you agree to these Terms of Service. If you do not
-                agree, please do not use these services. Our{" "}
+                Velocity Swimming operates aboutvelocityswimming.com. By using
+                this website, accounts, team tools, or online store, you agree
+                to these Terms of Service. If you do not agree, please do not
+                use these services. Our{" "}
                 <Link
                   href="/privacy"
                   className={scopedClasses(styles, "legal-link")}
@@ -108,6 +110,31 @@ export default function TermsOfService() {
               <p>
                 We may restrict account access to address misuse, security
                 concerns, or changes in eligibility.
+              </p>
+              <p>
+                Google sign-in and account linking are optional; email code
+                sign-in is also available. Choosing Google authorizes us to use
+                your basic Google identity information for your website account
+                as described in the{" "}
+                <Link
+                  href="/privacy#google-user-data"
+                  className={scopedClasses(styles, "legal-link")}
+                >
+                  Google sign-in section of our Privacy Policy
+                </Link>
+                . We do not request access to your Gmail, Drive, contacts, or
+                private calendars. Google manages your Google account under its
+                own terms; Velocity Swimming manages your website account.
+              </p>
+              <p>
+                You may stop using the website at any time, revoke Google access
+                through your Google Account connections, or request website
+                account deletion by emailing execboard@velocity-swimming.com.
+                Revoking Google access does not automatically delete stored
+                website records or end an existing website session. Account
+                closure does not by itself cancel team registration, pending
+                orders, or obligations under separate team agreements. Our
+                Privacy Policy explains deletion requests and record retention.
               </p>
             </section>
             <section className={scopedClasses(styles, "legal-section")}>

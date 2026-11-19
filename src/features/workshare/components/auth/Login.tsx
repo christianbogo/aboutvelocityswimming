@@ -2,6 +2,7 @@ import { withUpdateHold } from "@/lib/update-safety";
 import { useUpdateBlocker } from "@/hooks/useUpdateBlocker";
 import { errorCode, errorMessage } from "../../lib/errors";
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { signInWithEmailAndPassword } from "@/lib/auth";
 import { browserClient } from "@/lib/supabase/client";
 import {
@@ -211,7 +212,8 @@ export function Login() {
           </p>
 
           <p className="text-sm text-center mb-5">
-            Sign in with any email to access Account, Times, Rankings, Records, and Standards.
+            Sign in with any email to access Account, Times, Rankings, Records,
+            and Standards.
           </p>
           {user && !authLoading && !canOpenTools && (
             <div className="text-sm text-center mb-5 space-y-2" role="status">
@@ -242,7 +244,10 @@ export function Login() {
           )}
 
           {successMessage && step === "code" && (
-            <div role="status" className="p-3.5 mb-5 text-sm font-medium text-success-text bg-success-bg border border-success-border rounded-xl flex items-center gap-2">
+            <div
+              role="status"
+              className="p-3.5 mb-5 text-sm font-medium text-success-text bg-success-bg border border-success-border rounded-xl flex items-center gap-2"
+            >
               <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
               <span>{successMessage}</span>
             </div>
@@ -460,10 +465,22 @@ export function Login() {
                       aria-hidden="true"
                       focusable="false"
                     >
-                      <path fill="#4285F4" d="M21.6 12.227c0-.709-.064-1.391-.182-2.045H12v3.868h5.382a4.6 4.6 0 0 1-1.996 3.018v2.509h3.232c1.891-1.741 2.982-4.305 2.982-7.35Z" />
-                      <path fill="#34A853" d="M12 22c2.7 0 4.964-.895 6.618-2.423l-3.232-2.509c-.895.6-2.041.955-3.386.955-2.605 0-4.809-1.759-5.595-4.123H3.064v2.591A9.996 9.996 0 0 0 12 22Z" />
-                      <path fill="#FBBC05" d="M6.405 13.9A6.01 6.01 0 0 1 6.091 12c0-.659.114-1.3.314-1.9V7.509H3.064A9.996 9.996 0 0 0 2 12c0 1.614.386 3.141 1.064 4.491L6.405 13.9Z" />
-                      <path fill="#EA4335" d="M12 5.977c1.468 0 2.786.505 3.823 1.496l2.868-2.868C16.959 2.991 14.695 2 12 2a9.996 9.996 0 0 0-8.936 5.509L6.405 10.1C7.191 7.736 9.395 5.977 12 5.977Z" />
+                      <path
+                        fill="#4285F4"
+                        d="M21.6 12.227c0-.709-.064-1.391-.182-2.045H12v3.868h5.382a4.6 4.6 0 0 1-1.996 3.018v2.509h3.232c1.891-1.741 2.982-4.305 2.982-7.35Z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 22c2.7 0 4.964-.895 6.618-2.423l-3.232-2.509c-.895.6-2.041.955-3.386.955-2.605 0-4.809-1.759-5.595-4.123H3.064v2.591A9.996 9.996 0 0 0 12 22Z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M6.405 13.9A6.01 6.01 0 0 1 6.091 12c0-.659.114-1.3.314-1.9V7.509H3.064A9.996 9.996 0 0 0 2 12c0 1.614.386 3.141 1.064 4.491L6.405 13.9Z"
+                      />
+                      <path
+                        fill="#EA4335"
+                        d="M12 5.977c1.468 0 2.786.505 3.823 1.496l2.868-2.868C16.959 2.991 14.695 2 12 2a9.996 9.996 0 0 0-8.936 5.509L6.405 10.1C7.191 7.736 9.395 5.977 12 5.977Z"
+                      />
                     </svg>
                   )}
                   {providerLoading === provider.id
@@ -471,8 +488,27 @@ export function Login() {
                     : `Sign in with ${provider.name}`}
                 </Button>
               ))}
+              <p className="text-xs leading-relaxed text-text-secondary">
+                Google shares your basic profile and email to create or connect
+                your Velocity Swimming account.{" "}
+                <Link href="/privacy#google-user-data" className="underline">
+                  How we use Google data
+                </Link>
+                .
+              </p>
             </div>
           )}
+          <p className="mt-4 text-center text-xs leading-relaxed text-text-secondary">
+            By using your account, you agree to our{" "}
+            <Link href="/terms" className="underline">
+              Terms of Service
+            </Link>
+            . Read our{" "}
+            <Link href="/privacy" className="underline">
+              Privacy Policy
+            </Link>{" "}
+            for information about your data and deletion requests.
+          </p>
         </Card>
         <p className="mt-4 text-center text-sm text-slate-500">
           <a href="/tools" className="hover:underline">

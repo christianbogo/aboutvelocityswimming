@@ -17,6 +17,28 @@ The local config enables manual linking and passkeys for `localhost`, with origi
 
 References: [Supabase identity linking](https://supabase.com/docs/guides/auth/auth-identity-linking), [Supabase passkeys](https://supabase.com/docs/guides/auth/passkeys).
 
+## Google brand verification
+
+The public homepage describes the website and optional Google sign-in. Its footer links to both legal pages, and sign-in and account-linking disclosures link directly to the Google data section of the Privacy Policy. These routes are public and do not require a session.
+
+After deploying the November 19, 2026 policy updates, use these exact values in Google Auth Platform → Branding for this site's production project:
+
+| Field | Value |
+| --- | --- |
+| App name | Velocity Swimming |
+| Application home page | https://aboutvelocityswimming.com |
+| Application privacy policy | https://aboutvelocityswimming.com/privacy |
+| Application terms of service | https://aboutvelocityswimming.com/terms |
+| Authorized domain | aboutvelocityswimming.com |
+
+Confirm the final public URLs after any canonical redirects and use the same host in Branding. Verify ownership of that domain in Google Search Console using an account that owns or edits the Cloud project. Keep the support email and project contacts monitored. In Data Access, request only `openid`, `https://www.googleapis.com/auth/userinfo.email`, and `https://www.googleapis.com/auth/userinfo.profile`; this app does not implement Gmail, Drive, Contacts, or private Calendar access. The separate public team calendar does not require user OAuth scopes.
+
+Keep the Supabase-provided Google callback URL in the Google OAuth client's authorized redirect URIs; it is distinct from the website's `/auth/callback` URL allowed in Supabase. Check that the production consent screen uses the same app name and policy URLs, and that anonymous visitors can open the homepage and legal pages, before resubmitting. Policy edits alone do not verify domain ownership or submit the Cloud project for review.
+
+Account and Google data deletion requests go to `execboard@velocity-swimming.com`. The team must verify the requester and remove the authentication user and linked identities through its authorized account administration process, reviewing stored files and associated account data as needed. Do not treat Google access revocation or sign-out as deletion. Retain separate financial, safety, volunteer, or historical competition records only when justified by the purposes in the Privacy Policy.
+
+References: [Google verification requirements](https://support.google.com/cloud/answer/13464321), [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy), [Supabase Google setup](https://supabase.com/docs/guides/auth/social-login/auth-google).
+
 ## Athlete following and family preview
 
 Apply `supabase/migrations/20261116194519_account_followed_athletes.sql` before deploying this account page. Primary and favorite athlete selections are stored privately for each account, using canonical public athlete IDs. Selecting or removing an athlete saves automatically; writes are serialized so slower responses cannot replace newer edits. Failed saves preserve the selection and offer a retry. The search/load/save functions enforce account ownership; they do not grant ownership of an athlete or change Velocity Times yet.
