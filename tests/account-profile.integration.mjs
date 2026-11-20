@@ -1,13 +1,11 @@
+import { localSupabase } from "../scripts/local-supabase.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
-const config = JSON.parse(execFileSync("supabase", ["status", "--output", "json"], {
-  encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
-}));
-assert.equal(config.API_URL, "http://127.0.0.1:54321", "Tests require the local database.");
+const config = localSupabase();
+
 const make = (key = config.PUBLISHABLE_KEY) => createClient(config.API_URL, key, { auth: { persistSession: false } });
 const admin = make(config.SERVICE_ROLE_KEY);
 const bucket = "account-avatars";

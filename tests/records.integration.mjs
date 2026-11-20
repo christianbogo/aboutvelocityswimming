@@ -1,13 +1,12 @@
+import { localSupabase, localDatabaseContainer } from "../scripts/local-supabase.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { createClient } from "@supabase/supabase-js";
 
-const config = JSON.parse(execFileSync("supabase", ["status", "--output", "json"], {
-  encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
-}));
-assert.equal(config.API_URL, "http://127.0.0.1:54321", "Record-query tests refuse hosted databases.");
+const config = localSupabase();
+
 const clients = Object.fromEntries(["staff", "familyA", "familyB", "anon"].map((name) => [
   name, createClient(config.API_URL, config.PUBLISHABLE_KEY, { auth: { persistSession: false } }),
 ]));
@@ -21,7 +20,7 @@ const quote = (value) => `'${String(value).replaceAll("'", "''")}'`;
 const scope = `record-query-${randomUUID()}`;
 const claims = (name) => `SET LOCAL ROLE ${name === "anon" ? "anon" : "authenticated"};
   SELECT set_config('request.jwt.claims',${quote(JSON.stringify(users[name] ?? { role: "anon" }))},true);`;
-const run = (sql) => execFileSync("docker", ["exec", "-i", "supabase_db_aboutvelocityswimming", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-q"], {
+const run = (sql) => execFileSync("docker", ["exec", "-i", localDatabaseContainer(), "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-q"], {
   input: `BEGIN;\n${sql}\nROLLBACK;\n`, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
 });
 const helpers = `

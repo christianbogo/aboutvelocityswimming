@@ -1,5 +1,5 @@
-import { TimesPageSkeleton } from "@/components/collection/TimesDatabase";
+import { RankingsSkeleton } from "@/components/collection/RankingsPage";
 
 export default function Loading() {
-  return <TimesPageSkeleton view="rankings" />;
+  return <RankingsSkeleton />;
 }

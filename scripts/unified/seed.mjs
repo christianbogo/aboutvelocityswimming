@@ -1,17 +1,10 @@
 import { syntheticStandard } from "./synthetic-standard.mjs";
 import { validateStandard } from "../../src/components/collection/validate-standard.ts";
 import { createClient } from "@supabase/supabase-js";
-import { execFileSync } from "node:child_process";
+import { localSupabase, localEnvironmentFile } from "../local-supabase.mjs";
 import { writeFileSync } from "node:fs";
 validateStandard(syntheticStandard, "test-standard");
-const local = JSON.parse(
-  execFileSync("supabase", ["status", "--output", "json"], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"],
-  }),
-);
-if (local.API_URL !== "http://127.0.0.1:54321")
-  throw new Error("Synthetic seeding requires the local backend.");
+const local = localSupabase();
 const client = createClient(local.API_URL, local.SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
@@ -205,7 +198,7 @@ const { error: standardError } = await client.rpc("test_write_records", {
 if (standardError) throw standardError;
 // Development wrapper reads this ignored file; credentials never enter tracked state.
 writeFileSync(
-  "supabase/.env.local",
+  localEnvironmentFile(),
   `NEXT_PUBLIC_SUPABASE_URL=${local.API_URL}\nNEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${local.PUBLISHABLE_KEY}\nSUPABASE_SERVICE_ROLE_KEY=${local.SERVICE_ROLE_KEY}\nSUPABASE_TEST_EMAILS=true\n`,
   { mode: 0o600 },
 );

@@ -1,5 +1,5 @@
 import { timesViewPaths, type TimesView } from "@/lib/tool-directory";
-import { initialFilters } from "./times-data";
+import { initialFilters, type Filters } from "./times-data";
 
 // Decode only the shape represented by the defaults; malformed shared links
 // must not put null arrays or objects into filter controls.
@@ -137,4 +137,12 @@ export function athleteTimesHref(athleteId: string, course = "SCY") {
     }),
   });
   return `${timesViewPaths["my-times"]}?${params}`;
+}
+
+export function rankingsHref(filters: Filters, search = "") {
+  const url = new URL(
+    timesViewHref("rankings", search, "#times-rankings"),
+    "https://local.invalid",
+  );
+  return writeTimesSelection(url, "filters", filters, initialFilters);
 }

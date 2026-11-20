@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import type { ManagedRecord, RecordKind } from "@/lib/results/types";
 import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
@@ -22,6 +22,7 @@ export default function DataManager() {
     ? params.get("view")!
     : "results";
   const [resultKind, setResultKind] = useState<RecordKind>("swim");
+  const [navigation, setNavigation] = useState(0);
   const kind: RecordKind =
     section === "athletes"
       ? "athlete"
@@ -30,49 +31,6 @@ export default function DataManager() {
         : section === "standards"
           ? "standard"
           : resultKind;
-  const [rows, setRows] = useState<ManagedRecord[]>([]),
-    [query, setQuery] = useState(""),
-    [offset, setOffset] = useState(0),
-    [more, setMore] = useState(false),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
-    [selected, setSelected] = useState<ManagedRecord | null>(null),
-    [revision, setRevision] = useState(0),
-    [message, setMessage] = useState("");
-  useEffect(() => {
-    if (section === "import") return;
-    const controller = new AbortController();
-    const timer = setTimeout(() => {
-      setBusy(true);
-      requestData(
-        `/api/times/manage?kind=${kind}&search=${encodeURIComponent(query)}&offset=${offset}`,
-        undefined,
-        controller.signal,
-      )
-        .then((r) => {
-          setRows(r.rows);
-          setMore(r.hasMore);
-          setError("");
-        })
-        .catch((e) => {
-          if (!controller.signal.aborted) setError(e.message);
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setBusy(false);
-        });
-    }, 200);
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [kind, query, offset, revision, section]);
-  function changeSection(view: string) {
-    setSelected(null);
-    setOffset(0);
-    setQuery("");
-    setMessage("");
-    router.replace(`/tools/data?view=${view}`);
-  }
   return (
     <main className={s.page}>
       <header className={s.header}>
@@ -88,7 +46,10 @@ export default function DataManager() {
             key={id}
             type="button"
             aria-current={section === id ? "page" : undefined}
-            onClick={() => changeSection(id)}
+            onClick={() => {
+              setNavigation((value) => value + 1);
+              router.replace(`/tools/data?view=${id}`);
+            }}
           >
             {title}
           </button>
@@ -96,7 +57,96 @@ export default function DataManager() {
       </nav>
       {section === "import" ? (
         <ImportFile />
-      ) : selected ? (
+      ) : (
+        <RecordBrowser
+          key={`${section}:${kind}:${navigation}`}
+          kind={kind}
+          section={section}
+          onKindChange={setResultKind}
+        />
+      )}
+    </main>
+  );
+}
+
+// A record kind owns its rows, draft, and pending requests. Changing sections
+// remounts this browser, so an old response cannot become a different record form.
+function RecordBrowser({
+  kind,
+  section,
+  onKindChange,
+}: {
+  kind: RecordKind;
+  section: string;
+  onKindChange: (kind: RecordKind) => void;
+}) {
+  const [rows, setRows] = useState<ManagedRecord[]>([]),
+    [query, setQuery] = useState(""),
+    [offset, setOffset] = useState(0),
+    [more, setMore] = useState(false),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [selected, setSelected] = useState<ManagedRecord | null>(null),
+    [revision, setRevision] = useState(0),
+    [message, setMessage] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      setBusy(true);
+      requestData(
+        `/api/times/manage?kind=${kind}&search=${encodeURIComponent(query)}&offset=${offset}`,
+        undefined,
+        controller.signal,
+      )
+        .then((r) => {
+          if (controller.signal.aborted) return;
+          setRows(r.rows);
+          setMore(r.hasMore);
+          setError("");
+        })
+        .catch((e) => {
+          if (!controller.signal.aborted) setError(e.message);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setBusy(false);
+        });
+    }, 200);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [kind, query, offset, revision]);
+  const selectionRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => selectionRequest.current?.abort(), []);
+  function cancelSelection() {
+    selectionRequest.current?.abort();
+    selectionRequest.current = null;
+  }
+  async function edit(id: string) {
+    cancelSelection();
+    const controller = new AbortController();
+    selectionRequest.current = controller;
+    setError("");
+    try {
+      const record: ManagedRecord = await requestData(
+        `/api/times/manage?kind=${kind}&id=${encodeURIComponent(id)}`,
+        undefined,
+        controller.signal,
+      );
+      if (!controller.signal.aborted) setSelected(record);
+    } catch (error) {
+      if (!controller.signal.aborted)
+        setError(
+          error instanceof Error ? error.message : "Unable to load record.",
+        );
+    } finally {
+      if (selectionRequest.current === controller)
+        selectionRequest.current = null;
+    }
+  }
+  return (
+    <>
+      {selected ? (
         <RecordEditor
           key={`${kind}:${selected.id}:${selected.version}`}
           kind={kind}
@@ -124,10 +174,10 @@ export default function DataManager() {
               <label>
                 Result type
                 <select
-                  value={resultKind}
+                  value={kind}
                   onChange={(e) => {
-                    setResultKind(e.target.value as RecordKind);
-                    setOffset(0);
+                    cancelSelection();
+                    onKindChange(e.target.value as RecordKind);
                   }}
                 >
                   <option value="swim">Individual results</option>
@@ -151,7 +201,10 @@ export default function DataManager() {
             </label>
             <button
               className={s.primary}
-              onClick={() => setSelected(blankRecord(kind))}
+              onClick={() => {
+                cancelSelection();
+                setSelected(blankRecord(kind));
+              }}
             >
               Add{" "}
               {kind === "athlete"
@@ -222,17 +275,7 @@ export default function DataManager() {
                       )}
                     </td>
                     <td>
-                      <button
-                        onClick={() =>
-                          requestData(
-                            `/api/times/manage?kind=${kind}&id=${encodeURIComponent(r.id)}`,
-                          )
-                            .then(setSelected)
-                            .catch((e) => setError(e.message))
-                        }
-                      >
-                        Edit
-                      </button>
+                      <button onClick={() => void edit(r.id)}>Edit</button>
                     </td>
                   </tr>
                 ))}
@@ -259,6 +302,6 @@ export default function DataManager() {
           </div>
         </>
       )}
-    </main>
+    </>
   );
 }

@@ -1,5 +1,5 @@
-import { TimesPageSkeleton } from "@/components/collection/TimesDatabase";
+import { StandardsSkeleton } from "@/components/collection/StandardsPage";
 
 export default function Loading() {
-  return <TimesPageSkeleton view="standards" />;
+  return <StandardsSkeleton />;
 }

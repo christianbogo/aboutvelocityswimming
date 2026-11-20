@@ -36,23 +36,17 @@ const skeletonChoices = [
   ["Gender", 2],
 ] as const;
 
-export function useTimeStandardsSelection(
-  sets: StandardSet[],
-  active: boolean,
-) {
+export function useTimeStandardsSelection(sets: StandardSet[]) {
   const [selected, setSelected] = useTimesSelection("standard", "");
   const [selection, setSelection] = useTimesSelection<StandardSelection>(
     "standardFilters",
     { course: "", gender: "", age: "", tier: "" },
   );
-  const day = active
-    ? new Date().toLocaleDateString("en-CA", {
-        timeZone: "America/Los_Angeles",
-      })
-    : "";
-  const set = active
-    ? (sets.find((set) => set.id === selected) ?? defaultStandard(sets, day))
-    : undefined;
+  const day = new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/Los_Angeles",
+  });
+  const set =
+    sets.find((set) => set.id === selected) ?? defaultStandard(sets, day);
   const filters = set ? standardFilters(set, selection) : null;
   return { day, set, filters, setSelected, setSelection };
 }

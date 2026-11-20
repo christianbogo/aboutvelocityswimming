@@ -1,18 +1,10 @@
+import { localSupabase, localDatabaseContainer } from "../scripts/local-supabase.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createClient } from "@supabase/supabase-js";
 import { execFileSync } from "node:child_process";
-const config = JSON.parse(
-  execFileSync("supabase", ["status", "--output", "json"], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"],
-  }),
-);
-assert.equal(
-  config.API_URL,
-  "http://127.0.0.1:54321",
-  "Integration tests refuse hosted databases.",
-);
+const config = localSupabase();
+
 const make = () =>
   createClient(config.API_URL, config.PUBLISHABLE_KEY, {
     auth: { persistSession: false },
@@ -231,7 +223,7 @@ await test("authorization uses verified server identity and explicit administrat
     "docker",
     [
       "exec",
-      "supabase_db_aboutvelocityswimming",
+      localDatabaseContainer(),
       "psql",
       "-U",
       "postgres",

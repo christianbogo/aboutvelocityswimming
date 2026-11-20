@@ -918,7 +918,7 @@ try {
     assert.equal(
       await card25.count(),
       0,
-      "An athlete older than 10 hides their historical 25-yard best",
+      "25-yard bests are hidden while Show 25s is disabled",
     );
     const athleteTrigger = timeFilters.getByRole("button", {
       name: "Athlete: Avery Swimmer",
@@ -933,6 +933,12 @@ try {
     await timeFilters
       .getByRole("button", { name: "Finley Young", exact: true })
       .click();
+    await page
+      .getByRole("status")
+      .filter({ hasText: "No eligible individual times" })
+      .waitFor();
+    assert.equal(await card25.count(), 0);
+    await page.getByRole("switch", { name: "Show 25s", exact: true }).check();
     await card25.waitFor();
     assert.match(await card25.innerText(), /15\.00/);
     await page.screenshot({
@@ -940,6 +946,7 @@ try {
       fullPage: true,
       animations: "disabled",
     });
+    await page.getByRole("switch", { name: "Show 25s", exact: true }).uncheck();
     await timeFilters
       .getByRole("button", { name: "Athlete: Finley Young", exact: true })
       .hover();
@@ -984,7 +991,7 @@ try {
     assert.equal(
       await card25.count(),
       0,
-      "Historical 25-yard swims stay hidden when filtering an older athlete to their younger age group",
+      "Historical 25-yard swims stay hidden while Show 25s is disabled",
     );
     await timeFilters.getByRole("button", { name: /^Age Range:/ }).click();
     await timeFilters
@@ -1045,17 +1052,26 @@ try {
       exact: true,
     });
     await timedCard.waitFor();
+    assert.equal(
+      await timedCard.locator('img[src^="/assets/ranks/"]').count(),
+      0,
+    );
+    assert.equal(await timedCard.locator("time").count(), 0);
+    await page
+      .getByRole("switch", { name: "Show time stats", exact: true })
+      .check();
+    await page
+      .getByRole("switch", { name: "Show date & age", exact: true })
+      .check();
     const iconGap = await timedCard
-      .locator(":scope > span")
-      .nth(2)
+      .locator('span[class*="rankIcon"]')
       .boundingBox();
     const emptyGap = await noRankCard
-      .locator(":scope > span")
-      .nth(2)
+      .locator('span[class*="rankIcon"]')
       .boundingBox();
     assert.ok(
-      iconGap.height >= 28 &&
-        iconGap.height <= 31 &&
+      iconGap.height >= 14 &&
+        iconGap.height <= 22 &&
         Math.abs(iconGap.height - emptyGap.height) <= 1,
     );
     const compactCard = async () => {
@@ -1063,16 +1079,19 @@ try {
         .locator(":scope > span")
         .nth(0)
         .boundingBox();
-      const date = await timedCard
-        .locator(":scope > span")
-        .nth(1)
-        .boundingBox();
+      const date = await timedCard.locator('span[id$="-date"]').boundingBox();
+      const time = await timedCard.locator('strong[id$="-time"]').boundingBox();
       const icon = await timedCard
         .locator('img[src^="/assets/ranks/"]')
         .boundingBox();
-      assert.ok(date.y - (heading.y + heading.height) <= 3);
-      assert.equal(icon.width, 28);
-      assert.equal(icon.height, 28);
+      assert.ok(
+        icon.y >= heading.y &&
+          icon.y + icon.height <= heading.y + heading.height + 1,
+      );
+      assert.ok(date.y >= time.y + time.height);
+      assert.ok(date.y - (time.y + time.height) <= 3);
+      assert.ok(icon.width >= 14 && icon.width <= 22);
+      assert.equal(icon.width, icon.height);
     };
     await compactCard();
     const timeBounds = await timedCard
@@ -1110,7 +1129,7 @@ try {
       animations: "disabled",
     });
     console.log(
-      "Times UI passed hover, keyboard and touch menus, age/year queries, equal card spacing and mobile no overflow.",
+      "Times UI passed explicit display toggles, hover, keyboard and touch menus, age/year queries, equal card spacing and mobile no overflow.",
     );
     const sourceUrl = page.url();
     await timedCard.click();

@@ -58,6 +58,34 @@ test("reads reuse the stored board; imports queue one refresh and preserve ties"
   SELECT pg_temp.check_ok(NOT private.refresh_team_records(),'subsequent reads require no rebuild');
 `));
 
+test("targeted refresh preserves other events, queued work, and full-board freshness", () => check(`
+  SELECT pg_temp.swim('record-target-other','record-cache-a',30000,'{"eventCode":"50_FR_SCY","distance":50,"stroke":"FR"}');
+  SELECT private.refresh_team_records();
+  CREATE TEMP TABLE full_refresh_before AS SELECT * FROM public.team_record_refresh_state;
+  CREATE TEMP TABLE other_event_before AS SELECT * FROM public.team_record_holders WHERE event='50_FR';
+  SELECT pg_temp.swim('record-target-other','record-cache-a',29000,'{"eventCode":"50_FR_SCY","distance":50,"stroke":"FR"}');
+  SELECT pg_temp.swim('record-target-faster','record-cache-a',55000);
+
+  SELECT pg_temp.check_ok(NOT private.refresh_result_record_events('{}'),'empty selection does no work');
+  SELECT pg_temp.check_ok(private.refresh_result_record_events(ARRAY['100_FR_SCY','100_FR_SCY']),'targeted refresh runs');
+  SELECT pg_temp.check_ok(
+    (SELECT jsonb_agg(to_jsonb(h) ORDER BY to_jsonb(h)::text) FROM public.team_record_holders h WHERE event='50_FR') =
+    (SELECT jsonb_agg(to_jsonb(h) ORDER BY to_jsonb(h)::text) FROM other_event_before h),
+    'unselected event remains untouched');
+  SELECT pg_temp.check_ok(
+    (SELECT refreshed_at FROM public.team_record_refresh_state) = (SELECT refreshed_at FROM full_refresh_before),
+    'targeted refresh does not claim full-board freshness');
+  SELECT pg_temp.check_ok(EXISTS(SELECT 1 FROM private.team_record_refresh_queue WHERE transaction_id=txid_current()),'targeted refresh retains queued work');
+  CREATE TEMP TABLE target_event_after AS SELECT * FROM public.team_record_holders WHERE event='100_FR';
+
+  SELECT pg_temp.check_ok(private.refresh_team_records(),'full refresh still consumes the queued work');
+  SELECT pg_temp.check_ok(
+    (SELECT jsonb_agg(to_jsonb(h) ORDER BY to_jsonb(h)::text) FROM public.team_record_holders h WHERE event='100_FR') =
+    (SELECT jsonb_agg(to_jsonb(h) ORDER BY to_jsonb(h)::text) FROM target_event_after h),
+    'targeted winners and ties match full refresh');
+  SELECT pg_temp.check_ok((SELECT min(time_ms)=29000 FROM public.team_record_holders WHERE event='50_FR'),'full refresh updates the other event');
+`));
+
 test("flagged, edited, hidden and deleted holders disappear before the next refresh", () => check(`
   INSERT INTO public.result_moderation VALUES('swim','record-cache-first',true,1);
   SET LOCAL ROLE anon;
@@ -124,6 +152,8 @@ test("the compact board keeps legacy ties, relay lineups, and verified lead-offs
 test("public callers cannot write the board or invoke the background worker", () => check(`
   SELECT pg_temp.check_ok(NOT has_function_privilege('anon','private.refresh_team_records()','execute'),'anon cannot rebuild');
   SELECT pg_temp.check_ok(NOT has_function_privilege('authenticated','private.refresh_team_records()','execute'),'members cannot rebuild');
+  SELECT pg_temp.check_ok(NOT has_function_privilege('anon','private.team_record_winners(text[])','execute'),'anon cannot call the private winner calculation');
+  SELECT pg_temp.check_ok(NOT has_function_privilege('authenticated','private.team_record_winners(text[])','execute'),'members cannot call the private winner calculation');
   SELECT pg_temp.check_ok(NOT has_table_privilege('anon','public.team_record_holders','insert'),'anon cannot forge holders');
   SELECT pg_temp.check_ok(NOT has_table_privilege('authenticated','public.team_record_refresh_state','update'),'members cannot forge freshness');
   SELECT pg_temp.check_ok(NOT has_table_privilege('anon','private.team_record_refresh_queue','select'),'refresh queue is private');
@@ -171,7 +201,10 @@ test("failed refreshes keep the previous board and retryable work", () => check(
 `));
 
 test("page reads touch only holders even with a large slower-swim history", () => check(`
-  SELECT pg_temp.swim('record-cache-slower-'||n,'record-cache-a',70000+n) FROM generate_series(1,2000) n;
+  -- Distinct race dates model history rather than 2,000 swim-offs in one start.
+  SELECT pg_temp.swim('record-cache-slower-'||n,'record-cache-a',70000+n,
+    jsonb_build_object('meet',jsonb_build_object('id','record-cache-meet','name','Record fixture','date',('2010-01-01'::date+n)::text)))
+  FROM generate_series(1,2000) n;
   SELECT private.refresh_team_records();
   CREATE FUNCTION pg_temp.reject_archive_scan(rid text) RETURNS boolean LANGUAGE plpgsql AS $$
   BEGIN

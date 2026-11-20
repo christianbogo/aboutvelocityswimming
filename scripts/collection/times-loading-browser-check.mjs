@@ -46,11 +46,10 @@ const individualEvents = [
 ];
 const recordEvents = [
   ...individualEvents,
-  "100_FR-R",
+  // The default 13-14 board omits the 100-yard relays reserved for 8 & under.
   "200_FR-R",
   "400_FR-R",
   "800_FR-R",
-  "100_MED-R",
   "200_MED-R",
   "400_MED-R",
 ];

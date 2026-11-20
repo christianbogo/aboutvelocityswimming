@@ -27,7 +27,7 @@
     "test:workshare:summary:database": "node --test tests/workshare-account-summary.integration.mjs",
     "test:workshare:staff:database": "node --test tests/workshare-domain-staff.integration.mjs",
     "test:workshare:summary:browser": "node scripts/workshare/account-summary-browser-check.mjs",
-    "test:database": "node --test tests/unified.integration.mjs && npm run test:records:database && npm run test:times:database && npm run test:moderation:database && npm run test:profile:database && npm run test:data:database",
+    "test:database": "node --test tests/unified.integration.mjs && npm run test:records:database && npm run test:times:database && npm run test:moderation:database && npm run test:profile:database && npm run test:data:database && npm run test:attendance:database",
     "test:profile:database": "node --test tests/account-profile.integration.mjs tests/account-athletes.integration.mjs",
     "test:profile:browser": "node scripts/unified/account-profile-browser-check.mjs",
     "test:passkey:browser": "node scripts/unified/account-passkey-browser-check.mjs",
@@ -50,7 +50,8 @@
     "test:home:photos": "node scripts/media/home-photos-browser-check.mjs",
     "test:data:database": "node --test tests/data-management.integration.mjs",
     "test:data:retirement": "node --test tests/data-retirement.integration.mjs",
-    "test:data:browser": "node --import ./scripts/workshare/register-typescript.mjs scripts/results/browser-check.mjs"
+    "test:data:browser": "node --import ./scripts/workshare/register-typescript.mjs scripts/results/browser-check.mjs",
+    "test:attendance:database": "node --test tests/attendance.integration.mjs"
   },
   "dependencies": {
     "@stripe/stripe-js": "^9.8.0",
@@ -70,6 +71,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^24.19.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -77,6 +79,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "iconv-lite": "^0.7.3",
+    "jsdom": "^31.0.1",
     "playwright": "^1.64.0",
     "prettier": "3.9.9",
     "sharp": "0.34.5",

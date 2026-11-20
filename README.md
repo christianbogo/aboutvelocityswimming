@@ -12,6 +12,8 @@ See [Data management](docs/data-management.md) for supported files, identity mat
 
 Run `npm run verify` for lint, types, unit/database tests, the production build, and private-artifact checks. With local synthetic data and a local app at port 3001, `npm run test:data:browser` checks direct entry, file imports, access controls, and moderation. CI rehearses retirement against a populated pre-retirement database before advancing it to the current schema.
 
+For a disposable local stack on different ports, set `VELOCITY_SUPABASE_WORKDIR`, `VELOCITY_SUPABASE_DB_CONTAINER`, and `VELOCITY_DATA_TEST_CONTAINER` before seeding and running database checks. The two container variables must name that stack's local database. Seeding writes its development environment file inside the selected workdir; `npm run dev:local` reads the same file. These helpers reject hosted backend URLs.
+
 Private source originals and essential receipts are archived outside the checkout. Browser verification artifacts use temporary directories; do not create new backup trees in this repository. The active development server's cache must not be removed while it is running.
 
 ## Website update notices

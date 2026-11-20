@@ -15,6 +15,7 @@ export function isToolsPage(pathname: string) {
 export function isToolsApi(pathname: string) {
   return [
     "/api/data",
+    "/api/attendance",
     "/api/workshare",
     "/api/times",
   ].some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"));

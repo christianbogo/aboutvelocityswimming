@@ -1,81 +1,59 @@
 "use client";
 import { useUpdateBlocker } from "@/hooks/useUpdateBlocker";
 import { useEffect, useState } from "react";
-import { collection, db, onSnapshot, runTransaction, doc } from "@/lib/data";
+import {
+  loadAttendanceDay,
+  saveAttendance,
+  type AttendanceDay,
+  type AttendanceStatus,
+} from "@/lib/attendance";
 import { teamDate } from "@/lib/dates";
 import { Button } from "@/components/shared/Button";
 import { Input } from "@/components/shared/Input";
 import { useAuth } from "@/features/workshare/contexts/auth";
-interface Swimmer {
-  id: string;
-  name: { first: string; last: string };
-  currentGroup?: { id: string; name: string };
-  status: string;
-}
-interface Practice {
-  id: string;
-  date: string;
-  trainingGroup: string;
-}
-interface Mark {
-  id: string;
-  athleteId: string;
-  sessionId: string;
-  status: string;
-}
 export default function AttendanceBoard() {
   const { isAdmin, loading } = useAuth();
-  const [swimmers, setSwimmers] = useState<Swimmer[]>([]),
-    [practices, setPractices] = useState<Practice[]>([]),
-    [marks, setMarks] = useState<Mark[]>([]);
+  const [day, setDay] = useState<AttendanceDay | null>(null);
+  const [attempt, setAttempt] = useState(0),
+    [loadingDay, setLoadingDay] = useState(true);
   const [date, setDate] = useState(teamDate()),
     [group, setGroup] = useState(""),
-    [draft, setDraft] = useState<Record<string, string>>({}),
+    [draft, setDraft] = useState<Record<string, AttendanceStatus>>({}),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [saved, setSaved] = useState(false);
   useUpdateBlocker(busy || Object.keys(draft).length > 0);
   useEffect(() => {
     if (!isAdmin) return;
-    const fail = (e: Error) => setError(e.message);
-    const stops = [
-      onSnapshot(
-        collection(db, "athletes"),
-        (s) =>
-          setSwimmers(
-            s.docs.map((d) => ({ ...d.data(), id: d.id }) as Swimmer),
-          ),
-        fail,
-      ),
-      onSnapshot(
-        collection(db, "practice_sessions"),
-        (s) =>
-          setPractices(
-            s.docs.map((d) => ({ ...d.data(), id: d.id }) as Practice),
-          ),
-        fail,
-      ),
-      onSnapshot(
-        collection(db, "attendance"),
-        (s) => setMarks(s.docs.map((d) => ({ ...d.data(), id: d.id }) as Mark)),
-        fail,
-      ),
-    ];
-    return () => stops.forEach((stop) => stop());
-  }, [isAdmin]);
-  const groups = [
-    ...new Set(swimmers.map((s) => s.currentGroup?.name ?? "Unassigned")),
-  ].sort();
+    const controller = new AbortController();
+    void loadAttendanceDay(date, controller.signal)
+      .then((loaded) => {
+        if (controller.signal.aborted) return;
+        setDay(loaded);
+        setLoadingDay(false);
+        setError("");
+      })
+      .catch((cause) => {
+        if (!controller.signal.aborted) {
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "Unable to load attendance.",
+          );
+          setLoadingDay(false);
+        }
+      });
+    return () => controller.abort();
+  }, [isAdmin, date, attempt]);
+  const current = day?.date === date ? day : null;
+  const swimmers = current?.swimmers ?? [];
+  const groups = [...new Set(swimmers.map((s) => s.group))].sort();
   const selected = group || groups[0] || "";
-  const practice = practices.find(
-    (p) => p.date === date && p.trainingGroup === selected,
+  const practice = current?.sessions.find(
+    (p) => p.data.trainingGroup === selected,
   );
   const roster = swimmers
-    .filter(
-      (s) =>
-        s.status === "active" &&
-        (s.currentGroup?.name ?? "Unassigned") === selected,
-    )
+    .filter((s) => s.group === selected)
     .sort(
       (a, b) =>
         a.name.last.localeCompare(b.name.last) ||
@@ -83,42 +61,35 @@ export default function AttendanceBoard() {
     );
   const status = (id: string) =>
     draft[id] ??
-    marks.find((m) => m.athleteId === id && m.sessionId === practice?.id)
-      ?.status ??
+    current?.marks.find(
+      (m) => m.data.athleteId === id && m.data.sessionId === practice?.id,
+    )?.data.status ??
     "unmarked";
   async function save() {
     setBusy(true);
     setError("");
     try {
-      const sessionId = practice?.id ?? crypto.randomUUID();
-      await runTransaction(db, async (tx) => {
-        const session = doc(db, "practice_sessions", sessionId);
-        const existing = await tx.get(session);
-        if (!existing.exists())
-          tx.set(session, { id: sessionId, date, trainingGroup: selected });
-        for (const swimmer of roster) {
-          if (!draft[swimmer.id]) continue;
-          const old = marks.find(
-            (m) => m.athleteId === swimmer.id && m.sessionId === sessionId,
-          );
-          const ref = doc(
-            db,
-            "attendance",
-            old?.id ?? sessionId + "_" + swimmer.id,
-          );
-          const before = await tx.get(ref);
-          tx.set(ref, {
-            ...before.data(),
-            id: ref.id,
+      await saveAttendance({
+        date,
+        group: selected,
+        session: practice ?? null,
+        changes: roster
+          .filter((swimmer) => draft[swimmer.id])
+          .map((swimmer) => ({
             athleteId: swimmer.id,
-            sessionId,
-            date,
             status: draft[swimmer.id],
-          });
-        }
+            before:
+              current?.marks.find(
+                (mark) =>
+                  mark.data.athleteId === swimmer.id &&
+                  mark.data.sessionId === practice?.id,
+              ) ?? null,
+          })),
       });
       setDraft({});
       setSaved(true);
+      setLoadingDay(true);
+      setAttempt((value) => value + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to save attendance.");
     } finally {
@@ -139,9 +110,11 @@ export default function AttendanceBoard() {
           Date
           <Input
             type="date"
+            disabled={busy}
             value={date}
             onChange={(e) => {
               setDate(e.target.value);
+              setLoadingDay(true);
               setDraft({});
               setSaved(false);
             }}
@@ -150,6 +123,7 @@ export default function AttendanceBoard() {
         <label>
           Training group
           <select
+            disabled={busy || loadingDay}
             className="block rounded-lg border border-border p-3 bg-surface"
             value={selected}
             onChange={(e) => {
@@ -165,16 +139,36 @@ export default function AttendanceBoard() {
         </label>
       </div>
       {error && (
-        <p role="alert" className="mb-4 text-red-600">
-          {error}
-        </p>
+        <div className="mb-4">
+          <p role="alert" className="mb-2 text-red-600">
+            {error}
+          </p>
+          <Button
+            disabled={busy}
+            onClick={() => {
+              setDraft({});
+              setLoadingDay(true);
+              setSaved(false);
+              setAttempt((value) => value + 1);
+            }}
+          >
+            Reload practice
+          </Button>
+          {Object.keys(draft).length > 0 && (
+            <p className="mt-2 text-sm">
+              Reloading clears your unsaved attendance changes.
+            </p>
+          )}
+        </div>
       )}
       {saved && (
         <p role="status" className="mb-4">
           Attendance saved.
         </p>
       )}
-      {roster.length ? (
+      {loadingDay ? (
+        <p role="status">Loading attendance…</p>
+      ) : roster.length ? (
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -191,13 +185,17 @@ export default function AttendanceBoard() {
                   </td>
                   <td className="p-3">
                     <select
+                      disabled={busy}
                       aria-label={
                         "Attendance for " + s.name.first + " " + s.name.last
                       }
                       className="border border-border rounded-lg bg-surface p-2"
                       value={status(s.id)}
                       onChange={(e) => {
-                        setDraft({ ...draft, [s.id]: e.target.value });
+                        setDraft({
+                          ...draft,
+                          [s.id]: e.target.value as AttendanceStatus,
+                        });
                         setSaved(false);
                       }}
                     >
@@ -218,7 +216,7 @@ export default function AttendanceBoard() {
       )}
       <Button
         className="mt-6"
-        disabled={busy || !Object.keys(draft).length}
+        disabled={busy || loadingDay || !Object.keys(draft).length}
         onClick={() => void save()}
       >
         {busy ? "Saving…" : "Save attendance"}

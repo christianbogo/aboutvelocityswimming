@@ -92,6 +92,7 @@ export const config = {
     "/account",
     "/auth/:path*",
     "/api/data/:path*",
+    "/api/attendance/:path*",
     "/api/workshare/:path*",
     "/api/times/:path*",
   ],

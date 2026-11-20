@@ -111,6 +111,7 @@ describe("temporary tools lock", () => {
     "/api/times/manage",
 
     "/api/data",
+    "/api/attendance",
     "/api/workshare",
     "/api/times/import",
   ])("locks the backing endpoint %s", async (path) => {

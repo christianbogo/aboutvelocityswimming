@@ -1,4 +1,4 @@
-import TimesDatabase from "@/components/collection/TimesDatabase";
+import MyTimesPage from "@/components/collection/MyTimesPage";
 import { toolDirectory } from "@/lib/tool-directory";
 
 export const metadata = {
@@ -7,5 +7,5 @@ export const metadata = {
 };
 
 export default function Page() {
-  return <TimesDatabase view="my-times" />;
+  return <MyTimesPage />;
 }

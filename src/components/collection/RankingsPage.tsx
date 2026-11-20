@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { hasBackendConfiguration } from "@/lib/supabase/client";
-import type { TimesView } from "@/lib/tool-directory";
 import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
 import {
   ageGroups,
@@ -20,26 +19,14 @@ import {
 import s from "./TimesDatabase.module.css";
 import loadingStyles from "./TimesLoading.module.css";
 import { SkeletonText, SkeletonStatus } from "./LoadingSkeleton";
-import TimeStandards, {
-  TimeStandardsSummary,
-  TimeStandardsSummarySkeleton,
-  TimeStandardsSkeleton,
-  useTimeStandardsSelection,
-} from "./TimeStandards";
 import { PopupPicker } from "./TimesFilters";
 import RankingFilters, { RankingFiltersSkeleton } from "./RankingFilters";
 import { ModerationNotice } from "./ResultModeration";
 import RelayLineup from "./RelayLineup";
 import { timesUrl, type TimesResponse } from "./times-api";
 import { useTimes, useDebouncedSearch } from "./use-times";
-import TeamRecords, {
-  TeamRecordsSkeleton,
-  type RecordSelection,
-} from "./TeamRecords";
 import SelectionDropdown from "./TimesSelectionDropdown";
 import selectionStyles from "./TimesSelectionDropdown.module.css";
-import MyTimes, { type MyTimesRankingSelection } from "./MyTimes";
-import { MyTimesPageSkeleton } from "./MyTimesSkeleton";
 import {
   crossedRankingCutoffs,
   rankingCutoffs,
@@ -47,11 +34,8 @@ import {
 } from "./ranking-cutoffs";
 
 import { useTimesSelection } from "./use-times-selection";
-import {
-  athleteTimesHref,
-  timesViewHref,
-  writeTimesSelection,
-} from "./times-url-state";
+import { athleteTimesHref } from "./times-url-state";
+import { QueryNotice, TimesConfigurationNotice } from "./TimesNotices";
 
 import CutChips from "./CutChips";
 import { useStandards } from "./use-standards";
@@ -78,20 +62,6 @@ function date(value: string) {
     : "Date unavailable";
 }
 
-function QueryNotice({ query }: { query: ReturnType<typeof useTimes> }) {
-  return query.loading ? (
-    <p className="sr-only" role="status">
-      Loading results…
-    </p>
-  ) : query.error ? (
-    <p className={s.notice} role="alert">
-      {query.error}{" "}
-      <button className={s.link} onClick={query.retry}>
-        Try again
-      </button>
-    </p>
-  ) : null;
-}
 function AgeGroupPicker({
   value,
   onChange,
@@ -385,47 +355,17 @@ export function RankingsSkeleton() {
   );
 }
 
-export function RecordsSkeleton() {
+export default function RankingsPage() {
   return (
-    <main className={s.page}>
-      <div className={`${s.content} ${s.recordsContent}`}>
-        <TeamRecordsSkeleton />
-      </div>
-    </main>
-  );
-}
-
-export function TimesPageSkeleton({ view }: { view: TimesView }) {
-  if (view === "rankings") return <RankingsSkeleton />;
-  if (view === "records") return <RecordsSkeleton />;
-  if (view === "my-times") return <MyTimesPageSkeleton />;
-  return (
-    <main className={s.page} aria-busy="true">
-      <header className={s.toolHeader}>
-        <TimeStandardsSummarySkeleton />
-      </header>
-      <div className={s.content}>
-        <TimeStandardsSkeleton />
-      </div>
-    </main>
-  );
-}
-
-export default function TimesDatabase({ view }: { view: TimesView }) {
-  return (
-    <Suspense fallback={<TimesPageSkeleton view={view} />}>
-      <TimesDatabaseContent key={view} view={view} />
+    <Suspense fallback={<RankingsSkeleton />}>
+      <RankingsContent />
     </Suspense>
   );
 }
 
-function TimesDatabaseContent({ view }: { view: TimesView }) {
+function RankingsContent() {
   const router = useRouter();
-  const standards = useStandards(view !== "records");
-  const standardSelection = useTimeStandardsSelection(
-    standards.sets,
-    view === "standards",
-  );
+  const standards = useStandards();
   const [filters, setFilters] = useTimesSelection<Filters>(
     "filters",
     initialFilters,
@@ -434,9 +374,7 @@ function TimesDatabaseContent({ view }: { view: TimesView }) {
   const searchTerm = useDebouncedSearch(search);
   const [page, setPage] = useTimesSelection("page", 0);
   const enabled = hasBackendConfiguration;
-  const rankingYears = useTimes(
-    enabled && view === "rankings" ? timesUrl("ranking_years") : null,
-  );
+  const rankingYears = useTimes(enabled ? timesUrl("ranking_years") : null);
   const years = [
     ...new Set([
       ...(rankingYears.data?.years ??
@@ -450,7 +388,7 @@ function TimesDatabaseContent({ view }: { view: TimesView }) {
     genders: filters.genders.length ? filters.genders : undefined,
   };
   const rankingsQuery = useTimes(
-    enabled && view === "rankings"
+    enabled
       ? timesUrl("rankings", {
           ...queryFilters,
           search: searchTerm,
@@ -459,13 +397,6 @@ function TimesDatabaseContent({ view }: { view: TimesView }) {
         })
       : null,
   );
-  const recordsQuery = useTimes(
-    enabled && view === "records" ? timesUrl("records_board") : null,
-  );
-  const recordData =
-    recordsQuery.data ??
-    (recordsQuery.loading ? recordsQuery.placeholderData : null);
-  const races = recordData?.races ?? [];
   const placeholderOffset = rankingsQuery.placeholderUrl
     ? Number(
         new URL(
@@ -486,10 +417,7 @@ function TimesDatabaseContent({ view }: { view: TimesView }) {
   const displayed = rankingRows.slice(page > 0 ? 1 : 0);
   const cutoffs = rankingCutoffs(filters, standards.sets);
   const names = new Map(
-    [...displayed.map(({ race }) => race), ...races].map((r) => [
-      r.athleteId,
-      r.athleteName || r.athleteId,
-    ]),
+    displayed.map(({ race: r }) => [r.athleteId, r.athleteName || r.athleteId]),
   );
   const hide25s = hide25sForAgeGroups(filters.course, filters.ageGroups);
   const rankingEvents = [
@@ -537,33 +465,6 @@ function TimesDatabaseContent({ view }: { view: TimesView }) {
     });
     setPage(0);
     setSearch("");
-  }
-  function openRankings(next: Filters) {
-    const url = new URL(
-      timesViewHref("rankings", window.location.search, "#times-rankings"),
-      window.location.origin,
-    );
-    router.push(writeTimesSelection(url, "filters", next, initialFilters));
-  }
-  function openRecord(selection: RecordSelection) {
-    openRankings({
-      ...initialFilters,
-      course: selection.course,
-      event: selection.event,
-      genders: [selection.gender],
-      ageGroups: [selection.ageGroup],
-      mode: selection.relay ? "performances" : "bests",
-      relay: selection.relay ?? false,
-    });
-  }
-  function openMyTimesRankings(selection: MyTimesRankingSelection) {
-    openRankings({
-      ...initialFilters,
-      course: selection.course,
-      event: selection.event,
-      genders: selection.gender ? [selection.gender] : [],
-      ageGroups: selection.ageGroup ? [selection.ageGroup] : [],
-    });
   }
   const tableRelay = Boolean(filters.relay);
   const resultMode =
@@ -713,238 +614,196 @@ function TimesDatabaseContent({ view }: { view: TimesView }) {
   );
   return (
     <main className={s.page} data-times-page="">
-      {view === "standards" && (
-        <header className={s.toolHeader}>
-          {standards.loading && !standardSelection.set ? (
-            <TimeStandardsSummarySkeleton />
-          ) : (
-            <TimeStandardsSummary state={standardSelection} />
-          )}
-        </header>
-      )}
-      <div
-        className={`${s.content} ${view === "records" ? s.recordsContent : ""}`}
-      >
-        {!hasBackendConfiguration && (
-          <div className={s.notice} role="status">
-            The times database is not connected yet. Approved results will
-            appear here once it is available.
-          </div>
-        )}
+      <div className={s.content}>
+        <TimesConfigurationNotice />
         {rankingYears.error && <QueryNotice query={rankingYears} />}
         <div className={s.workspace}>
           <div className={s.main}>
-            {view === "my-times" ? (
-              <MyTimes standards={standards} onRankings={openMyTimesRankings} />
-            ) : view === "standards" ? (
-              <TimeStandards query={standards} state={standardSelection} />
-            ) : view === "records" ? (
-              <>
-                {recordsQuery.error && <QueryNotice query={recordsQuery} />}
-                <TeamRecords
-                  races={races}
-                  recordBoard={recordData?.records}
-                  updatedAt={recordData?.recordsUpdatedAt}
-                  ready={Boolean(recordsQuery.data)}
-                  loading={recordsQuery.loading}
-                  names={names}
-                  onRecord={openRecord}
-                />
-              </>
-            ) : (
-              <>
-                <section
-                  id="times-rankings"
-                  className={`${s.panel} ${s.rankingsPanel}`}
-                  aria-label="Rankings"
+            <section
+              id="times-rankings"
+              className={`${s.panel} ${s.rankingsPanel}`}
+              aria-label="Rankings"
+            >
+              {(filters.startDate || filters.endDate) && (
+                <div className={s.recordBreadcrumb}>
+                  <>
+                    <span>
+                      Season rankings ·{" "}
+                      {filters.startDate
+                        ? date(filters.startDate)
+                        : "All dates"}{" "}
+                      – {filters.endDate ? date(filters.endDate) : "Present"}
+                    </span>
+                    <button
+                      className={s.link}
+                      onClick={() => {
+                        setFilters((current) => ({
+                          ...current,
+                          startDate: "",
+                          endDate: "",
+                        }));
+                        setPage(0);
+                      }}
+                    >
+                      Clear date range
+                    </button>
+                  </>
+                </div>
+              )}
+              <RankingFilters
+                filters={filters}
+                search={search}
+                onApply={applyRankingFilters}
+              >
+                <div
+                  className={`${selectionStyles.filterPanel} ${s.rankingFilters}`}
                 >
-                  {(filters.startDate || filters.endDate) && (
-                    <div className={s.recordBreadcrumb}>
-                      <>
-                        <span>
-                          Season rankings ·{" "}
-                          {filters.startDate
-                            ? date(filters.startDate)
-                            : "All dates"}{" "}
-                          –{" "}
-                          {filters.endDate ? date(filters.endDate) : "Present"}
-                        </span>
+                  <PopupPicker
+                    label="Event"
+                    compact
+                    course={filters.course}
+                    onCourseChange={(course) => updateFilter("course", course)}
+                    value={filters.event}
+                    onChange={(event) => {
+                      updateResultCategory(event.endsWith("-R"));
+                      updateFilter("event", event);
+                    }}
+                    options={rankingEvents.map((e) => [e, eventLabel(e)])}
+                  />
+                  <SelectionDropdown
+                    label="Course"
+                    selection={filters.course || "All courses"}
+                  >
+                    {(close) =>
+                      [
+                        ["SCY", "Short Course Yards"],
+                        ["LCM", "Long Course Meters"],
+                        ["SCM", "Short Course Meters"],
+                      ].map(([course, label]) => (
                         <button
-                          className={s.link}
+                          key={course}
+                          type="button"
+                          aria-pressed={filters.course === course}
                           onClick={() => {
-                            setFilters((current) => ({
-                              ...current,
-                              startDate: "",
-                              endDate: "",
-                            }));
-                            setPage(0);
+                            updateFilter("course", course);
+                            close();
                           }}
                         >
-                          Clear date range
+                          {label}
                         </button>
-                      </>
-                    </div>
-                  )}
-                  <RankingFilters
-                    filters={filters}
-                    search={search}
-                    onApply={applyRankingFilters}
+                      ))
+                    }
+                  </SelectionDropdown>
+                  <SelectionDropdown
+                    label="Gender"
+                    selection={selectedGenderLabels}
                   >
-                    <div
-                      className={`${selectionStyles.filterPanel} ${s.rankingFilters}`}
-                    >
-                      <PopupPicker
-                        label="Event"
-                        compact
-                        course={filters.course}
-                        onCourseChange={(course) =>
-                          updateFilter("course", course)
-                        }
-                        value={filters.event}
-                        onChange={(event) => {
-                          updateResultCategory(event.endsWith("-R"));
-                          updateFilter("event", event);
-                        }}
-                        options={rankingEvents.map((e) => [e, eventLabel(e)])}
-                      />
-                      <SelectionDropdown
-                        label="Course"
-                        selection={filters.course || "All courses"}
-                      >
-                        {(close) =>
-                          [
-                            ["SCY", "Short Course Yards"],
-                            ["LCM", "Long Course Meters"],
-                            ["SCM", "Short Course Meters"],
-                          ].map(([course, label]) => (
-                            <button
-                              key={course}
-                              type="button"
-                              aria-pressed={filters.course === course}
-                              onClick={() => {
-                                updateFilter("course", course);
-                                close();
-                              }}
-                            >
-                              {label}
-                            </button>
-                          ))
-                        }
-                      </SelectionDropdown>
-                      <SelectionDropdown
-                        label="Gender"
-                        selection={selectedGenderLabels}
-                      >
-                        {(close) =>
-                          [
-                            ["F", "Female"],
-                            ["M", "Male"],
-                            ...(filters.relay ? [["X", "Mixed"]] : []),
-                          ].map(([id, label]) => (
-                            <button
-                              key={id}
-                              type="button"
-                              aria-pressed={filters.genders.includes(id)}
-                              onClick={() => {
-                                const current = filters.genders;
-                                const next = current.includes(id)
-                                  ? current.filter((gender) => gender !== id)
-                                  : [...current, id];
-                                if (next.length) updateFilter("genders", next);
-                                close();
-                              }}
-                            >
-                              {label}
-                            </button>
-                          ))
-                        }
-                      </SelectionDropdown>
-                      <AgeGroupPicker
-                        value={filters.ageGroups}
-                        onChange={(value) => updateFilter("ageGroups", value)}
-                      />
-                      <SelectionDropdown
-                        label="Results"
-                        selection={
-                          rankingResultModes.find(
-                            ([mode]) => mode === resultMode,
-                          )?.[1] || "Bests"
-                        }
-                      >
-                        {(close) =>
-                          rankingResultModes
-                            .filter(
-                              ([mode]) => !filters.relay || mode !== "bests",
-                            )
-                            .map(([mode, label]) => (
-                              <button
-                                key={mode}
-                                type="button"
-                                aria-pressed={mode === resultMode}
-                                onClick={() => {
-                                  updateFilter("mode", mode);
-                                  close();
-                                }}
-                              >
-                                {label}
-                              </button>
-                            ))
-                        }
-                      </SelectionDropdown>
-                      <SelectionDropdown
-                        label="Year"
-                        selection={filters.year || "All years"}
-                      >
-                        {(close) =>
-                          [
-                            ["", "All years"],
-                            ...years.map((year) => [year, year]),
-                          ].map(([year, label]) => (
-                            <button
-                              key={year}
-                              type="button"
-                              aria-pressed={filters.year === year}
-                              onClick={() => {
-                                updateFilter("year", year);
-                                close();
-                              }}
-                            >
-                              {label}
-                            </button>
-                          ))
-                        }
-                      </SelectionDropdown>
-                    </div>
-                    <div className={`${s.toolbar} ${s.rankingToolbar}`}>
-                      {searchField}
-                      <button
-                        type="button"
-                        className={s.link}
-                        onClick={() => {
-                          setSearch("");
-                          setPage(0);
-                        }}
-                      >
-                        Clear Search
-                      </button>
-                    </div>
-                  </RankingFilters>
-                  <QueryNotice query={rankingsQuery} />
-                  {(rankingsQuery.data || rankingsQuery.loading) && table}
-                </section>
-                <p className={s.footer}>
-                  Approved Velocity Swimming results only; coverage may be
-                  incomplete. Rankings exclude disqualifications, scratches, and
-                  missing times. Verified flat-start relay lead-offs can count
-                  toward individual personal bests; flying-start splits remain
-                  relay details. Relay rankings use complete team results. Equal
-                  times share a rank. Individual age groups use age at the swim;
-                  relay groups use the reported event age group. Gender filters
-                  include only the selected reported genders. Unreported ages
-                  are included when no age group is selected.
-                </p>
-              </>
-            )}
+                    {(close) =>
+                      [
+                        ["F", "Female"],
+                        ["M", "Male"],
+                        ...(filters.relay ? [["X", "Mixed"]] : []),
+                      ].map(([id, label]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          aria-pressed={filters.genders.includes(id)}
+                          onClick={() => {
+                            const current = filters.genders;
+                            const next = current.includes(id)
+                              ? current.filter((gender) => gender !== id)
+                              : [...current, id];
+                            if (next.length) updateFilter("genders", next);
+                            close();
+                          }}
+                        >
+                          {label}
+                        </button>
+                      ))
+                    }
+                  </SelectionDropdown>
+                  <AgeGroupPicker
+                    value={filters.ageGroups}
+                    onChange={(value) => updateFilter("ageGroups", value)}
+                  />
+                  <SelectionDropdown
+                    label="Results"
+                    selection={
+                      rankingResultModes.find(
+                        ([mode]) => mode === resultMode,
+                      )?.[1] || "Bests"
+                    }
+                  >
+                    {(close) =>
+                      rankingResultModes
+                        .filter(([mode]) => !filters.relay || mode !== "bests")
+                        .map(([mode, label]) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            aria-pressed={mode === resultMode}
+                            onClick={() => {
+                              updateFilter("mode", mode);
+                              close();
+                            }}
+                          >
+                            {label}
+                          </button>
+                        ))
+                    }
+                  </SelectionDropdown>
+                  <SelectionDropdown
+                    label="Year"
+                    selection={filters.year || "All years"}
+                  >
+                    {(close) =>
+                      [
+                        ["", "All years"],
+                        ...years.map((year) => [year, year]),
+                      ].map(([year, label]) => (
+                        <button
+                          key={year}
+                          type="button"
+                          aria-pressed={filters.year === year}
+                          onClick={() => {
+                            updateFilter("year", year);
+                            close();
+                          }}
+                        >
+                          {label}
+                        </button>
+                      ))
+                    }
+                  </SelectionDropdown>
+                </div>
+                <div className={`${s.toolbar} ${s.rankingToolbar}`}>
+                  {searchField}
+                  <button
+                    type="button"
+                    className={s.link}
+                    onClick={() => {
+                      setSearch("");
+                      setPage(0);
+                    }}
+                  >
+                    Clear Search
+                  </button>
+                </div>
+              </RankingFilters>
+              <QueryNotice query={rankingsQuery} />
+              {(rankingsQuery.data || rankingsQuery.loading) && table}
+            </section>
+            <p className={s.footer}>
+              Approved Velocity Swimming results only; coverage may be
+              incomplete. Rankings exclude disqualifications, scratches, and
+              missing times. Verified flat-start relay lead-offs can count
+              toward individual personal bests; flying-start splits remain relay
+              details. Relay rankings use complete team results. Equal times
+              share a rank. Individual age groups use age at the swim; relay
+              groups use the reported event age group. Gender filters include
+              only the selected reported genders. Unreported ages are included
+              when no age group is selected.
+            </p>
           </div>
         </div>
       </div>

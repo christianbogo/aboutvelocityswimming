@@ -2,12 +2,40 @@ import { describe, expect, it } from "vitest";
 import { initialFilters } from "@/components/collection/times-data";
 import {
   athleteTimesHref,
+  rankingsHref,
   readTimesSelection,
   writeTimesSelection,
   timesViewHref,
 } from "@/components/collection/times-url-state";
 
 describe("shared times selections", () => {
+  it("opens selected rankings without carrying stale pagination or searches", () => {
+    const filters = {
+      ...initialFilters,
+      course: "LCM",
+      event: "200_FR-R",
+      genders: ["F"],
+      ageGroups: ["13-14"],
+      mode: "performances" as const,
+      relay: true,
+    };
+    const url = new URL(
+      rankingsHref(
+        filters,
+        "page=8&search=previous&view=records&team=other&myAthlete=swimmer&standard=cuts",
+      ),
+      "https://example.com",
+    );
+    expect(url.pathname).toBe("/tools/rankings");
+    expect(url.hash).toBe("#times-rankings");
+    expect(
+      readTimesSelection(url.searchParams.get("filters"), initialFilters),
+    ).toEqual(filters);
+    for (const key of ["page", "search", "view", "team"])
+      expect(url.searchParams.has(key)).toBe(false);
+    expect(url.searchParams.get("myAthlete")).toBe("swimmer");
+    expect(url.searchParams.get("standard")).toBe("cuts");
+  });
   it("opens a swimmer’s Times profile in the ranked course with all-time results", () => {
     const url = new URL(
       athleteTimesHref("swimmer + & /", "LCM"),

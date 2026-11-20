@@ -34,6 +34,8 @@ Retirement compares counts and content checksums for canonical records, public p
 
 ## Verification and private artifacts
 
+Current result-management and Times-dispatcher SQL definitions are collected in `20261120073127_explicit_result_functions.sql`. Full and event-scoped record refreshes share `private.team_record_winners`; their queue and locking behavior remain separate. Future changes should supply explicit function definitions in a new migration instead of replacing strings inside existing function source. Applied migration history stays intact.
+
 `npm run test:data:database` exercises authorization, manual saves, stale conflicts, ranking changes, standards, partial imports, duplicates, identity conflicts, ambiguous meets, historical affiliation, and atomic relay/lead-off corrections. It uses synthetic local data and rolls back. `npm run test:swim-resources` covers the parser, API boundary, and shared result rules. `npm run test:data:browser` requires seeded local data and a local app.
 
 CI first starts a disposable database with migrations through the additive writer, runs `npm run test:data:retirement` against published legacy fixtures, then advances to the final schema. `supabase/seed.sql` supplies `test_write_records` only for local synthetic fixtures; that helper is never a hosted migration.

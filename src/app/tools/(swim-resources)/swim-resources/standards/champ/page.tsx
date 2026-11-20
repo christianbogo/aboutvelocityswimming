@@ -1,42 +1,52 @@
-'use client';
+"use client";
 
-
-import { swimResourcesPath } from '../../../../../../features/swim-resources/lib/routes.ts';
+import { swimResourcesPath } from "../../../../../../features/swim-resources/lib/routes.ts";
 import EventSelector, {
   SwimEventSelection,
   formatEventName,
-} from '@/features/swim-resources/components/admin/EventSelector';
-import StandardsEventTable from '@/features/swim-resources/components/standards/StandardsEventTable';
-import { currentStandard } from '@/features/swim-resources/lib/domain/standards';
-import { standardsCol } from '@/features/swim-resources/lib/backend';
-import type { StandardSet } from '@/features/swim-resources/types/schema';
-import { onSnapshot } from '@/lib/data';
-import { ArrowLeft, Award, Flame } from 'lucide-react';
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
+} from "@/features/swim-resources/components/admin/EventSelector";
+import StandardsEventTable from "@/features/swim-resources/components/standards/StandardsEventTable";
+import { currentStandard } from "@/features/swim-resources/lib/domain/standards";
+import type { StandardSet } from "@/features/swim-resources/types/schema";
+import { loadPublicStandards } from "@/lib/swim-public";
+import { ArrowLeft, Award, Flame } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
 export default function ChampStandardsPage() {
-  const [championshipSet, setChampionshipSet] = useState<StandardSet | null>(null);
+  const [championshipSet, setChampionshipSet] = useState<StandardSet | null>(
+    null,
+  );
+  const [error, setError] = useState("");
 
-  const [selectedEvent, setSelectedEvent] = useState<SwimEventSelection | null>({
-    course: 'SCY',
-    stroke: 'FR',
-    distance: 100,
-    isRelay: false,
-    eventName: formatEventName('SCY', 'FR', 100, false),
-  });
+  const [selectedEvent, setSelectedEvent] = useState<SwimEventSelection | null>(
+    {
+      course: "SCY",
+      stroke: "FR",
+      distance: 100,
+      isRelay: false,
+      eventName: formatEventName("SCY", "FR", 100, false),
+    },
+  );
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(standardsCol, (snapshot) => {
-      const sets = snapshot.docs.map(d => d.data());
-      const match = currentStandard(sets, 'championship');
-      setChampionshipSet(match ?? null);
-    });
-    return () => unsubscribe();
+    const controller = new AbortController();
+    void loadPublicStandards(controller.signal)
+      .then((sets) => {
+        if (controller.signal.aborted) return;
+        const match = currentStandard(sets, "championship");
+        setChampionshipSet(match ?? null);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted)
+          setError("Unable to load standards. Please reload this page.");
+      });
+    return () => controller.abort();
   }, []);
 
   return (
     <div className="p-6 max-w-7xl mx-auto w-full flex flex-col gap-6">
+      {error && <p role="alert">{error}</p>}
       {/* Top Navigation */}
       <div className="flex items-center justify-between">
         <Link
@@ -67,7 +77,9 @@ export default function ChampStandardsPage() {
               Championship Qualifying Standards
             </h1>
             <p className="text-sm text-text-secondary">
-              {championshipSet ? `${championshipSet.name} · ${championshipSet.seasonYears}` : 'No current verified championship standards have been imported.'}
+              {championshipSet
+                ? `${championshipSet.name} · ${championshipSet.seasonYears}`
+                : "No current verified championship standards have been imported."}
             </p>
           </div>
         </div>
