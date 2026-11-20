@@ -224,9 +224,7 @@ export default function TeamRecords({
       new Map(
         visibleCourses.map(([course]) => [
           course,
-          recordEvents(course, visibleRaces).filter(
-            (event) => !(event.startsWith("100_") && event.endsWith("-R")),
-          ),
+          recordEvents(course, visibleRaces),
         ]),
       ),
     [visibleRaces],
@@ -399,7 +397,10 @@ export default function TeamRecords({
                                     course === "SCY" &&
                                     minAge >= 11 &&
                                     event.startsWith("25_")
-                                  ),
+                                  ) &&
+                                  (!event.startsWith("100_") ||
+                                    !event.endsWith("-R") ||
+                                    (course === "SCY" && group === "8&U")),
                               )
                               .map((event) => {
                                 const label = eventLabel(event);
