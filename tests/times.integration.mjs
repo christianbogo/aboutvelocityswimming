@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import {
   normalizeRace,
@@ -11,14 +12,13 @@ import {
   initialFilters,
 } from "../src/components/collection/times-data.ts";
 const config = JSON.parse(
-  execFileSync("supabase", ["status", "--output", "json"], {
+  execFileSync("supabase", ["status", "--output", "json", ...(process.env.VELOCITY_SUPABASE_WORKDIR ? ["--workdir", process.env.VELOCITY_SUPABASE_WORKDIR] : [])], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
   }),
 );
-assert.equal(
-  config.API_URL,
-  "http://127.0.0.1:54321",
+assert.ok(
+  ["127.0.0.1", "localhost"].includes(new URL(config.API_URL).hostname),
   "Times fixtures refuse hosted databases",
 );
 const admin = createClient(config.API_URL, config.SERVICE_ROLE_KEY, {
@@ -220,12 +220,13 @@ for (const table of ["public_swims", "public_relay_results"]) {
   assert.ifError(result.error);
   publishedSeeds[table] = result.data.map(({ id }) => id);
 }
-const localSql = (statement) => execFileSync("docker", ["exec", "-i", "supabase_db_aboutvelocityswimming", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-qAt"], { input: statement, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+const localContainer = process.env.VELOCITY_SUPABASE_DB_CONTAINER ?? "supabase_db_aboutvelocityswimming";
+const localSql = (statement) => execFileSync("docker", ["exec", "-i", localContainer, "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-qAt"], { input: statement, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
 const quoteSql = (value) => "'" + String(value).replaceAll("'", "''") + "'";
 const query = async (kind, input = {}) => {
   if (kind === "records") {
     // Run the scheduled worker explicitly; readers never rebuild the board.
-    execFileSync("docker", ["exec", "supabase_db_aboutvelocityswimming", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-Atc", "select private.refresh_team_records()"], { stdio: "pipe" });
+    localSql("select private.refresh_team_records()");
   }
   const { data, error } = kind === "my_times"
     ? await anon.rpc("ies_my_times_all_time", { input: { ...input, team } })
@@ -265,6 +266,34 @@ try {
   localSql("delete from public.public_swims; delete from public.public_relay_results;");
   const collected = await admin.rpc("test_write_records", { reads: [], writes });
   assert.ifError(collected.error);
+  await test("batched rankings and recent pages equal complete previous JSON across filters and pages", () => {
+    const previousRankings = readFileSync(new URL("../supabase/migrations/20261116213059_remove_times_meets_and_athletes.sql", import.meta.url), "utf8")
+      .split("-- These helpers")[0]
+      .replace("public.ies_times_query(query_kind", "pg_temp.previous_times_query(query_kind");
+    const previousRecent = readFileSync(new URL("../supabase/migrations/20261112014513_times_ranking_bookmarks_and_recent.sql", import.meta.url), "utf8")
+      .split("create function public.ies_times_recent")[1].split("revoke all on function")[0];
+    const result = localSql(`BEGIN;
+      ${previousRankings}
+      create function pg_temp.previous_times_recent${previousRecent}
+      SET LOCAL ROLE anon;
+      WITH inputs AS (
+        SELECT '{"team":"velocity-swimming","course":"SCY"}'::jsonb || f.filter || p.page AS input
+        FROM (VALUES ('{"event":"100_FR","mode":"bests"}'::jsonb),
+          ('{"event":"100_FR","mode":"performances"}'),
+          ('{"event":"100_FR","genders":["F"],"ageGroups":["11-12"]}'),
+          ('{"event":"100_FR","search":"Synthetic 2"}'),
+          ('{"event":"100_FR","year":"2025"}'),
+          ('{"event":"100_FR-R","relay":true}'),
+          ('{"event":"200_FR-R","relay":true}'),
+          ('{"event":"100_FR","search":"no match"}')) f(filter)
+        CROSS JOIN (VALUES ('{"offset":0,"limit":25}'::jsonb), ('{"offset":1,"limit":1}')) p(page)
+      )
+      SELECT count(*) FROM inputs
+      WHERE public.ies_times_query('rankings',input) IS DISTINCT FROM pg_temp.previous_times_query('rankings',input)
+        OR public.ies_times_recent(input) IS DISTINCT FROM pg_temp.previous_times_recent(input);
+      ROLLBACK;`);
+    assert.equal(result.trim(), "0", "Every complete ordered page must equal the previous implementation.");
+  });
   await test("the database rejects non-Velocity teams, results and retired directory entries", async () => {
     for (const [table, data] of [
       ["teams", { name: "Other team" }],

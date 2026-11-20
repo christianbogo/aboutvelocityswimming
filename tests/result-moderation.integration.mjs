@@ -8,7 +8,7 @@ const run = (sql) =>
     [
       "exec",
       "-i",
-      "supabase_db_aboutvelocityswimming",
+      process.env.VELOCITY_SUPABASE_DB_CONTAINER ?? "supabase_db_aboutvelocityswimming",
       "psql",
       "-U",
       "postgres",
@@ -70,6 +70,32 @@ function check(sql) {
     throw new Error(error.stderr?.toString() || error.message);
   }
 }
+test("batched race hydration preserves complete public JSON, inherited moderation and visibility", () =>
+  check(`
+    CREATE FUNCTION pg_temp.check_batch() RETURNS void LANGUAGE plpgsql AS $$
+    DECLARE wanted text[];
+    BEGIN
+      wanted := ARRAY(SELECT id FROM public.ies_times_races WHERE id LIKE 'mod-fixture-%');
+      PERFORM pg_temp.check_ok((SELECT count(*) = cardinality(wanted)
+        FROM private.ies_times_json_ids(wanted)), 'all visible races hydrated once');
+      PERFORM pg_temp.check_ok(NOT EXISTS (
+        SELECT 1 FROM private.ies_times_json_ids(wanted) b
+        WHERE b.race IS DISTINCT FROM public.ies_times_json_id(b.id)
+      ), 'batched and scalar complete public payloads match');
+    END $$;
+    SELECT pg_temp.check_batch();
+    ${flag("mod-fixture-bad")}
+    ${flag("mod-fixture-relay", 0, "relay")}
+    SELECT pg_temp.check_batch();
+    SELECT pg_temp.check_ok((SELECT race->>'moderationStatus'='flagged' AND race->>'moderationInherited'='true'
+      FROM private.ies_times_json_ids(ARRAY['mod-fixture-leadoff'])),'lead-off inherits relay flag');
+    RESET ROLE;
+    DELETE FROM public.public_swims WHERE athlete_id='mod-fixture-athlete';
+    DELETE FROM public.public_athletes WHERE id='mod-fixture-athlete';
+    SET LOCAL ROLE anon;
+    SELECT pg_temp.check_ok(NOT EXISTS(SELECT 1 FROM private.ies_times_json_ids(ARRAY['mod-fixture-next'])),
+      'batch does not expose races of an unpublished athlete');
+  `));
 test("flag excludes incorrect 26.15 from all calculations, retains flagged race details, promotes ties, survives reimport and restores", () =>
   check(`
  SELECT pg_temp.check_ok(pg_temp.query('rankings')#>>'{rows,0,race,id}'='mod-fixture-bad','initial winner');

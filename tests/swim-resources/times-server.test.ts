@@ -4,23 +4,26 @@ const mocks = vi.hoisted(() => ({
   client: vi.fn(),
   cache: new Map<string, unknown>(),
   revalidate: vi.fn(),
+  reader: null as null | ((...args: unknown[]) => Promise<unknown>),
 }));
 vi.mock("server-only", () => ({}));
 vi.mock("@supabase/supabase-js", () => ({ createClient: mocks.client }));
 vi.mock("next/cache", () => ({
-  unstable_cache:
-    (reader: (...args: unknown[]) => Promise<unknown>) =>
-    async (...args: unknown[]) => {
+  unstable_cache: (reader: (...args: unknown[]) => Promise<unknown>) => {
+    mocks.reader = reader;
+    return async (...args: unknown[]) => {
       const key = JSON.stringify(args);
       if (!mocks.cache.has(key)) mocks.cache.set(key, await reader(...args));
       return mocks.cache.get(key);
-    },
+    };
+  },
   revalidateTag: mocks.revalidate,
 }));
 import { readTimes, invalidateTimes } from "@/lib/times/server";
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.cache.clear();
+  mocks.revalidate.mockImplementation(() => mocks.cache.clear());
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://public-fixture.supabase.co");
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "public-test-key");
   mocks.client.mockReturnValue({ rpc: mocks.rpc });
@@ -40,9 +43,9 @@ it("enforces Velocity scope even for direct server callers and shares their cach
     input: { team: "velocity-swimming", course: "SCY" },
   });
 });
-it("uses a stateless public client and expires reads at the minute boundary", async () => {
+it("uses stable server keys and response-relative client freshness", async () => {
   const first = await readTimes("rankings", { genders: ["F"] });
-  expect(first.expiresAt).toBe(180000);
+  expect(first.expiresAt).toBe(180001);
   await readTimes("rankings", { genders: ["F"] });
   expect(mocks.rpc).toHaveBeenCalledTimes(1);
   expect(mocks.client.mock.calls[0][2].auth).toEqual({
@@ -51,11 +54,12 @@ it("uses a stateless public client and expires reads at the minute boundary", as
     detectSessionInUrl: false,
   });
   vi.mocked(Date.now).mockReturnValue(180000);
-  await readTimes("rankings", { genders: ["F"] });
-  expect(mocks.rpc).toHaveBeenCalledTimes(2);
+  const later = await readTimes("rankings", { genders: ["F"] });
+  expect(mocks.rpc).toHaveBeenCalledTimes(1);
+  expect(later.expiresAt).toBe(240000);
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://another-fixture.supabase.co");
   await readTimes("rankings", { genders: ["F"] });
-  expect(mocks.rpc).toHaveBeenCalledTimes(3);
+  expect(mocks.rpc).toHaveBeenCalledTimes(2);
   invalidateTimes();
   expect(mocks.revalidate).toHaveBeenCalledWith("ies-times", { expire: 0 });
 });
@@ -142,4 +146,64 @@ it("preserves the season RPC for clients opened before the all-time update", asy
   expect(mocks.rpc.mock.calls.every(([name]) => name === "ies_my_times")).toBe(
     true,
   );
+});
+
+it("coalesces simultaneous cache misses into one database read", async () => {
+  let finish!: (value: unknown) => void;
+  mocks.rpc.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const reads = Array.from({ length: 8 }, () =>
+    readTimes("rankings", { event: "100_FR" }),
+  );
+  expect(mocks.rpc).toHaveBeenCalledTimes(1);
+  finish({ data: { rows: [], total: 0 }, error: null });
+  await Promise.all(reads);
+  expect(mocks.rpc).toHaveBeenCalledTimes(1);
+});
+it("does not let a pre-correction request repopulate the invalidated cache", async () => {
+  let finishOld!: (value: unknown) => void;
+  mocks.rpc.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishOld = resolve;
+      }),
+  );
+  const old = readTimes("rankings", {});
+  invalidateTimes();
+  mocks.rpc.mockResolvedValueOnce({
+    data: { rows: [], total: 2 },
+    error: null,
+  });
+  const current = await readTimes("rankings", {});
+  finishOld({ data: { rows: [], total: 1 }, error: null });
+  expect((await old).total).toBe(2);
+  expect(current.total).toBe(2);
+  expect((await readTimes("rankings", {})).total).toBe(2);
+  expect(mocks.rpc).toHaveBeenCalledTimes(2);
+});
+
+it("also coalesces background revalidation callbacks from separate Next cache reads", async () => {
+  let finish!: (value: unknown) => void;
+  mocks.rpc.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const reads = Array.from({ length: 8 }, () =>
+    mocks.reader!(
+      "https://public-fixture.supabase.co",
+      "public-test-key",
+      "rankings",
+      '{"team":"velocity-swimming"}',
+    ),
+  );
+  expect(mocks.rpc).toHaveBeenCalledOnce();
+  finish({ data: { rows: [], total: 0 }, error: null });
+  await Promise.all(reads);
+  expect(mocks.rpc).toHaveBeenCalledOnce();
 });

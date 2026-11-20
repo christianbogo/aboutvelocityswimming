@@ -1,0 +1,371 @@
+{
+  "incidentDate": "2026-11-19",
+  "environment": "Isolated local Supabase and authenticated local app; synthetic data only",
+  "fixture": {
+    "swims": 81800,
+    "athletes": 800,
+    "events": 12,
+    "courses": 3,
+    "ages": "8\u201318",
+    "athletesWith1000Swims": 2
+  },
+  "hashContract": "Ordered responses; expiresAt and recordsUpdatedAt omitted by harness",
+  "equivalentCases": 19,
+  "referenceCoverage": {
+    "women-100-free": {
+      "total": 400,
+      "returned": 25,
+      "hash": "5c37f8bbfbf591f5322300fe62eae8cff2d8d393d0400f443c14a8d5e0cf2334"
+    },
+    "women-13-14": {
+      "total": 400,
+      "returned": 25,
+      "hash": "d09455f82dca20bd6b62e55fa9185f6753afb088e5950c8c886a2811b0553237"
+    },
+    "women-year-filter": {
+      "total": 200,
+      "returned": 25,
+      "hash": "deb73b58616fd33ffe5a1d129430c153979c8d3450fc3e1c6a91d2c26a1311a2"
+    },
+    "women-long-course": {
+      "total": 400,
+      "returned": 25,
+      "hash": "c25e9c8f525362e2fd7cae618baf442aa01398511882e2820b5a37a61583cad2"
+    },
+    "men-100-free": {
+      "total": 400,
+      "returned": 25,
+      "hash": "0d9648bc64a9cebacf80cd9b84d0581792c890d7e344ee9f7cb42ac4d5771ce2"
+    },
+    "women-50-free": {
+      "total": 400,
+      "returned": 25,
+      "hash": "31e88dc6771499be710c5cf37f3914ba002bbabff1fa39d6d7adf17051c62764"
+    },
+    "men-200-im": {
+      "total": 400,
+      "returned": 25,
+      "hash": "a577cc19ca8030b10482b3378f38df846fb71978b6b5cfda604642205c53017c"
+    },
+    "all-performances": {
+      "total": 5517,
+      "returned": 25,
+      "hash": "c21698308633fac2188efb4604e23ff81ba636ad76e69b5814de75fa0cfd5cd7"
+    },
+    "ranking-years": {
+      "total": null,
+      "returned": 12,
+      "hash": "fbaee364644233af3994d892fa4a0a3edf11e9a520b03b4fa5070defbea4fa04"
+    },
+    "men-short-course-meters": {
+      "total": 400,
+      "returned": 25,
+      "hash": "d827fbf0aa8f0f701ef674cad52ca30c9bec53788f2237f687baada2d2268a1e"
+    },
+    "my-times-5": {
+      "total": null,
+      "returned": 12,
+      "hash": "fffbaf1bd27c2366c93a9b55375b7c3a42da08b21cad2b2a9c486bb2c61948d8"
+    },
+    "my-times-3": {
+      "total": null,
+      "returned": 12,
+      "hash": "575b8977f1cf14204818a0ebfda2e43a1f1ad6694f7b67ea20b12a7f6eb8dea3"
+    },
+    "my-times-4": {
+      "total": null,
+      "returned": 12,
+      "hash": "87a3673851d129568152e157c53548c035e3307fe03a921099a6b8e5cfaf9f57"
+    },
+    "my-times-1": {
+      "total": null,
+      "returned": 12,
+      "hash": "5b2477c5d945276ec1df9ab95807517e265b1e8a718a828131f8457d83180280"
+    },
+    "my-times-2": {
+      "total": null,
+      "returned": 12,
+      "hash": "627c904840ccc72fe36311ba836467c42e750416fb1ec1df83f7a3526a2298a9"
+    },
+    "record-board": {
+      "total": null,
+      "returned": 1400,
+      "hash": "367323c93dabb74d0681e5257f604716abeff235790677be65b980e031c4df8c"
+    },
+    "my-times-7": {
+      "total": null,
+      "returned": 12,
+      "hash": "46bd9173ecd11d1e6ef2e23bc14dba8af8391ad8351001eddc230110726e9987"
+    },
+    "my-times-6": {
+      "total": null,
+      "returned": 12,
+      "hash": "8fc43493690be106b91949228d0ee41babbd3bb6891bec5ef7757a98235250cb"
+    },
+    "my-times-8": {
+      "total": null,
+      "returned": 12,
+      "hash": "46dd9cbd64c4f9b1d6c3f788b6ede687520337a01acb8b4c11104b975adb6eca"
+    }
+  },
+  "runs": {
+    "rpcBefore": {
+      "mode": "rpc",
+      "startedAt": "2026-11-20T07:04:29.767Z",
+      "finishedAt": "2026-11-20T07:04:42.992Z",
+      "waves": 3,
+      "stages": [
+        {
+          "concurrency": 8,
+          "pattern": "identical",
+          "requests": 24,
+          "failures": 0,
+          "p50Ms": 55,
+          "p95Ms": 66,
+          "maxMs": 66
+        },
+        {
+          "concurrency": 8,
+          "pattern": "mixed",
+          "requests": 24,
+          "failures": 0,
+          "p50Ms": 37,
+          "p95Ms": 54,
+          "maxMs": 102
+        },
+        {
+          "concurrency": 16,
+          "pattern": "identical",
+          "requests": 48,
+          "failures": 0,
+          "p50Ms": 47,
+          "p95Ms": 67,
+          "maxMs": 70
+        },
+        {
+          "concurrency": 16,
+          "pattern": "mixed",
+          "requests": 48,
+          "failures": 0,
+          "p50Ms": 47,
+          "p95Ms": 69,
+          "maxMs": 110
+        }
+      ],
+      "serialReference": {
+        "requests": 19,
+        "failures": 0,
+        "p50Ms": 16,
+        "p95Ms": 55,
+        "maxMs": 55
+      },
+      "passed": true
+    },
+    "rpcAfter": {
+      "mode": "rpc",
+      "startedAt": "2026-11-20T07:05:05.497Z",
+      "finishedAt": "2026-11-20T07:05:18.593Z",
+      "waves": 3,
+      "stages": [
+        {
+          "concurrency": 8,
+          "pattern": "identical",
+          "requests": 24,
+          "failures": 0,
+          "p50Ms": 31,
+          "p95Ms": 65,
+          "maxMs": 73
+        },
+        {
+          "concurrency": 8,
+          "pattern": "mixed",
+          "requests": 24,
+          "failures": 0,
+          "p50Ms": 24,
+          "p95Ms": 70,
+          "maxMs": 104
+        },
+        {
+          "concurrency": 16,
+          "pattern": "identical",
+          "requests": 48,
+          "failures": 0,
+          "p50Ms": 32,
+          "p95Ms": 40,
+          "maxMs": 51
+        },
+        {
+          "concurrency": 16,
+          "pattern": "mixed",
+          "requests": 48,
+          "failures": 0,
+          "p50Ms": 32,
+          "p95Ms": 65,
+          "maxMs": 99
+        }
+      ],
+      "serialReference": {
+        "requests": 19,
+        "failures": 0,
+        "p50Ms": 21,
+        "p95Ms": 57,
+        "maxMs": 57
+      },
+      "passed": true
+    },
+    "appInitialColdRun": {
+      "mode": "app",
+      "startedAt": "2026-11-20T07:05:43.556Z",
+      "finishedAt": "2026-11-20T07:05:57.102Z",
+      "waves": 3,
+      "stages": [
+        {
+          "concurrency": 8,
+          "pattern": "identical",
+          "requests": 24,
+          "failures": 0,
+          "p50Ms": 77,
+          "p95Ms": 105,
+          "maxMs": 116,
+          "databaseReads": 1
+        },
+        {
+          "concurrency": 8,
+          "pattern": "mixed",
+          "requests": 24,
+          "failures": 0,
+          "p50Ms": 74,
+          "p95Ms": 111,
+          "maxMs": 133,
+          "databaseReads": 18
+        },
+        {
+          "concurrency": 16,
+          "pattern": "identical",
+          "requests": 48,
+          "failures": 0,
+          "p50Ms": 89,
+          "p95Ms": 95,
+          "maxMs": 98,
+          "databaseReads": 0
+        },
+        {
+          "concurrency": 16,
+          "pattern": "mixed",
+          "requests": 48,
+          "failures": 0,
+          "p50Ms": 90,
+          "p95Ms": 99,
+          "maxMs": 106,
+          "databaseReads": 0
+        }
+      ],
+      "serialReference": {
+        "requests": 19,
+        "failures": 0,
+        "p50Ms": 16,
+        "p95Ms": 44,
+        "maxMs": 44
+      },
+      "passed": true
+    },
+    "appFinalExplicitFilters": {
+      "mode": "app",
+      "startedAt": "2026-11-20T07:06:25.983Z",
+      "finishedAt": "2026-11-20T07:06:39.490Z",
+      "waves": 3,
+      "stages": [
+        {
+          "concurrency": 8,
+          "pattern": "identical",
+          "requests": 24,
+          "failures": 0,
+          "p50Ms": 64,
+          "p95Ms": 70,
+          "maxMs": 80,
+          "databaseReads": 0
+        },
+        {
+          "concurrency": 8,
+          "pattern": "mixed",
+          "requests": 24,
+          "failures": 0,
+          "p50Ms": 73,
+          "p95Ms": 92,
+          "maxMs": 105,
+          "databaseReads": 1
+        },
+        {
+          "concurrency": 16,
+          "pattern": "identical",
+          "requests": 48,
+          "failures": 0,
+          "p50Ms": 92,
+          "p95Ms": 127,
+          "maxMs": 130,
+          "databaseReads": 0
+        },
+        {
+          "concurrency": 16,
+          "pattern": "mixed",
+          "requests": 48,
+          "failures": 0,
+          "p50Ms": 88,
+          "p95Ms": 98,
+          "maxMs": 100,
+          "databaseReads": 0
+        }
+      ],
+      "serialReference": {
+        "requests": 19,
+        "failures": 0,
+        "p50Ms": 17,
+        "p95Ms": 60,
+        "maxMs": 60
+      },
+      "passed": true
+    }
+  },
+  "hosted": {
+    "migration": "20261120065505",
+    "identicalFullJsonCases": 10,
+    "timingScope": "One warm EXPLAIN ANALYZE sample before and after SQL, not a capacity guarantee",
+    "rankingsSCYFemale100FR": {
+      "beforeMs": 60.715,
+      "afterMs": 28.607,
+      "beforeSharedHits": 3844,
+      "afterSharedHits": 3185
+    },
+    "myTimesHighHistory": {
+      "beforeMs": 115.866,
+      "afterMs": 107.571,
+      "beforeSharedHits": 18510,
+      "afterSharedHits": 31110
+    },
+    "authenticatedBrowser": "Not completed in production; login prompt; verified locally",
+    "anonymousRpcSmoke": {
+      "scope": "Network-inclusive serial public RPC requests",
+      "rankings": {
+        "status": 200,
+        "rows": 25,
+        "ms": 277
+      },
+      "recent": {
+        "status": 200,
+        "rows": 25,
+        "ms": 219
+      },
+      "myTimes": {
+        "status": 200,
+        "events": 22,
+        "ms": 429
+      }
+    }
+  },
+  "limits": [
+    "Short bursts on local hardware",
+    "One shared verified synthetic auth session",
+    "Worker-local request coalescing",
+    "No sustained production capacity certification"
+  ]
+}

@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseTimesQuery, timesUrl } from "@/components/collection/times-api";
 import {
-  timesBucket,
   timesExpiry,
   clearTimesCache,
   timesCache,
@@ -241,9 +240,9 @@ describe("Velocity times requests", () => {
     ])
       expect(() => parseTimesQuery(new URLSearchParams(query))).toThrow();
   });
-  it("expires cached data at a shared minute boundary and clears browser data after writes", () => {
-    expect(timesBucket(120001)).toBe(2);
-    expect(timesExpiry(timesBucket(120001))).toBe(180000);
+  it("uses relative freshness and clears browser data after writes", () => {
+    expect(timesExpiry(120001)).toBe(180001);
+    expect(timesExpiry(179999)).toBe(239999);
     timesCache.set("fixture", { expiresAt: 180000 });
     const generation = timesGeneration;
     clearTimesCache();

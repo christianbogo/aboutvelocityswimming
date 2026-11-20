@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 
 const config = JSON.parse(
@@ -491,6 +492,36 @@ try {
     assert.equal(main(data).seasonRank, 107);
     assert.equal(main(data).seasonCount, 108);
     assert.equal(main(data).allTimeRank, undefined);
+  });
+
+  await test("batched My Times preserves the complete previous JSON across historical cohorts and filters", () => {
+    const previous = readFileSync(
+      new URL("../supabase/migrations/20261118182230_my_times_displayed_swim_rank.sql", import.meta.url),
+      "utf8",
+    ).split("revoke all on function")[0].replace(
+      "public.ies_my_times_all_time(input",
+      "pg_temp.previous_my_times_all_time(input",
+    );
+    const result = execFileSync("docker", [
+      "exec", "-i", process.env.VELOCITY_SUPABASE_DB_CONTAINER ?? "supabase_db_aboutvelocityswimming",
+      "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-qAt",
+    ], {
+      input: `BEGIN;\n${previous}\nSET LOCAL ROLE anon;
+        WITH inputs AS (
+          SELECT jsonb_build_object('athleteId', a.id, 'course', c.course) || f.filter AS input
+          FROM public.public_athletes a
+          CROSS JOIN (VALUES ('SCY'), ('LCM')) c(course)
+          CROSS JOIN (VALUES ('{}'::jsonb), ('{"ageAtSwim":12}'), ('{"ageAtSwim":13}'),
+            ('{"ageAtSwim":99}'), ('{"ageGroup":"8&U"}'), ('{"ageGroup":"Open"}'),
+            (jsonb_build_object('startYear','${history}','endYear','${history}'))) f(filter)
+          WHERE a.id LIKE '${prefix}%'
+        )
+        SELECT count(*) FROM inputs
+        WHERE public.ies_my_times_all_time(input) IS DISTINCT FROM pg_temp.previous_my_times_all_time(input);
+        ROLLBACK;`,
+      encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
+    });
+    assert.equal(result.trim(), "0", "Every full response must equal the previous implementation.");
   });
 } finally {
   assert.ifError(

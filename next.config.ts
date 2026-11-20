@@ -12,6 +12,20 @@ export default function nextConfig(phase: string): NextConfig {
       ? "development"
       : (process.env.VELOCITY_BUILD_ID ?? "development");
   return {
+    async headers() {
+      return [
+        {
+          // Only generated, content-hashed photos are immutable. Originals may change.
+          source: "/assets/photos/optimized/:path*",
+          headers: [
+            {
+              key: "Cache-Control",
+              value: "public, max-age=31536000, immutable",
+            },
+          ],
+        },
+      ];
+    },
     env: { NEXT_PUBLIC_VELOCITY_BUILD_ID: version },
     generateBuildId: async () => {
       // Unlike next typegen, a real build invokes this callback.

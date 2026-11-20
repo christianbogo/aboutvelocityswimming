@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { loadTimes } from "./load-times";
-import { timesCache, timesGeneration } from "./times-cache";
+import {
+  timesCache,
+  timesGeneration,
+  timesExpiry,
+  timesRefreshDelay,
+} from "./times-cache";
 import { timesUrl, type MyTimesEvent, type TimesResponse } from "./times-api";
 
 export type GoalBoard = {
@@ -52,6 +57,7 @@ export function useGoalBoards(events: MyTimesEvent[], enabled: boolean) {
     }[];
     const boards: Record<string, GoalBoard> = {};
     let index = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     async function read(url: string) {
       const cacheKey = `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}|${url}`;
       const cached = timesCache.get(cacheKey);
@@ -65,7 +71,11 @@ export function useGoalBoards(events: MyTimesEvent[], enabled: boolean) {
       return result;
     }
     async function worker() {
-      while (index < descriptors.length && !controller.signal.aborted) {
+      while (
+        index < descriptors.length &&
+        !controller.signal.aborted &&
+        document.visibilityState !== "hidden"
+      ) {
         const descriptor = descriptors[index++];
         const input = {
           course: descriptor.course,
@@ -104,15 +114,25 @@ export function useGoalBoards(events: MyTimesEvent[], enabled: boolean) {
     void Promise.all(
       Array.from({ length: Math.min(4, descriptors.length) }, worker),
     ).then(() => {
-      if (!controller.signal.aborted && generation === timesGeneration)
+      if (!controller.signal.aborted && generation === timesGeneration) {
         setState({ key, boards: { ...boards }, done: true });
+        if (document.visibilityState !== "hidden")
+          timer = setTimeout(refresh, timesRefreshDelay(timesExpiry()));
+      }
     });
     const refresh = () => setRevision((value) => value + 1);
-    const timer = setTimeout(refresh, 60000);
+    const visibility = () => {
+      clearTimeout(timer);
+      if (document.visibilityState !== "hidden")
+        timer = setTimeout(refresh, 250 + Math.floor(Math.random() * 4750));
+      else controller.abort();
+    };
+    document.addEventListener("visibilitychange", visibility);
     window.addEventListener("ies-times-changed", refresh);
     return () => {
       controller.abort();
       clearTimeout(timer);
+      document.removeEventListener("visibilitychange", visibility);
       window.removeEventListener("ies-times-changed", refresh);
     };
   }, [enabled, specification, key]);

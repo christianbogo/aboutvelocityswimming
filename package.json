@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "images:generate": "node scripts/media/generate-site-photos.mjs",
+    "predev": "npm run images:generate",
     "dev": "next dev",
+    "prebuild": "npm run images:generate",
     "build": "node scripts/updates/build.mjs && node scripts/swim-resources/check-private-artifacts.mjs",
     "start": "next start",
     "lint": "eslint src scripts tests *.mjs *.mts --max-warnings 0",
@@ -44,6 +47,7 @@
     "test:times:loading": "node scripts/collection/times-loading-browser-check.mjs",
     "test:updates": "node --test tests/updates/*.test.ts",
     "test:updates:browser": "node scripts/updates/browser-check.mjs",
+    "test:home:photos": "node scripts/media/home-photos-browser-check.mjs",
     "test:data:database": "node --test tests/data-management.integration.mjs",
     "test:data:retirement": "node --test tests/data-retirement.integration.mjs",
     "test:data:browser": "node --import ./scripts/workshare/register-typescript.mjs scripts/results/browser-check.mjs"
@@ -75,6 +79,7 @@
     "iconv-lite": "^0.7.3",
     "playwright": "^1.64.0",
     "prettier": "3.9.9",
+    "sharp": "0.34.5",
     "tailwindcss": "^4.3.3",
     "typescript": "^5",
     "vitest": "^5.0.3"

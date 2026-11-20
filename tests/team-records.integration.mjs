@@ -1,10 +1,10 @@
 import test from "node:test";
 import { execFileSync } from "node:child_process";
 
-// Synthetic, rollback-only checks. This container name cannot target hosting.
+// Synthetic, rollback-only checks executed in a local Docker container.
 function check(sql) {
   try {
-    return execFileSync("docker", ["exec", "-i", "supabase_db_aboutvelocityswimming", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-qAt"], {
+    return execFileSync("docker", ["exec", "-i", process.env.VELOCITY_SUPABASE_DB_CONTAINER ?? "supabase_db_aboutvelocityswimming", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-qAt"], {
       input: `BEGIN;\n${fixture}\n${sql}\nROLLBACK;`,
       encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
     });

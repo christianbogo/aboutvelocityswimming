@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import ImageWithLightbox from "./ImageWithLightbox";
 import styles from "./Carousel.module.css";
 
@@ -18,15 +18,56 @@ export default function Carousel({
   className = "",
 }: CarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const imageCount = images.length;
 
   useEffect(() => {
-    if (!images || images.length === 0) return;
+    const container = containerRef.current;
+    if (!container || imageCount < 2 || autoPlayInterval <= 0) return;
 
-    const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % images.length);
-    }, autoPlayInterval);
-    return () => clearInterval(timer);
-  }, [images, autoPlayInterval]);
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let isVisible = false;
+    let timer: ReturnType<typeof setInterval> | undefined;
+
+    const updateAutoplay = () => {
+      clearInterval(timer);
+      timer = undefined;
+      if (
+        !isVisible ||
+        document.hidden ||
+        reducedMotion.matches ||
+        isLightboxOpen
+      ) {
+        return;
+      }
+
+      timer = setInterval(() => {
+        // Give slow connections time to finish the current slide before advancing.
+        const image = container.querySelector("img");
+        if (image?.complete && image.naturalWidth > 0) {
+          setCurrentIndex((prev) => (prev + 1) % imageCount);
+        }
+      }, autoPlayInterval);
+    };
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (isVisible !== entry.isIntersecting) {
+        isVisible = entry.isIntersecting;
+        updateAutoplay();
+      }
+    });
+    observer.observe(container);
+    document.addEventListener("visibilitychange", updateAutoplay);
+    reducedMotion.addEventListener("change", updateAutoplay);
+
+    return () => {
+      clearInterval(timer);
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", updateAutoplay);
+      reducedMotion.removeEventListener("change", updateAutoplay);
+    };
+  }, [imageCount, autoPlayInterval, isLightboxOpen]);
 
   if (!images || images.length === 0) {
     return null;
@@ -37,11 +78,15 @@ export default function Carousel({
     setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
 
   return (
-    <div className={`${styles["carousel-container"]} ${className}`}>
+    <div
+      ref={containerRef}
+      className={`${styles["carousel-container"]} ${className}`}
+    >
       <ImageWithLightbox
         src={images[currentIndex]}
         alt={`${altPrefix} ${currentIndex + 1}`}
         className={styles["carousel-img"]}
+        onOpenChange={setIsLightboxOpen}
       />
 
       {images.length > 1 && (

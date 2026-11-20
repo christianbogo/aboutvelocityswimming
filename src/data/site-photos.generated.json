@@ -1,0 +1,206 @@
+{
+  "/assets/photos/practice.jpg": {
+    "generationKey": "3c5ede8b8ea16fb4fd6f4c6c34f73243e6e6fcee9c17bbddf82730edfef1802b",
+    "src": "/assets/photos/optimized/practice.e7f657026b98cb0d-768.webp",
+    "srcSet": "/assets/photos/optimized/practice.bea09c2e6f8e0a42-480.webp 480w, /assets/photos/optimized/practice.e7f657026b98cb0d-768.webp 768w, /assets/photos/optimized/practice.fe57c816d75718e3-1024.webp 1024w, /assets/photos/optimized/practice.d0674ec3d09a68e9-1440.webp 1440w, /assets/photos/optimized/practice.10d7947948160d94-1920.webp 1920w, /assets/photos/optimized/practice.7cfc365ec8f330fd-2268.webp 2268w",
+    "width": 2268,
+    "height": 1814,
+    "lightbox": {
+      "src": "/assets/photos/optimized/practice.30bb261080b65b0f-2268.webp",
+      "width": 2268,
+      "height": 1814
+    }
+  },
+  "/assets/photos/masters.jpeg": {
+    "generationKey": "7e791b1ad282ebe35ba20da9d5a7ae93efa71f32d3aa43acf9c0a8c66c14e30a",
+    "src": "/assets/photos/optimized/masters.9f4c7c09116403e4-768.webp",
+    "srcSet": "/assets/photos/optimized/masters.bf39b346c146d43f-480.webp 480w, /assets/photos/optimized/masters.9f4c7c09116403e4-768.webp 768w, /assets/photos/optimized/masters.551d88e5ba1e1ca5-1024.webp 1024w, /assets/photos/optimized/masters.9535ce229483a7de-1440.webp 1440w",
+    "width": 5258,
+    "height": 3055,
+    "lightbox": {
+      "src": "/assets/photos/optimized/masters.4cc78cd194483c4e-2400.webp",
+      "width": 2400,
+      "height": 1394
+    }
+  },
+  "/assets/photos/whs-seniors.jpeg": {
+    "generationKey": "e0cf63867bafec07cf5cceba184ddcbc55b20c7f60db0042f8a6a63d2d7c8868",
+    "src": "/assets/photos/optimized/whs-seniors.3550c665802d46e9-768.webp",
+    "srcSet": "/assets/photos/optimized/whs-seniors.904143f9795ab91b-480.webp 480w, /assets/photos/optimized/whs-seniors.3550c665802d46e9-768.webp 768w, /assets/photos/optimized/whs-seniors.1b0db4dd91e4cc1f-1024.webp 1024w, /assets/photos/optimized/whs-seniors.bc646374b2842d40-1440.webp 1440w",
+    "width": 4211,
+    "height": 2797,
+    "lightbox": {
+      "src": "/assets/photos/optimized/whs-seniors.5bf5db0fb236d2b2-2400.webp",
+      "width": 2400,
+      "height": 1594
+    }
+  },
+  "/assets/photos/hike.jpg": {
+    "generationKey": "969c87f8e27bfbdb3a42b46e73a3c65ab935d953cf4690dc0696a5f3e4523f99",
+    "src": "/assets/photos/optimized/hike.69a2202e583937ad-768.webp",
+    "srcSet": "/assets/photos/optimized/hike.677862e240308afe-480.webp 480w, /assets/photos/optimized/hike.69a2202e583937ad-768.webp 768w, /assets/photos/optimized/hike.2360306fd9c9a954-1024.webp 1024w, /assets/photos/optimized/hike.08d23383d32b1af5-1440.webp 1440w",
+    "width": 4215,
+    "height": 3615,
+    "lightbox": {
+      "src": "/assets/photos/optimized/hike.5bd8796164586a6e-2400.webp",
+      "width": 2400,
+      "height": 2058
+    }
+  },
+  "/assets/photos/audrey-eddings.jpeg": {
+    "generationKey": "938ee20b3277333f330491a52b920ab340d41b363556ef12ce41a8998798f9e9",
+    "src": "/assets/photos/optimized/audrey-eddings.de328e07e838e89d-768.webp",
+    "srcSet": "/assets/photos/optimized/audrey-eddings.8ebe2847a55d702d-480.webp 480w, /assets/photos/optimized/audrey-eddings.de328e07e838e89d-768.webp 768w, /assets/photos/optimized/audrey-eddings.744bd27574d86b33-1024.webp 1024w, /assets/photos/optimized/audrey-eddings.bb423966704e928a-1440.webp 1440w",
+    "width": 4896,
+    "height": 3672,
+    "lightbox": {
+      "src": "/assets/photos/optimized/audrey-eddings.434284ae9c96d0ad-2400.webp",
+      "width": 2400,
+      "height": 1800
+    }
+  },
+  "/assets/photos/audrey-fun.jpeg": {
+    "generationKey": "eaa11390ca90d04e25d9036a140e18cacf75e66c363907850e81de593242c358",
+    "src": "/assets/photos/optimized/audrey-fun.70ada2acb57e8d95-768.webp",
+    "srcSet": "/assets/photos/optimized/audrey-fun.6a5d63f9c57e7f79-480.webp 480w, /assets/photos/optimized/audrey-fun.70ada2acb57e8d95-768.webp 768w, /assets/photos/optimized/audrey-fun.f5823fd8915702a1-1024.webp 1024w, /assets/photos/optimized/audrey-fun.76473b5b2f462bad-1440.webp 1440w",
+    "width": 4896,
+    "height": 3672,
+    "lightbox": {
+      "src": "/assets/photos/optimized/audrey-fun.5889b64874281ca2-2400.webp",
+      "width": 2400,
+      "height": 1800
+    }
+  },
+  "/assets/photos/audrey-ribellia.jpeg": {
+    "generationKey": "4c590398d6094a3196e02e05ccb87055d7650a80543ad4d3cbb71e75e4f3d589",
+    "src": "/assets/photos/optimized/audrey-ribellia.b71a8c3fc9792c5d-768.webp",
+    "srcSet": "/assets/photos/optimized/audrey-ribellia.9b94081f9df908fa-480.webp 480w, /assets/photos/optimized/audrey-ribellia.b71a8c3fc9792c5d-768.webp 768w, /assets/photos/optimized/audrey-ribellia.17f02c9ea6f8d70a-1024.webp 1024w, /assets/photos/optimized/audrey-ribellia.c1ac64592a177a1c-1440.webp 1440w",
+    "width": 4896,
+    "height": 3672,
+    "lightbox": {
+      "src": "/assets/photos/optimized/audrey-ribellia.94de6e4cbf6d35f7-2400.webp",
+      "width": 2400,
+      "height": 1800
+    }
+  },
+  "/assets/photos/cutter-spartan.jpeg": {
+    "generationKey": "5f641cb1975fd5047a8f9f4bfaf6d9062432f7557c97dee31561940a621b59e7",
+    "src": "/assets/photos/optimized/cutter-spartan.ae8e0bcc29568fa4-768.webp",
+    "srcSet": "/assets/photos/optimized/cutter-spartan.79832bf5f1c543da-480.webp 480w, /assets/photos/optimized/cutter-spartan.ae8e0bcc29568fa4-768.webp 768w, /assets/photos/optimized/cutter-spartan.94b2863b528ce519-1024.webp 1024w, /assets/photos/optimized/cutter-spartan.39518fae809b20ed-1440.webp 1440w",
+    "width": 4284,
+    "height": 5712,
+    "lightbox": {
+      "src": "/assets/photos/optimized/cutter-spartan.8b50e52a74243733-1800.webp",
+      "width": 1800,
+      "height": 2400
+    }
+  },
+  "/assets/photos/cutter-smile.JPG": {
+    "generationKey": "d0ca932b40486b0039ca3f34bdf32c222a4b206bd882f13d17b9898d9295bb25",
+    "src": "/assets/photos/optimized/cutter-smile.3cdf152f6b58ad90-768.webp",
+    "srcSet": "/assets/photos/optimized/cutter-smile.377edbc58883c7ee-480.webp 480w, /assets/photos/optimized/cutter-smile.3cdf152f6b58ad90-768.webp 768w, /assets/photos/optimized/cutter-smile.72dacc404be86b51-1024.webp 1024w, /assets/photos/optimized/cutter-smile.884e3eb4dce38ef4-1440.webp 1440w",
+    "width": 5236,
+    "height": 7105,
+    "lightbox": {
+      "src": "/assets/photos/optimized/cutter-smile.ab6b3cdeddfd5e6e-1769.webp",
+      "width": 1769,
+      "height": 2400
+    }
+  },
+  "/assets/photos/cutter-huddle.JPG": {
+    "generationKey": "0927248765c2c371571676b66747656ad657376ca4031ebbfa18189b280767da",
+    "src": "/assets/photos/optimized/cutter-huddle.9e5524c5505f2566-768.webp",
+    "srcSet": "/assets/photos/optimized/cutter-huddle.40c8923dd3d52bfb-480.webp 480w, /assets/photos/optimized/cutter-huddle.9e5524c5505f2566-768.webp 768w, /assets/photos/optimized/cutter-huddle.22f03cf5f6c1a8bb-1024.webp 1024w, /assets/photos/optimized/cutter-huddle.14750869ff639c8b-1440.webp 1440w",
+    "width": 5355,
+    "height": 6294,
+    "lightbox": {
+      "src": "/assets/photos/optimized/cutter-huddle.89fb1034e19d2a14-2042.webp",
+      "width": 2042,
+      "height": 2400
+    }
+  },
+  "/assets/photos/champs-arms-raised.JPG": {
+    "generationKey": "71b636441e3ccb89815b765ed2bfd4cc657da2387a3162543c986a681f3b8faf",
+    "src": "/assets/photos/optimized/champs-arms-raised.096e4375614f3c4a-768.webp",
+    "srcSet": "/assets/photos/optimized/champs-arms-raised.ac64f3a2d9771743-480.webp 480w, /assets/photos/optimized/champs-arms-raised.096e4375614f3c4a-768.webp 768w, /assets/photos/optimized/champs-arms-raised.f5f227a3efb004da-907.webp 907w",
+    "width": 907,
+    "height": 650,
+    "lightbox": {
+      "src": "/assets/photos/optimized/champs-arms-raised.42089a973d7a3c80-907.webp",
+      "width": 907,
+      "height": 650
+    }
+  },
+  "/assets/photos/city-pool-camp.JPG": {
+    "generationKey": "3e110805a353828102ae134590edb6d43e5a14b10015711de940d9c46e51f6d0",
+    "src": "/assets/photos/optimized/city-pool-camp.0fb7409f42de9925-768.webp",
+    "srcSet": "/assets/photos/optimized/city-pool-camp.e9f0b0c41987cfe8-480.webp 480w, /assets/photos/optimized/city-pool-camp.0fb7409f42de9925-768.webp 768w, /assets/photos/optimized/city-pool-camp.d1ea5c3f48545f07-1024.webp 1024w, /assets/photos/optimized/city-pool-camp.3c3334454ac7afb6-1440.webp 1440w",
+    "width": 1440,
+    "height": 1920,
+    "lightbox": {
+      "src": "/assets/photos/optimized/city-pool-camp.4f3294f30895ddfe-1440.webp",
+      "width": 1440,
+      "height": 1920
+    }
+  },
+  "/assets/photos/kids-meet-warm-up.jpeg": {
+    "generationKey": "5ae6a88897c329386f156900b39e1c6ae95bab4afe89a45f6169018b63b2746b",
+    "src": "/assets/photos/optimized/kids-meet-warm-up.8436e3466a45ce08-768.webp",
+    "srcSet": "/assets/photos/optimized/kids-meet-warm-up.db135fddaa11cc9d-480.webp 480w, /assets/photos/optimized/kids-meet-warm-up.8436e3466a45ce08-768.webp 768w, /assets/photos/optimized/kids-meet-warm-up.ec07fb289881065d-1024.webp 1024w, /assets/photos/optimized/kids-meet-warm-up.371f5c70d2837b21-1440.webp 1440w",
+    "width": 5712,
+    "height": 4284,
+    "lightbox": {
+      "src": "/assets/photos/optimized/kids-meet-warm-up.89c8f3d97b4d465b-2400.webp",
+      "width": 2400,
+      "height": 1800
+    }
+  },
+  "/assets/photos/post-parade.jpeg": {
+    "generationKey": "3e753defb503170179fa0d0761691116ff26f7669b5cbc5eaaa8d52422fe1943",
+    "src": "/assets/photos/optimized/post-parade.a65c5996bc5795ff-768.webp",
+    "srcSet": "/assets/photos/optimized/post-parade.b0a4776149c04dd9-480.webp 480w, /assets/photos/optimized/post-parade.a65c5996bc5795ff-768.webp 768w, /assets/photos/optimized/post-parade.057e4f4b9c920a49-1024.webp 1024w, /assets/photos/optimized/post-parade.29a075d34ffcc89c-1440.webp 1440w",
+    "width": 5712,
+    "height": 4284,
+    "lightbox": {
+      "src": "/assets/photos/optimized/post-parade.f7c4edbf8527e93b-2400.webp",
+      "width": 2400,
+      "height": 1800
+    }
+  },
+  "/assets/photos/pulling-shark.jpeg": {
+    "generationKey": "40b414fc9798296ec4f2883641f25a5f2bcc9ab26c40e585ad791c365ae99a4e",
+    "src": "/assets/photos/optimized/pulling-shark.683ac20cb67c8412-768.webp",
+    "srcSet": "/assets/photos/optimized/pulling-shark.7cba784720f1267b-480.webp 480w, /assets/photos/optimized/pulling-shark.683ac20cb67c8412-768.webp 768w, /assets/photos/optimized/pulling-shark.629737b16a79d2fe-1024.webp 1024w, /assets/photos/optimized/pulling-shark.e17afac93c321a12-1440.webp 1440w",
+    "width": 4284,
+    "height": 5712,
+    "lightbox": {
+      "src": "/assets/photos/optimized/pulling-shark.52dce7c374eac8e4-1800.webp",
+      "width": 1800,
+      "height": 2400
+    }
+  },
+  "/assets/photos/tie-dye-smile.jpeg": {
+    "generationKey": "6c6ab8e4f490b0cdb3c18d43c30b804732fd7bcca2679fba51204e242ca10b35",
+    "src": "/assets/photos/optimized/tie-dye-smile.a7b297ab18147ec1-768.webp",
+    "srcSet": "/assets/photos/optimized/tie-dye-smile.4336cf0b52cccfda-480.webp 480w, /assets/photos/optimized/tie-dye-smile.a7b297ab18147ec1-768.webp 768w, /assets/photos/optimized/tie-dye-smile.eea38ddee40761e3-1024.webp 1024w, /assets/photos/optimized/tie-dye-smile.e9788b3734740c4d-1440.webp 1440w",
+    "width": 5712,
+    "height": 4284,
+    "lightbox": {
+      "src": "/assets/photos/optimized/tie-dye-smile.da847ae2efebc9d8-2400.webp",
+      "width": 2400,
+      "height": 1800
+    }
+  },
+  "/assets/photos/water-splash.jpeg": {
+    "generationKey": "11001e326b951da8ce296bc2201e84da0423a16d59dc95bca01ced4291f52a67",
+    "src": "/assets/photos/optimized/water-splash.fca7a908667e0377-768.webp",
+    "srcSet": "/assets/photos/optimized/water-splash.e445b349fa6270a7-480.webp 480w, /assets/photos/optimized/water-splash.fca7a908667e0377-768.webp 768w, /assets/photos/optimized/water-splash.3d831e15139b4175-1024.webp 1024w, /assets/photos/optimized/water-splash.878e50689e5bf518-1440.webp 1440w",
+    "width": 5712,
+    "height": 4284,
+    "lightbox": {
+      "src": "/assets/photos/optimized/water-splash.600a33afdc48a0a6-2400.webp",
+      "width": 2400,
+      "height": 1800
+    }
+  }
+}
