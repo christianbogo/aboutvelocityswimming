@@ -548,30 +548,37 @@ function MyTimesResults({
                                   {stroke === "DST" ? "Free" : heading}
                                 </span>
                               </span>
-                              {showTimeStats && (
-                                <span className={s.rankIcon}>
-                                  {standards.loading &&
-                                  !standards.sets.length ? (
-                                    <SkeletonText width="100%" height="100%" />
-                                  ) : (
-                                    rank && (
-                                      <>
-                                        <MotivationalRankIcon
-                                          tier={rank.rank.tier}
-                                          size={28}
-                                        />
-                                        <span
-                                          className="sr-only"
-                                          id={`${cardId}-${event.event}-motivational`}
-                                        >
-                                          {rank.rank.name} rank:{" "}
-                                          {rank.rank.tier} motivational standard
-                                        </span>
-                                      </>
-                                    )
-                                  )}
-                                </span>
-                              )}
+                              {showTimeStats &&
+                                (rank ||
+                                  (standards.loading &&
+                                    !standards.sets.length)) && (
+                                  <span className={s.rankIcon}>
+                                    {standards.loading &&
+                                    !standards.sets.length ? (
+                                      <SkeletonText
+                                        width="100%"
+                                        height="100%"
+                                      />
+                                    ) : (
+                                      rank && (
+                                        <>
+                                          <MotivationalRankIcon
+                                            tier={rank.rank.tier}
+                                            size={28}
+                                          />
+                                          <span
+                                            className="sr-only"
+                                            id={`${cardId}-${event.event}-motivational`}
+                                          >
+                                            {rank.rank.name} rank:{" "}
+                                            {rank.rank.tier} motivational
+                                            standard
+                                          </span>
+                                        </>
+                                      )
+                                    )}
+                                  </span>
+                                )}
                             </span>
                             <strong id={`${cardId}-${event.event}-time`}>
                               <span className="sr-only">

@@ -217,7 +217,8 @@ export default function TeamRecords({
     );
   }, [recordBoard, visibleRaces]);
   const groups = ageGroups.map(
-    ([key, label, minAge]) => [key, label, minAge] as const,
+    ([key, label, minAge]) =>
+      [key, key === "8&U" || key === "19&O" ? key : label, minAge] as const,
   );
   const events = useMemo(
     () =>
@@ -237,13 +238,28 @@ export default function TeamRecords({
       aria-label="Records"
       aria-busy={loading}
       data-mobile-gender={mobileGender}
+      data-mobile-course={selectedCourse}
     >
       {loading && <SkeletonStatus>Loading team records…</SkeletonStatus>}
       <div id={`${prefix}-top`} className={s.controls}>
+        <div className={s.courseToggle} role="group" aria-label="Record course">
+          {visibleCourses.map(([course, label]) => (
+            <button
+              key={course}
+              type="button"
+              title={label}
+              aria-pressed={selectedCourse === course}
+              onClick={() => updateSelection({ course, showAll: false })}
+            >
+              {course}
+            </button>
+          ))}
+        </div>
         <nav className={s.jumpLinks} aria-label="Record sections">
           {visibleCourses.map(([course, label]) => (
             <div
               className={s.jumpRow}
+              data-course={course}
               key={course}
               role="group"
               aria-label={`${label} navigation`}

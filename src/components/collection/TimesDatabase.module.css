@@ -688,3 +688,9 @@
     overflow-wrap: anywhere;
   }
 }
+
+@media (max-width: 600px) {
+  .content.standardsContent {
+    padding: 8px 8px 40px;
+  }
+}

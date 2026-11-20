@@ -100,11 +100,11 @@ export default function AccountProfile() {
         </section>
       </div>
       <VelocityFamily family={familyPreview(accountFamilyId, user.email)} />
+      <AccountAthletes key={user.uid} userId={user.uid} />
       <AccountWorkshare
         key={`${user.uid}:${user.email ?? ""}`}
         userId={user.uid}
       />
-      <AccountAthletes key={user.uid} userId={user.uid} />
     </section>
   );
 }

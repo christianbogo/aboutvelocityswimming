@@ -520,6 +520,37 @@ try {
   await standards
     .getByRole("button", { name: "Standard", exact: true })
     .click();
+  await picker.evaluate((el) => {
+    const spacer = document.createElement("div");
+    spacer.dataset.stickyTest = "";
+    spacer.style.height = "1500px";
+    el.append(spacer);
+    el.scrollTop = 500;
+  });
+  const stickyClose = await picker
+    .getByRole("button", { name: "Close standard picker", exact: true })
+    .boundingBox();
+  assert.ok(stickyClose.y >= 0 && stickyClose.y + stickyClose.height < 844);
+  await picker.evaluate((el) => {
+    el.querySelector("[data-sticky-test]").remove();
+    el.scrollTop = 0;
+  });
+  const touchSession = await context.newCDPSession(page);
+  await touchSession.send("Emulation.setTouchEmulationEnabled", {
+    enabled: true,
+  });
+  const formSizes = await page
+    .locator(
+      "[data-tool-sidebar] input, [data-tool-sidebar] select, [data-tool-sidebar] textarea",
+    )
+    .evaluateAll((elements) =>
+      elements.map((el) => parseFloat(getComputedStyle(el).fontSize)),
+    );
+  assert.ok(formSizes.length > 0 && formSizes.every((size) => size >= 16));
+  await touchSession.send("Emulation.setTouchEmulationEnabled", {
+    enabled: false,
+  });
+  await touchSession.detach();
   const mobileBounds = await picker.boundingBox();
   assert.ok(
     mobileBounds.width >= 390 * 0.9 && mobileBounds.height >= 844 * 0.9,
@@ -701,6 +732,10 @@ try {
     await records.getByRole("table").first().waitFor();
     assert.equal(page.url(), recordSourceUrl);
     await records
+      .getByRole("group", { name: "Record course", exact: true })
+      .getByRole("button", { name: "LCM", exact: true })
+      .click();
+    await records
       .getByRole("button", { name: "LCM 15–16 records", exact: true })
       .click();
     await records
@@ -740,11 +775,15 @@ try {
     );
     assert.equal(await records.getAttribute("data-mobile-gender"), "M");
     await records
+      .getByRole("group", { name: "Record course", exact: true })
+      .getByRole("button", { name: "SCY", exact: true })
+      .click();
+    await records
       .getByRole("button", { name: "SCY 13–14 records", exact: true })
       .click();
     assert.equal(await records.getByRole("table").count(), 1);
     console.log(
-      "Records UI passed default Girls 13–14 SCY, original course/age controls, remembered selection/gender/render-all, equal mobile card heights and no overflow.",
+      "Records UI passed default Girls 13–14 SCY, mobile course buttons and age controls, remembered selection/gender/render-all, equal mobile card heights and no overflow.",
     );
     await page.setViewportSize({ width: 1440, height: 1000 });
     await gotoView("rankings", { filters: JSON.stringify(filters) });
@@ -1066,14 +1105,27 @@ try {
     const iconGap = await timedCard
       .locator('span[class*="rankIcon"]')
       .boundingBox();
-    const emptyGap = await noRankCard
-      .locator('span[class*="rankIcon"]')
-      .boundingBox();
-    assert.ok(
-      iconGap.height >= 14 &&
-        iconGap.height <= 22 &&
-        Math.abs(iconGap.height - emptyGap.height) <= 1,
-    );
+    assert.ok(iconGap.height >= 14 && iconGap.height <= 22);
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      assert.equal(
+        await noRankCard.locator('span[class*="rankIcon"]').count(),
+        0,
+      );
+      const centered = await noRankCard
+        .locator('span[class*="cardHeader"]')
+        .evaluate((el) => {
+          const box = el.getBoundingClientRect();
+          const label = el.firstElementChild.getBoundingClientRect();
+          return (
+            Math.abs(
+              (box.left + box.right) / 2 - (label.left + label.right) / 2,
+            ) < 1
+          );
+        });
+      assert.ok(centered, `Unranked event is centered at ${width}px`);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
     const compactCard = async () => {
       const heading = await timedCard
         .locator(":scope > span")

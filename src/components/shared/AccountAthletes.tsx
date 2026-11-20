@@ -66,6 +66,7 @@ function AthleteSearch({
 }) {
   const id = useId();
   const addButton = useRef<HTMLButtonElement>(null);
+  const searchRoot = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -88,6 +89,21 @@ function AthleteSearch({
     setIsOpen(false);
     if (restoreFocus) requestAnimationFrame(() => addButton.current?.focus());
   }
+
+  useEffect(() => {
+    if (!isOpen) return;
+    function dismissOutside(event: PointerEvent) {
+      if (
+        event.target instanceof Node &&
+        !searchRoot.current?.contains(event.target)
+      ) {
+        setQuery("");
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", dismissOutside);
+    return () => document.removeEventListener("pointerdown", dismissOutside);
+  }, [isOpen]);
 
   useEffect(() => {
     if (term.length < 2) return;
@@ -140,8 +156,15 @@ function AthleteSearch({
 
   return (
     <div
+      ref={searchRoot}
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) closeSearch();
+        // Safari can blur the input without focusing the tapped result.
+        // Outside pointer dismissal handles that case without swallowing the click.
+        if (
+          event.relatedTarget &&
+          !event.currentTarget.contains(event.relatedTarget)
+        )
+          closeSearch();
       }}
     >
       <label htmlFor={id} className="sr-only">

@@ -17,7 +17,7 @@ export function StandardsSkeleton() {
       <header className={s.toolHeader}>
         <TimeStandardsSummarySkeleton />
       </header>
-      <div className={s.content}>
+      <div className={`${s.content} ${s.standardsContent}`}>
         <TimeStandardsSkeleton />
       </div>
     </main>
@@ -44,7 +44,7 @@ function StandardsContent() {
           <TimeStandardsSummary state={selection} />
         )}
       </header>
-      <div className={s.content}>
+      <div className={`${s.content} ${s.standardsContent}`}>
         <TimesConfigurationNotice />
         <div className={s.workspace}>
           <div className={s.main}>
