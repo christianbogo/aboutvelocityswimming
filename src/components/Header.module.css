@@ -88,6 +88,14 @@
 .site-header :is(a, button):focus-visible { outline: 3px solid currentColor; outline-offset: 4px; border-radius: 5px; }
 
 @media (max-width: 960px) {
+  /* Keep the mobile top edge opaque as content scrolls under Safari's chrome. */
+  .site-header-overlay {
+    background: var(--background);
+    color: var(--text-main);
+    border-color: color-mix(in srgb, var(--text-main) 12%, transparent);
+    --logo-contrast: block;
+    --logo-white: none;
+  }
   .site-header-inner { padding-inline: 1.5rem; }
   .site-logo { width: 160px; }
   .site-menu-toggle { display: inline-flex; gap: 0.65rem; background: transparent; color: inherit; min-height: 44px; padding: 0.5rem; border-radius: 7px; }

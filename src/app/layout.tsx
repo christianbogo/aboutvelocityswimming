@@ -29,16 +29,20 @@ const bebas = Bebas_Neue({
 });
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#FFFFFF" },
-    { media: "(prefers-color-scheme: dark)", color: "#102638" },
-  ],
+  // A single tag lets the saved theme override the system preference reliably.
+  themeColor: "#FFFFFF",
   viewportFit: "cover",
   width: "device-width",
   initialScale: 1,
 };
 
 export const metadata: Metadata = {
+  applicationName: "Velocity Swimming",
+  appleWebApp: {
+    capable: true,
+    title: "Velocity",
+    statusBarStyle: "default",
+  },
   metadataBase: new URL("https://aboutvelocityswimming.com"),
   title: "Velocity Swimming | Wenatchee Valley",
   description:
