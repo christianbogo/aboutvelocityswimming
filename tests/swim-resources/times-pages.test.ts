@@ -125,6 +125,54 @@ it("rankings loads only its queries and retains bookmarked filters", () => {
   expect(mocks.standardSelection).not.toHaveBeenCalled();
 });
 
+it("rankings restores one gender and keeps exactly one selected when changing it", () => {
+  window.history.replaceState(
+    {},
+    "",
+    `/tools/rankings?${new URLSearchParams({
+      filters: JSON.stringify({
+        ...initialFilters,
+        genders: ["X", "M", "F"],
+        relay: true,
+      }),
+      page: "2",
+    })}`,
+  );
+  const screen = render(createElement(RankingsPage));
+  const rankingQuery = mocks.times.mock.calls.find(([href]) =>
+    href.includes("view=rankings&"),
+  )?.[0];
+  expect(
+    new URL(rankingQuery, window.location.origin).searchParams.get("genders"),
+  ).toBe("M");
+  fireEvent.click(screen.getByRole("button", { name: "Gender: Male" }));
+  expect(
+    screen.getByRole("button", { name: "Male" }).getAttribute("aria-pressed"),
+  ).toBe("true");
+  expect(screen.queryByRole("button", { name: "Mixed" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Female" }));
+  screen.rerender(createElement(RankingsPage));
+  expect(new URLSearchParams(window.location.search).has("page")).toBe(false);
+
+  for (let index = 0; index < 2; index += 1) {
+    fireEvent.click(screen.getByRole("button", { name: "Gender: Female" }));
+    expect(
+      screen
+        .getByRole("button", { name: "Female" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(
+      screen.getByRole("button", { name: "Male" }).getAttribute("aria-pressed"),
+    ).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: "Female" }));
+    screen.rerender(createElement(RankingsPage));
+    expect(
+      JSON.parse(new URLSearchParams(window.location.search).get("filters")!)
+        .genders,
+    ).toEqual(["F"]);
+  }
+});
+
 it("records skips standards and opens relay performance rankings", () => {
   window.history.replaceState({}, "", "/tools/records?page=7&search=old");
   const screen = render(createElement(RecordsPage));

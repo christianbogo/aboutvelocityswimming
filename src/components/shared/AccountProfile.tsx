@@ -64,7 +64,7 @@ export default function AccountProfile() {
               onClick={() => setSettingsOpen((open) => !open)}
             >
               <Settings2 className="mr-2 size-4" aria-hidden="true" />
-              Account Sign-in Settings
+              Manage Account
             </Button>
             <Button
               type="button"
@@ -85,7 +85,7 @@ export default function AccountProfile() {
         </div>
         <section
           id={settingsId}
-          aria-label="Account Sign-in Settings"
+          aria-label="Manage Account"
           hidden={!settingsOpen}
         >
           {settingsOpen && (

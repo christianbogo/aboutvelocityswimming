@@ -119,7 +119,7 @@ try {
   await page.getByRole("button", { name: "Sign In with Password", exact: true }).click();
   await page.waitForURL(base + "/tools");
   const account = page.getByRole("region", { name: "Account management", exact: true });
-  const settingsButton = account.getByRole("button", { name: "Account Sign-in Settings", exact: true });
+  const settingsButton = account.getByRole("button", { name: "Manage Account", exact: true });
   await settingsButton.waitFor();
   assert.equal(await settingsButton.getAttribute("aria-expanded"), "false");
   assert.equal(await account.getByRole("heading", { name: "Sign-in methods", exact: true }).count(), 0);
@@ -127,7 +127,7 @@ try {
   const settingsBox = await settingsButton.boundingBox();
   assert.ok(settingsBox.x < signOutBox.x, "Settings button is to the left of Sign out");
   await settingsButton.click();
-  const settings = account.getByRole("region", { name: "Account Sign-in Settings", exact: true });
+  const settings = account.getByRole("region", { name: "Manage Account", exact: true });
   await settings.getByRole("button", { name: "Google linked", exact: true }).waitFor();
   const password = settings.getByLabel("New password", { exact: true });
   const confirmation = settings.getByLabel("Confirm password", { exact: true });

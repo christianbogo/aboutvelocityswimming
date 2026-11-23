@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { initialFilters } from "@/components/collection/times-data";
 import {
   athleteTimesHref,
+  normalizeRankingFilters,
   rankingsHref,
   readTimesSelection,
   writeTimesSelection,
@@ -9,6 +10,22 @@ import {
 } from "@/components/collection/times-url-state";
 
 describe("shared times selections", () => {
+  it.each([
+    [[], ["F"]],
+    [["X"], ["F"]],
+    [["F", "M"], ["F"]],
+    [["M", "F"], ["M"]],
+    [["invalid", "M"], ["M"]],
+  ])("normalizes legacy ranking genders %j to %j", (genders, expected) => {
+    const filters = { ...initialFilters, genders };
+    expect(normalizeRankingFilters(filters).genders).toEqual(expected);
+    const url = new URL(rankingsHref(filters), "https://example.com");
+    expect(
+      readTimesSelection(url.searchParams.get("filters"), initialFilters)
+        .genders,
+    ).toEqual(expected);
+  });
+
   it("opens selected rankings without carrying stale pagination or searches", () => {
     const filters = {
       ...initialFilters,

@@ -242,19 +242,6 @@ export default function TeamRecords({
     >
       {loading && <SkeletonStatus>Loading team records…</SkeletonStatus>}
       <div id={`${prefix}-top`} className={s.controls}>
-        <div className={s.courseToggle} role="group" aria-label="Record course">
-          {visibleCourses.map(([course, label]) => (
-            <button
-              key={course}
-              type="button"
-              title={label}
-              aria-pressed={selectedCourse === course}
-              onClick={() => updateSelection({ course, showAll: false })}
-            >
-              {course}
-            </button>
-          ))}
-        </div>
         <nav className={s.jumpLinks} aria-label="Record sections">
           {visibleCourses.map(([course, label]) => (
             <div
@@ -294,6 +281,19 @@ export default function TeamRecords({
             </div>
           ))}
         </nav>
+        <div className={s.courseToggle} role="group" aria-label="Record course">
+          {visibleCourses.map(([course, label]) => (
+            <button
+              key={course}
+              type="button"
+              title={label}
+              aria-pressed={selectedCourse === course}
+              onClick={() => updateSelection({ course, showAll: false })}
+            >
+              {course}
+            </button>
+          ))}
+        </div>
         {(ready || loading) && (
           <div
             className={s.genderToggle}

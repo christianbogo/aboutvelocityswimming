@@ -1,6 +1,5 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import {
   loadAccountWorkshare,
@@ -144,7 +143,6 @@ function AccountHours({ account }: { account: AccountWorkshareSummary }) {
 
 type ReadResult = {
   userId: string;
-  requestedSeasonId: string | undefined;
   attempt: number;
 } & (
   | { data: AccountWorkshareData; failed?: false }
@@ -153,32 +151,29 @@ type ReadResult = {
 
 export default function AccountWorkshare({ userId }: { userId: string }) {
   const headingId = useId();
-  const seasonInputId = useId();
-  const [requestedSeasonId, setRequestedSeasonId] = useState<string>();
   const [attempt, setAttempt] = useState(0);
   const [result, setResult] = useState<ReadResult>();
   const current =
-    result?.userId === userId &&
-    result.requestedSeasonId === requestedSeasonId &&
-    result.attempt === attempt
+    result?.userId === userId && result.attempt === attempt
       ? result
       : undefined;
-  const seasons = result?.userId === userId ? result.data?.seasons : undefined;
-  const selectedSeasonId = requestedSeasonId ?? current?.data?.seasonId ?? "";
+  const currentSeason = current?.data?.seasons.find(
+    (season) => season.id === current.data?.seasonId,
+  );
 
   useEffect(() => {
     const controller = new AbortController();
-    void loadAccountWorkshare(requestedSeasonId, controller.signal)
+    void loadAccountWorkshare(undefined, controller.signal)
       .then((data) => {
         if (!controller.signal.aborted)
-          setResult({ userId, requestedSeasonId, attempt, data });
+          setResult({ userId, attempt, data });
       })
       .catch(() => {
         if (!controller.signal.aborted)
-          setResult({ userId, requestedSeasonId, attempt, failed: true });
+          setResult({ userId, attempt, failed: true });
       });
     return () => controller.abort();
-  }, [userId, requestedSeasonId, attempt]);
+  }, [userId, attempt]);
 
   if (current?.data && current.data.accounts.length === 0) return null;
 
@@ -194,35 +189,13 @@ export default function AccountWorkshare({ userId }: { userId: string }) {
           </h2>
           <p className="mt-2 text-sm text-text-secondary">
             Completed / required hours and all tickets for your associated
-            accounts in the selected season.
+            accounts in the current season.
           </p>
         </div>
-        {seasons && seasons.length > 0 && (
-          <div className="w-full max-w-64">
-            <label
-              htmlFor={seasonInputId}
-              className="mb-1 block text-xs font-medium text-text-secondary"
-            >
-              Season
-            </label>
-            <div className="relative">
-              <select
-                id={seasonInputId}
-                value={selectedSeasonId}
-                onChange={(event) => setRequestedSeasonId(event.target.value)}
-                className="h-11 w-full rounded-lg border border-border bg-surface appearance-none pl-3.5 pr-11 py-2 text-sm text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-              >
-                {seasons.map((season) => (
-                  <option key={season.id} value={season.id}>
-                    {season.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2"
-                aria-hidden="true"
-              />
-            </div>
+        {currentSeason && (
+          <div className="text-sm">
+            <p className="text-text-secondary">Current season</p>
+            <p className="mt-1 font-medium">{currentSeason.name}</p>
           </div>
         )}
       </div>

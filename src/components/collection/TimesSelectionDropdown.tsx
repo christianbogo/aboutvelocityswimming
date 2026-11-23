@@ -7,10 +7,12 @@ import s from "./TimesSelectionDropdown.module.css";
 export default function TimesSelectionDropdown({
   label,
   selection,
+  highlighted = false,
   children,
 }: {
   label: string;
   selection: string;
+  highlighted?: boolean;
   children: (close: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -42,7 +44,7 @@ export default function TimesSelectionDropdown({
     >
       <button
         type="button"
-        className={s.selection}
+        className={`${s.selection} ${highlighted ? s.highlighted : ""}`}
         aria-label={`${label}: ${selection}`}
         aria-expanded={open}
         aria-controls={id}

@@ -117,7 +117,7 @@ try {
   assert.equal(await navigation.locator(":scope > ul").evaluate(element => getComputedStyle(element).borderTopWidth), "0px");
   assert.equal(await account.getByLabel("Username", { exact: true }).count(), 0);
   assert.equal(await account.getByLabel("Choose profile picture", { exact: true }).count(), 0);
-  const signInSettings = account.getByRole("button", { name: "Account Sign-in Settings", exact: true });
+  const signInSettings = account.getByRole("button", { name: "Manage Account", exact: true });
   assert.equal(await signInSettings.getAttribute("aria-expanded"), "false");
   await signInSettings.click();
   await account.getByRole("button", { name: "Link Google", exact: true }).waitFor();

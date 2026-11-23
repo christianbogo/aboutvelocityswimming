@@ -130,6 +130,13 @@ races.push(
   ),
 );
 races.push(
+  race("girls-free-relay", "", "200_FR-R", 120000, {
+    relay: true,
+    gender: "F",
+    relayAgeGroup: "11-12",
+    relayName: "Girls freestyle fixture relay",
+    members: relayMembers,
+  }),
   race("girls-relay", "", "200_MED-R", 130000, {
     relay: true,
     gender: "F",
@@ -520,6 +527,12 @@ try {
     .waitFor();
   assert.equal(
     await page
+      .getByRole("button", { name: "Clear Search", exact: true })
+      .count(),
+    0,
+  );
+  assert.equal(
+    await page
       .getByRole("button", { name: "Event filters", exact: true })
       .count(),
     0,
@@ -685,9 +698,15 @@ try {
     .getByText("Male Fixture", { exact: true })
     .waitFor();
   await page.getByRole("button", { name: /^Gender:/ }).click();
-  assert.equal(await female.getAttribute("aria-pressed"), "true");
+  assert.equal(await female.getAttribute("aria-pressed"), "false");
   assert.equal(await male.getAttribute("aria-pressed"), "true");
   await male.click();
+  await page
+    .getByRole("button", { name: "Gender: Male", exact: true })
+    .waitFor();
+  await page.getByRole("button", { name: /^Gender:/ }).click();
+  assert.equal(await male.getAttribute("aria-pressed"), "true");
+  await female.click();
   await page
     .getByRole("table")
     .getByText("Swimmer 00 Fixture", { exact: true })
@@ -1001,7 +1020,7 @@ try {
   await page.getByRole("button", { name: /^Gender:/ }).click();
   assert.equal(
     await page.getByRole("button", { name: "Mixed", exact: true }).count(),
-    1,
+    0,
   );
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: suggestedName, exact: true }).click();
@@ -1061,7 +1080,11 @@ try {
     .filter({ hasText: "200 Freestyle relay" })
     .waitFor();
   await page.getByRole("button", { name: /^Gender:/ }).click();
-  await page.getByRole("button", { name: "Mixed", exact: true }).click();
+  assert.equal(
+    await page.getByRole("button", { name: "Mixed", exact: true }).count(),
+    0,
+  );
+  await page.getByRole("button", { name: "Female", exact: true }).click();
   await page.getByText("2:00.00", { exact: true }).waitFor();
   assert.equal(
     await page
@@ -1315,7 +1338,7 @@ try {
   await expiry.page.close();
   assert.deepEqual(errors, []);
   console.log(
-    "Times browser checks passed: every view, relay/Mixed filters, validated lineup/splits, lead-off parent DQ, course/category resets, ties/ranks, search, cancellation, retries, cache expiry, mobile and keyboard event selection; no bulk downloads.",
+    "Times browser checks passed: every view, exclusive Female/Male filters, relay lineup/splits, lead-off parent DQ, course/category resets, ties/ranks, search, cancellation, retries, cache expiry, mobile and keyboard event selection; no bulk downloads.",
   );
 } finally {
   await browser.close();

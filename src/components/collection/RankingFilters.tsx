@@ -6,7 +6,7 @@ import { browserClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import { eventLabel, initialFilters, rounds, type Filters } from "./times-data";
 import { timesUrl } from "./times-api";
-import { readTimesSelection } from "./times-url-state";
+import { normalizeRankingFilters, readTimesSelection } from "./times-url-state";
 import s from "./RankingFilters.module.css";
 import times from "./TimesDatabase.module.css";
 import { SkeletonText } from "./LoadingSkeleton";
@@ -199,9 +199,11 @@ function RankingFilterPanel({
           {bookmarks.length > 0 && (
             <ul className={s.bookmarks} aria-label="Bookmarked selections">
               {bookmarks.map((bookmark) => {
-                const saved = readTimesSelection(
-                  JSON.stringify(bookmark.filters),
-                  initialFilters,
+                const saved = normalizeRankingFilters(
+                  readTimesSelection(
+                    JSON.stringify(bookmark.filters),
+                    initialFilters,
+                  ),
                 );
                 return (
                   <li className={s.chip} key={bookmark.id}>

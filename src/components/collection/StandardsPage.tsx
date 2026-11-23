@@ -13,7 +13,7 @@ import s from "./TimesDatabase.module.css";
 
 export function StandardsSkeleton() {
   return (
-    <main className={s.page} aria-busy="true">
+    <main className={s.page} data-standards-page="" aria-busy="true">
       <header className={s.toolHeader}>
         <TimeStandardsSummarySkeleton />
       </header>
@@ -36,7 +36,7 @@ function StandardsContent() {
   const standards = useStandards();
   const selection = useTimeStandardsSelection(standards.sets);
   return (
-    <main className={s.page} data-times-page="">
+    <main className={s.page} data-times-page="" data-standards-page="">
       <header className={s.toolHeader}>
         {standards.loading && !selection.set ? (
           <TimeStandardsSummarySkeleton />

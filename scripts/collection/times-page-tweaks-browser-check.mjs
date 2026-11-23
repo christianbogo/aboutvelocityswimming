@@ -368,6 +368,25 @@ const gotoView = async (view, extra = {}) => {
   const path = view === "my-times" ? "my-times" : view;
   await page.goto(`${base}/tools/${path}?${params}`);
 };
+const assertFullWidth = async (locator, belowTopBar = false) => {
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const box = await locator.boundingBox();
+  const viewport = page.viewportSize();
+  assert.ok(box && Math.abs(box.x) <= 1, "Content starts at the left edge");
+  assert.ok(
+    Math.abs(box.width - viewport.width) <= 1,
+    "Content spans the viewport",
+  );
+  if (belowTopBar) {
+    const toolbar = await page
+      .locator("[data-tool-sidebar] > header")
+      .boundingBox();
+    assert.ok(
+      Math.abs(box.y - (toolbar.y + toolbar.height)) <= 1,
+      "Filters sit below the top bar",
+    );
+  }
+};
 try {
   // Every tool is a direct destination on both desktop and mobile.
   for (const width of [1440, 390]) {
@@ -511,6 +530,33 @@ try {
       .isVisible(),
   );
   await mobileViewport();
+  const standardFilters = standards.getByRole("region", {
+    name: "Time standards filters",
+    exact: true,
+  });
+  for (const width of [390, 700]) {
+    await page.setViewportSize({ width, height: 844 });
+    await assertFullWidth(standardFilters, true);
+    assert.equal(
+      await page.locator("[data-standards-page] > header").isVisible(),
+      false,
+    );
+    await standardFilters
+      .getByRole("button", { name: "Course: LCM", exact: true })
+      .click();
+    await standardFilters
+      .getByRole("group", { name: "Course options", exact: true })
+      .getByRole("button", { name: "SCY", exact: true })
+      .click();
+    await standardFilters
+      .getByRole("button", { name: "Course: SCY", exact: true })
+      .click();
+    await standardFilters
+      .getByRole("group", { name: "Course options", exact: true })
+      .getByRole("button", { name: "LCM", exact: true })
+      .click();
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(
     await page.evaluate(
       () => document.documentElement.scrollWidth > innerWidth,
@@ -646,6 +692,18 @@ try {
       animations: "disabled",
     });
     await mobileViewport();
+    const ageNavigation = records.getByRole("navigation", {
+      name: "Record sections",
+      exact: true,
+    });
+    const ageBounds = await ageNavigation.boundingBox();
+    const courseBounds = await records
+      .getByRole("group", {
+        name: "Record course",
+        exact: true,
+      })
+      .boundingBox();
+    assert.ok(ageBounds.y + ageBounds.height <= courseBounds.y);
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth > innerWidth,
@@ -859,6 +917,21 @@ try {
       animations: "disabled",
     });
     await mobileViewport();
+    const rankingPanel = page.getByRole("region", {
+      name: "Rankings",
+      exact: true,
+    });
+    await assertFullWidth(rankingPanel, true);
+    assert.equal(
+      await rankingPanel.evaluate((el) => getComputedStyle(el).borderRadius),
+      "0px",
+    );
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Clear Search", exact: true })
+        .count(),
+      0,
+    );
     await page.screenshot({
       path: "/tmp/velocity-rankings-mobile.png",
       fullPage: true,
@@ -1157,6 +1230,7 @@ try {
     });
     await mobileViewport();
     await compactCard();
+    await assertFullWidth(timeFilters, true);
     await timeFilters
       .getByRole("button", { name: "Course: Short Course Yards", exact: true })
       .dispatchEvent("pointerdown", { pointerType: "touch" });

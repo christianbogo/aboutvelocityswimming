@@ -17,7 +17,8 @@ const admin = createClient(api, localEnv.SUPABASE_SERVICE_ROLE_KEY, { auth: { pe
 const prefix = `summary-browser-${randomUUID().slice(0, 12)}`;
 const users = [];
 const accountIds = ["active", "archived", "unrelated"].map((suffix) => `${prefix}-${suffix}`);
-const seasonId = randomUUID();
+let seasonId = randomUUID();
+let createdSeason = false;
 const ticketIds = [];
 const errors = [];
 const evidence = artifactPath("workshare/account-summary-browser");
@@ -67,17 +68,23 @@ try {
     { account_id: accountIds[0], full_name: `${prefix} Swimmer`, training_group: "Gold" },
     { account_id: accountIds[2], full_name: `${prefix} Private Swimmer`, training_group: "Silver" },
   ]));
-  const existing = await check(await admin.from("workshare_seasons").select("starts_on,ends_on"));
-  let year = 2400;
-  while (existing.some((season) => season.starts_on <= `${year}-12-31` && season.ends_on >= `${year}-01-01`)) year += 1;
-  await check(await admin.from("workshare_seasons").insert({ id: seasonId, name: `${prefix} Season`, starts_on: `${year}-01-01`, ends_on: `${year}-12-31` }));
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+  const existing = await check(await admin.from("workshare_seasons").select("id,name,starts_on,ends_on"));
+  const currentSeason = existing.find((season) => season.starts_on <= today && season.ends_on >= today);
+  const seasonName = currentSeason?.name ?? `${prefix} Season`;
+  if (currentSeason) {
+    seasonId = currentSeason.id;
+  } else {
+    await check(await admin.from("workshare_seasons").insert({ id: seasonId, name: seasonName, starts_on: today, ends_on: today }));
+    createdSeason = true;
+  }
   await check(await admin.from("workshare_account_requirements").insert([
     { account_id: accountIds[0], season_id: seasonId, general_hours_required: 12, starlight_hours_required: 0, apple_capital_hours_required: null },
     { account_id: accountIds[1], season_id: seasonId, general_hours_required: 8, starlight_hours_required: null, apple_capital_hours_required: 16 },
   ]));
   for (const [accountId, category, hours] of [[accountIds[0], "general", 3.75], [accountIds[1], "apple_capital", 2.5], [accountIds[2], "general", 99]]) {
     const id = randomUUID(); ticketIds.push(id);
-    await check(await admin.rpc("create_workshare_ticket", { input: { id, accountId, seasonId, completedOn: `${year}-06-01`, description: `${prefix} Timing`, category, hours } }));
+    await check(await admin.rpc("create_workshare_ticket", { input: { id, accountId, seasonId, completedOn: today, description: `${prefix} Timing`, category, hours } }));
   }
 
   let failFirstSummary = true;
@@ -92,15 +99,15 @@ try {
   await tracking.getByRole("alert").waitFor();
   failFirstSummary = false;
   await tracking.getByRole("button", { name: "Retry Workshare tracking", exact: true }).click();
-  await tracking.getByRole("combobox").waitFor();
-  await tracking.getByRole("combobox").selectOption(seasonId);
+  await tracking.getByText(seasonName, { exact: true }).waitFor();
+  assert.equal(await tracking.getByRole("combobox").count(), 0, "Workshare Tracking stays on the current season");
   await tracking.getByText("3.75/12", { exact: true }).waitFor();
   await tracking.getByText("0/0", { exact: true }).waitFor();
   await tracking.getByText("2.5/16", { exact: true }).waitFor();
   assert.equal(await tracking.getByText(`${prefix} Private Account`, { exact: true }).count(), 0);
   const workshareBox = await tracking.boundingBox();
   const athleteBox = await staff.page.getByRole("region", { name: /^Athlete (Tracking|following)$/i }).boundingBox();
-  assert.ok(workshareBox && athleteBox && workshareBox.y < athleteBox.y, "Workshare Tracking appears above Athlete Tracking");
+  assert.ok(workshareBox && athleteBox && athleteBox.y < workshareBox.y, "Athlete Tracking appears above Workshare Tracking");
   await staff.page.screenshot({ path: `${evidence}/desktop.png`, fullPage: true, animations: "disabled" });
   await staff.page.setViewportSize({ width: 390, height: 844 });
   assert.ok(await staff.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), "Mobile page does not overflow horizontally");
@@ -118,7 +125,7 @@ try {
   assert.equal(await tracking.getByText(`${prefix} Private Swimmer`, { exact: false }).count(), 0);
   assert.equal(await tracking.getByRole("link", { name: "coachchristian@velocity-swimming.com" }).getAttribute("href"), "mailto:coachchristian@velocity-swimming.com");
   assert.equal(await tracking.getByRole("link", { name: "coachaudrey@velocity-swimming.com" }).getAttribute("href"), "mailto:coachaudrey@velocity-swimming.com");
-  await staff.page.getByRole("button", { name: "Account Sign-in Settings", exact: true }).click();
+  await staff.page.getByRole("button", { name: "Manage Account", exact: true }).click();
   const passwordSection = staff.page.getByRole("form", { name: "Set account password" });
   await passwordSection.getByRole("button", { name: "Change Password", exact: true }).click();
   await passwordSection.getByLabel("New password", { exact: true }).fill(`Aa1!${randomUUID()}`);
@@ -128,7 +135,7 @@ try {
   assert.equal(await passwordSection.getByLabel("New password", { exact: true }).count(), 0);
   await passwordSection.getByRole("button", { name: "Change Password", exact: true }).waitFor();
   await staff.page.reload();
-  await staff.page.getByRole("button", { name: "Account Sign-in Settings", exact: true }).click();
+  await staff.page.getByRole("button", { name: "Manage Account", exact: true }).click();
   await staff.page.getByRole("form", { name: "Set account password" }).getByRole("button", { name: "Change Password", exact: true }).waitFor();
   assert.equal((await staff.context.request.get(base + `/api/account/workshare?accountId=${accountIds[2]}`)).status(), 400);
   assert.equal((await staff.context.request.get(base + "/api/account/workshare?seasonId=invalid")).status(), 400);
@@ -150,8 +157,8 @@ try {
 } finally {
   await browser?.close();
   if (ticketIds.length) await admin.from("workshare_tickets").delete().in("id", ticketIds);
-  await admin.from("workshare_account_requirements").delete().eq("season_id", seasonId);
-  await admin.from("workshare_seasons").delete().eq("id", seasonId);
+  await admin.from("workshare_account_requirements").delete().eq("season_id", seasonId).in("account_id", accountIds);
+  if (createdSeason) await admin.from("workshare_seasons").delete().eq("id", seasonId);
   await admin.from("workshare_accounts").delete().in("id", accountIds);
   if (ticketIds.length) await admin.from("workshare_ticket_create_keys").delete().in("id", ticketIds);
   for (const id of users) await admin.auth.admin.deleteUser(id);

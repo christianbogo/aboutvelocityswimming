@@ -11,7 +11,7 @@ import selection from "./TimesSelectionDropdown.module.css";
 export function MyTimesPageSkeleton() {
   return (
     <main className={times.page} aria-busy="true">
-      <div className={times.content}>
+      <div className={`${times.content} ${times.myTimesContent}`}>
         <section
           className={`${grid.page} ${s.page}`}
           aria-label="Times"
@@ -52,7 +52,7 @@ export default function MyTimesSkeleton({
       >
         {full && (
           <>
-            <div className={selection.filterPanel}>
+            <div className={`${selection.filterPanel} ${s.filters}`}>
               {["Athlete", "Course", "Best times from"].map((label) => (
                 <div
                   className={`${selection.dropdown} ${selection.skeletonFilter}`}

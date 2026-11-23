@@ -144,5 +144,19 @@ export function rankingsHref(filters: Filters, search = "") {
     timesViewHref("rankings", search, "#times-rankings"),
     "https://local.invalid",
   );
-  return writeTimesSelection(url, "filters", filters, initialFilters);
+  return writeTimesSelection(
+    url,
+    "filters",
+    normalizeRankingFilters(filters),
+    initialFilters,
+  );
+}
+
+/** Older shared links and bookmarks may contain several or no genders. */
+export function normalizeRankingFilters(filters: Filters): Filters {
+  const gender =
+    filters.genders.find((value) => value === "F" || value === "M") || "F";
+  return filters.genders.length === 1 && filters.genders[0] === gender
+    ? filters
+    : { ...filters, genders: [gender] };
 }

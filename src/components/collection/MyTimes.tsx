@@ -271,7 +271,7 @@ function MyTimesResults({
       aria-busy={loading}
     >
       <section
-        className={selectionStyles.filterPanel}
+        className={`${selectionStyles.filterPanel} ${s.filters}`}
         aria-label="Times filters"
       >
         <SelectionDropdown label="Athlete" selection={athlete.name}>

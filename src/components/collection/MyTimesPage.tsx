@@ -37,7 +37,7 @@ function MyTimesContent() {
   }
   return (
     <main className={s.page} data-times-page="">
-      <div className={s.content}>
+      <div className={`${s.content} ${s.myTimesContent}`}>
         <TimesConfigurationNotice />
         <div className={s.workspace}>
           <div className={s.main}>

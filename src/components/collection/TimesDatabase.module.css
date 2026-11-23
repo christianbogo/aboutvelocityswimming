@@ -689,8 +689,25 @@
   }
 }
 
-@media (max-width: 600px) {
+@media (width < 768px) {
+  .content.myTimesContent {
+    padding: 0 16px 50px;
+  }
+  .content.rankingsContent {
+    padding: 0 0 50px;
+  }
+  .rankingsContent .rankingsPanel {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  .rankingsContent .footer {
+    padding-inline: 16px;
+  }
+  .page[data-standards-page] .toolHeader {
+    display: none;
+  }
   .content.standardsContent {
-    padding: 8px 8px 40px;
+    padding: 0 0 40px;
   }
 }

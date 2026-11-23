@@ -35,7 +35,10 @@ function AthleteLabel({
   const Icon = kind === "primary" ? UserRound : Star;
   return (
     <>
-      <Icon className="size-4 shrink-0 text-accent" aria-hidden="true" />
+      <Icon
+        className="size-4 shrink-0 fill-current text-accent"
+        aria-hidden="true"
+      />
       <span className="min-w-0 flex-1 break-words text-sm font-medium">
         {athlete.name}
       </span>

@@ -25,6 +25,8 @@ import { SkeletonStatus, SkeletonText } from "./LoadingSkeleton";
 import loadingStyles from "./TimesLoading.module.css";
 import s from "./TimeStandards.module.css";
 import timesStyles from "./TimesDatabase.module.css";
+import SelectionDropdown from "./TimesSelectionDropdown";
+import selectionStyles from "./TimesSelectionDropdown.module.css";
 
 const genderLabels: Record<string, string> = {
   F: "Female",
@@ -81,7 +83,26 @@ export function TimeStandardsSkeleton() {
         aria-hidden="true"
       >
         <div className={s.filterPanel}>
-          <div className={`${timesStyles.filters} ${s.filters}`}>
+          <div
+            className={`${s.mobileFilterSkeleton} ${selectionStyles.filterPanel}`}
+          >
+            {["Standard", "Course", "Gender", "Age group", "Tier"].map(
+              (label) => (
+                <div
+                  key={label}
+                  className={`${selectionStyles.dropdown} ${selectionStyles.skeletonFilter}`}
+                >
+                  <span className={selectionStyles.selectionLabel}>
+                    {label}
+                  </span>
+                  <SkeletonText width="70%" height={13} />
+                </div>
+              ),
+            )}
+          </div>
+          <div
+            className={`${timesStyles.filters} ${s.filters} ${s.desktopFilterSkeleton}`}
+          >
             <div className={s.topFilters}>
               <div className={timesStyles.field}>
                 <span>Standard</span>
@@ -201,12 +222,14 @@ function StandardPicker({
   }
 
   return (
-    <div className={timesStyles.field}>
-      <label htmlFor={id}>Standard</label>
+    <div className={`${timesStyles.field} ${s.standardField}`}>
+      <label htmlFor={id} className={s.standardLabel}>
+        Standard
+      </label>
       <button
         id={id}
         type="button"
-        className={timesStyles.eventTrigger}
+        className={`${timesStyles.eventTrigger} ${s.standardTrigger}`}
         aria-haspopup="dialog"
         onClick={() => {
           dialog.current?.showModal();
@@ -215,8 +238,16 @@ function StandardPicker({
             ?.focus();
         }}
       >
-        <span>{selected.name}</span>
-        <ChevronDown size={16} aria-hidden="true" />
+        <span
+          className={`${selectionStyles.selectionLabel} ${s.mobileStandardLabel}`}
+          aria-hidden="true"
+        >
+          Standard
+        </span>
+        <span className={s.standardName}>
+          {selected.name}
+          <ChevronDown size={16} aria-hidden="true" />
+        </span>
       </button>
       <dialog
         ref={dialog}
@@ -345,41 +376,87 @@ export default function TimeStandards({
                       setSelection(filters.selection);
                     }}
                   />
-                  <FilterChips
-                    label="Course"
-                    value={filters.selection.course}
-                    onChange={(value) => updateFilter("course", value)}
-                    options={filters.courses.map((course) => [course, course])}
+                  <div className={s.desktopControls}>
+                    <FilterChips
+                      label="Course"
+                      value={filters.selection.course}
+                      onChange={(value) => updateFilter("course", value)}
+                      options={filters.courses.map((course) => [
+                        course,
+                        course,
+                      ])}
+                    />
+                    <FilterChips
+                      label="Gender"
+                      value={filters.selection.gender}
+                      onChange={(value) => updateFilter("gender", value)}
+                      options={filters.genders.map((gender) => [
+                        gender,
+                        genderLabels[gender] ?? gender,
+                      ])}
+                    />
+                  </div>
+                </div>
+                <div className={s.mobileControls}>
+                  {(
+                    [
+                      ["course", "Course", filters.courses],
+                      ["gender", "Gender", filters.genders],
+                      ["age", "Age group", filters.ages],
+                      ["tier", "Tier", filters.tiers],
+                    ] as const
+                  ).map(([key, label, values]) => (
+                    <SelectionDropdown
+                      key={key}
+                      label={label}
+                      selection={
+                        key === "gender"
+                          ? (genderLabels[filters.selection[key]] ??
+                            filters.selection[key])
+                          : filters.selection[key]
+                      }
+                    >
+                      {(close) =>
+                        values.map((value) => (
+                          <button
+                            key={value}
+                            type="button"
+                            aria-pressed={filters.selection[key] === value}
+                            onClick={() => {
+                              updateFilter(key, value);
+                              close();
+                            }}
+                          >
+                            {key === "gender"
+                              ? (genderLabels[value] ?? value)
+                              : value}
+                          </button>
+                        ))
+                      }
+                    </SelectionDropdown>
+                  ))}
+                </div>
+                <div className={s.desktopControls}>
+                  <DiscreteSlider
+                    showStops
+                    label="Age group"
+                    value={filters.selection.age}
+                    onChange={(value) => updateFilter("age", value)}
+                    options={filters.ages.map((age) => [age, age])}
                   />
-                  <FilterChips
-                    label="Gender"
-                    value={filters.selection.gender}
-                    onChange={(value) => updateFilter("gender", value)}
-                    options={filters.genders.map((gender) => [
-                      gender,
-                      genderLabels[gender] ?? gender,
-                    ])}
+                  <DiscreteSlider
+                    showStops
+                    label="Tier"
+                    value={filters.selection.tier}
+                    onChange={(value) => updateFilter("tier", value)}
+                    options={filters.tiers.map((tier) => [tier, tier])}
+                    valueAdornment={
+                      rank ? (
+                        <MotivationalRankIcon tier={rank.tier} size={24} />
+                      ) : undefined
+                    }
                   />
                 </div>
-                <DiscreteSlider
-                  showStops
-                  label="Age group"
-                  value={filters.selection.age}
-                  onChange={(value) => updateFilter("age", value)}
-                  options={filters.ages.map((age) => [age, age])}
-                />
-                <DiscreteSlider
-                  showStops
-                  label="Tier"
-                  value={filters.selection.tier}
-                  onChange={(value) => updateFilter("tier", value)}
-                  options={filters.tiers.map((tier) => [tier, tier])}
-                  valueAdornment={
-                    rank ? (
-                      <MotivationalRankIcon tier={rank.tier} size={24} />
-                    ) : undefined
-                  }
-                />
               </div>
             </div>
           </section>

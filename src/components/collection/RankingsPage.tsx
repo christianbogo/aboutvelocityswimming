@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, Suspense } from "react";
+import { Fragment, Suspense, type SetStateAction } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
@@ -34,7 +34,7 @@ import {
 } from "./ranking-cutoffs";
 
 import { useTimesSelection } from "./use-times-selection";
-import { athleteTimesHref } from "./times-url-state";
+import { athleteTimesHref, normalizeRankingFilters } from "./times-url-state";
 import { QueryNotice, TimesConfigurationNotice } from "./TimesNotices";
 
 import CutChips from "./CutChips";
@@ -74,6 +74,7 @@ function AgeGroupPicker({
   return (
     <SelectionDropdown
       label="Age group"
+      highlighted={!options.some(([key]) => value.includes(key))}
       selection={
         options
           .filter(([key]) => value.includes(key))
@@ -320,7 +321,6 @@ function RankingsFilterSkeleton() {
         <span className={`${s.eventTrigger} ${s.searchSkeleton}`}>
           <SkeletonText width={150} height={13} />
         </span>
-        <SkeletonText width={76} height={13} />
       </div>
     </div>
   );
@@ -330,7 +330,7 @@ export function RankingsSkeleton() {
   return (
     <main className={s.page} aria-busy="true">
       <SkeletonStatus>Loading rankings…</SkeletonStatus>
-      <div className={s.content}>
+      <div className={`${s.content} ${s.rankingsContent}`}>
         <div className={s.main}>
           <section
             className={`${s.panel} ${s.rankingsPanel}`}
@@ -366,10 +366,20 @@ export default function RankingsPage() {
 function RankingsContent() {
   const router = useRouter();
   const standards = useStandards();
-  const [filters, setFilters] = useTimesSelection<Filters>(
+  const [savedFilters, setSavedFilters] = useTimesSelection<Filters>(
     "filters",
     initialFilters,
   );
+  const filters = normalizeRankingFilters(savedFilters);
+  function setFilters(action: SetStateAction<Filters>) {
+    setSavedFilters((current) =>
+      normalizeRankingFilters(
+        typeof action === "function"
+          ? action(normalizeRankingFilters(current))
+          : action,
+      ),
+    );
+  }
   const [search, setSearch] = useTimesSelection("search", "");
   const searchTerm = useDebouncedSearch(search);
   const [page, setPage] = useTimesSelection("page", 0);
@@ -424,10 +434,7 @@ function RankingsContent() {
     ...timesEvents(filters.course),
     ...timesEvents(filters.course, true),
   ].filter((event) => !hide25s || !event.startsWith("25_"));
-  const selectedGenderLabels =
-    filters.genders
-      .map((gender) => ({ F: "Female", M: "Male", X: "Mixed" })[gender])
-      .join(" / ") || "All genders";
+  const selectedGenderLabel = filters.genders[0] === "M" ? "Male" : "Female";
   function updateFilter<K extends keyof Filters>(key: K, value: Filters[K]) {
     setFilters((f) => {
       const next =
@@ -614,7 +621,7 @@ function RankingsContent() {
   );
   return (
     <main className={s.page} data-times-page="">
-      <div className={s.content}>
+      <div className={`${s.content} ${s.rankingsContent}`}>
         <TimesConfigurationNotice />
         {rankingYears.error && <QueryNotice query={rankingYears} />}
         <div className={s.workspace}>
@@ -696,24 +703,19 @@ function RankingsContent() {
                   </SelectionDropdown>
                   <SelectionDropdown
                     label="Gender"
-                    selection={selectedGenderLabels}
+                    selection={selectedGenderLabel}
                   >
                     {(close) =>
                       [
                         ["F", "Female"],
                         ["M", "Male"],
-                        ...(filters.relay ? [["X", "Mixed"]] : []),
                       ].map(([id, label]) => (
                         <button
                           key={id}
                           type="button"
                           aria-pressed={filters.genders.includes(id)}
                           onClick={() => {
-                            const current = filters.genders;
-                            const next = current.includes(id)
-                              ? current.filter((gender) => gender !== id)
-                              : [...current, id];
-                            if (next.length) updateFilter("genders", next);
+                            updateFilter("genders", [id]);
                             close();
                           }}
                         >
@@ -778,16 +780,6 @@ function RankingsContent() {
                 </div>
                 <div className={`${s.toolbar} ${s.rankingToolbar}`}>
                   {searchField}
-                  <button
-                    type="button"
-                    className={s.link}
-                    onClick={() => {
-                      setSearch("");
-                      setPage(0);
-                    }}
-                  >
-                    Clear Search
-                  </button>
                 </div>
               </RankingFilters>
               <QueryNotice query={rankingsQuery} />
@@ -801,7 +793,7 @@ function RankingsContent() {
               details. Relay rankings use complete team results. Equal times
               share a rank. Individual age groups use age at the swim; relay
               groups use the reported event age group. Gender filters include
-              only the selected reported genders. Unreported ages are included
+              only the selected reported gender. Unreported ages are included
               when no age group is selected.
             </p>
           </div>
