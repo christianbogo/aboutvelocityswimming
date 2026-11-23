@@ -22,6 +22,7 @@ import {
   motivationalRankForTier,
 } from "./motivational-ranks";
 import { MotivationalRankIcon } from "./MotivationalRankIcon";
+import { TeamMapGemSections } from "./TeamMapGems";
 import { eventLabel } from "./times-data";
 import { useTimesSelection } from "./use-times-selection";
 import type { TeamMapSnapshot, TeamMapContributor } from "./team-map-data";
@@ -479,6 +480,8 @@ function TeamMapResults() {
               </p>
             </section>
 
+            <TeamMapGemSections data={data} />
+
             <section className={s.section} aria-labelledby="age-map-heading">
               <div className={s.sectionHeading}>
                 <div>
@@ -818,11 +821,11 @@ function TeamMapResults() {
                   Built from the roster, grounded in recorded swims.
                 </strong>
                 <p>
-                  Only non-archived athletes in non-archived accounts with
-                  explicit Times links are included. Ranks use the approved USA
-                  age-group edition in effect on each swim date. Missing
-                  historical standards or ages can leave achievements
-                  unassigned.
+                  The roster lists non-archived athletes in non-archived
+                  accounts. Gem totals use their linked Times profiles. Ranks
+                  use the approved USA age-group edition in effect on each swim
+                  date. Missing historical standards or ages can leave
+                  achievements unassigned.
                 </p>
                 <p>
                   {number(data.coverage.validSwims)} valid swims reviewed ·{" "}

@@ -8,6 +8,8 @@ import { motivationalRanks } from "./motivational-ranks";
 import { MotivationalRankIcon } from "./MotivationalRankIcon";
 import { rankHighlights, type TimesHighlight } from "./times-highlights";
 import { SkeletonText } from "./LoadingSkeleton";
+import { GemFamilyChart } from "./GemFamilyChart";
+import { eventColumn } from "./event-layout";
 import s from "./TimesHighlights.module.css";
 
 const strokes = [
@@ -188,6 +190,11 @@ export default function TimesHighlights({
 }) {
   const highlights = rankHighlights(events, sets);
   const achieved = highlights.filter((item) => item.rank);
+  const gemFamilies: Record<string, number> = {};
+  for (const { event } of achieved) {
+    const family = eventColumn(event.event);
+    if (family) gemFamilies[family] = (gemFamilies[family] ?? 0) + 1;
+  }
   const strokeCounts = strokes.map(([key, label]) => ({
     key,
     label,
@@ -207,6 +214,18 @@ export default function TimesHighlights({
           {highlights.length === 1 ? "swim" : "swims"} · strongest first
         </p>
       </header>
+      <section className={s.gemProfile} aria-label="Your gem profile">
+        <div className={s.profileHeading}>
+          <div>
+            <h3>Your gem profile</h3>
+            <p>Gems across bests in this selection</p>
+          </div>
+        </div>
+        <GemFamilyChart
+          counts={gemFamilies}
+          label="Your gems by event family"
+        />
+      </section>
       <ol className={s.featuredList} role="list" aria-label="Top highlights">
         {highlights.slice(0, 3).map((highlight, index) => (
           <HighlightCard
@@ -322,6 +341,10 @@ export function TimesHighlightsSkeleton() {
       <div className={s.header}>
         <SkeletonText width="12ch" height="2rem" />
         <Layers3 size={24} />
+      </div>
+      <div className={s.gemProfile} aria-hidden="true">
+        <SkeletonText width="12ch" height="1.25rem" />
+        <SkeletonText width="100%" height="20rem" />
       </div>
       <div className={s.featuredList}>
         {[0, 1, 2].map((index) => (

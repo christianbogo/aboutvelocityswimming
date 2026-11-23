@@ -834,6 +834,67 @@ try {
   assert.equal(await freestyle().count(), 0);
   await chooseOption("Course", "Short Course Yards");
   await showTime("35.20");
+  await chooseOption("View", "Highlights");
+  const highlights = myTimes.getByRole("region", {
+    name: "Highlights",
+    exact: true,
+  });
+  const familyChart = highlights.getByRole("img", {
+    name: "Your gems by event family",
+    exact: true,
+  });
+  await familyChart.waitFor();
+  assert.equal(await familyChart.locator("[data-gem-family]").count(), 6);
+  for (const family of ["IM", "FL", "BK", "BR", "DST"])
+    assert.match(
+      await familyChart.locator(`[data-gem-family="${family}"]`).textContent(),
+      /0$/,
+    );
+  assert.match(
+    await familyChart.locator('[data-gem-family="FR"]').textContent(),
+    /Free\s*1/,
+    "Only matched gems count; an ungraded backstroke best does not add a gem",
+  );
+  await highlights
+    .getByText("Gems across bests in this selection", { exact: true })
+    .waitFor();
+  const topHighlights = highlights.getByRole("list", {
+    name: "Top highlights",
+    exact: true,
+  });
+  const assertChartAboveHighlights = async () => {
+    const [chartBox, cardsBox] = await Promise.all([
+      familyChart.boundingBox(),
+      topHighlights.boundingBox(),
+    ]);
+    assert.ok(chartBox && cardsBox);
+    assert.ok(
+      chartBox.y + chartBox.height <= cardsBox.y,
+      "The gem hexagon sits above the highlight cards",
+    );
+    assert.ok(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1,
+      ),
+      "The gem hexagon fits the viewport",
+    );
+  };
+  await assertChartAboveHighlights();
+  await page.screenshot({
+    path: "/tmp/velocity-my-times-gems-desktop.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await assertChartAboveHighlights();
+  await page.screenshot({
+    path: "/tmp/velocity-my-times-gems-mobile.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 1440, height: 1080 });
+  await chooseOption("View", "Bests Grid");
+  await showTime("35.20");
   await checkLayout();
   await page.screenshot({
     path: "/tmp/velocity-my-times-desktop.png",
@@ -916,7 +977,7 @@ try {
     .waitFor();
   assert.deepEqual(errors, []);
   console.log(
-    "Verified Account athlete links, My Times selection dropdowns, age/year bests and matching swim-age ranks, 25s/team-rank/rank-icon toggles, display-state reloads, rank counts, ranking links, and desktop/mobile/dark card layouts.",
+    "Verified Account athlete links, My Times selection dropdowns, age/year bests and matching swim-age ranks, six-family gem hexagon above highlights, 25s/team-rank/rank-icon toggles, display-state reloads, rank counts, ranking links, and desktop/mobile/dark card layouts.",
   );
 } catch (error) {
   if (page && !page.isClosed()) {

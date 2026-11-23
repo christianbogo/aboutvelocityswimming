@@ -374,3 +374,125 @@ describe("calendar year current-roster activity", () => {
       expect(() => snapshot(change)).toThrow("Invalid Team Map selection");
   });
 });
+
+describe("roster gem collection and history", () => {
+  it("lists linked swimmers without gems and every unlinked member, with shared links counted once", () => {
+    const result = snapshot({
+      roster: [
+        { athleteId: "a", name: "Avery", trainingGroup: "Senior" },
+        { athleteId: "a", name: "Duplicate Avery", trainingGroup: "Gold" },
+        { athleteId: "b", name: "Blake", trainingGroup: "Junior" },
+        { athleteId: null, name: "Casey", trainingGroup: "Novice" },
+        { athleteId: null, name: "Casey", trainingGroup: "Novice" },
+      ],
+      races: [race(), race({ athleteId: "outside", time: 40000 })],
+    });
+    expect(result.roster).toHaveLength(4);
+    expect(result.roster[0]).toMatchObject({
+      id: "linked:a",
+      athleteId: "a",
+      name: "Avery",
+      trainingGroups: ["Gold", "Senior"],
+      total: 1,
+      counts: { A: 1 },
+    });
+    expect(result.roster[1]).toMatchObject({ athleteId: "b", total: 0 });
+    expect(result.roster.slice(2).map((member) => member.athleteId)).toEqual([
+      null,
+      null,
+    ]);
+    expect(new Set(result.roster.map((member) => member.id)).size).toBe(4);
+    expect(result.roster.reduce((sum, member) => sum + member.total, 0)).toBe(
+      result.totalContributions,
+    );
+  });
+
+  it("counts each gem in exactly one of the six event families, separating distance freestyle", () => {
+    const swims = [
+      "200_IM",
+      "100_FL",
+      "100_BK",
+      "100_BR",
+      "50_FR",
+      "200_FR",
+      "500_FR",
+    ].map((event) => race({ event }));
+    const result = snapshot({
+      races: [...swims, race({ event: "500_FR", time: 50000 })],
+    });
+    expect(result.familyCounts).toEqual({
+      IM: 1,
+      FL: 1,
+      BK: 1,
+      BR: 1,
+      FR: 2,
+      DST: 1,
+    });
+    expect(
+      Object.values(result.familyCounts).reduce((sum, count) => sum + count, 0),
+    ).toBe(result.totalContributions);
+  });
+
+  it("builds chronological cumulative inventory, moving upgraded gems without counting repeats", () => {
+    const swims = [
+      race({ date: "2024-05-10", time: 70000 }),
+      race({ date: "2025-03-01", time: 60000 }),
+      race({ date: "2025-03-01", time: 55000 }),
+      race({ date: "2025-03-02", time: 65000 }),
+      race({ date: "2026-01-01", event: "100_BK", time: 60000 }),
+      race({ date: "2026-01-01", event: "100_FR", ageAtSwim: 15, time: 60000 }),
+      race({ date: "2026-02-01", course: "LCM", time: 50000 }),
+      race({ date: "2026-03-01", athleteId: "outside", time: 40000 }),
+      race({ date: "2026-12-01", event: "500_FR", time: 40000 }),
+      race({
+        date: "2026-03-02",
+        event: "100_FL",
+        moderationStatus: "flagged",
+      }),
+    ];
+    const result = snapshot({ races: [...swims.toReversed(), swims[0]] });
+    expect(result.gemHistory.map(({ date, total }) => [date, total])).toEqual([
+      ["2024-05-09", 0],
+      ["2024-05-10", 1],
+      ["2025-03-01", 1],
+      ["2026-01-01", 3],
+      ["2026-02-01", 4],
+      ["2026-11-18", 4],
+    ]);
+    expect(result.gemHistory[1].counts).toMatchObject({ B: 1, BB: 0, A: 0 });
+    expect(result.gemHistory[2].counts).toMatchObject({ B: 0, BB: 0, A: 1 });
+    expect(result.gemHistory.at(-1)).toEqual({
+      date: result.asOf,
+      total: result.totalContributions,
+      counts: result.rankCounts,
+    });
+    for (const point of result.gemHistory) {
+      expect(Object.values(point.counts).every((count) => count >= 0)).toBe(
+        true,
+      );
+      expect(
+        Object.values(point.counts).reduce((sum, count) => sum + count, 0),
+      ).toBe(point.total);
+    }
+    expect(snapshot({ races: swims, year: 2024 }).gemHistory).toEqual(
+      result.gemHistory,
+    );
+    const scy = snapshot({ races: swims, course: "SCY" });
+    expect(scy.gemHistory.at(-1)?.total).toBe(3);
+    expect(scy.familyCounts.FR).toBe(2);
+  });
+
+  it("handles empty collections and avoids a duplicate endpoint when a gem is earned as of today", () => {
+    const empty = snapshot();
+    expect(empty.gemHistory).toEqual([
+      { date: empty.asOf, total: 0, counts: empty.rankCounts },
+    ]);
+    expect(empty.roster).toHaveLength(1);
+    expect(empty.roster[0].total).toBe(0);
+    const today = snapshot({ races: [race({ date: "2026-11-18" })] });
+    expect(today.gemHistory.map(({ date }) => date)).toEqual([
+      "2026-11-17",
+      "2026-11-18",
+    ]);
+  });
+});

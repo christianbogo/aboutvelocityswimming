@@ -1,6 +1,7 @@
 import type { StandardSet } from "@/features/swim-resources/types/schema";
 import { VELOCITY_TEAM_ID } from "@/features/swim-resources/lib/domain/entities";
 import { motivationalRanks } from "./motivational-ranks";
+import { eventColumn, strokeColumns } from "./event-layout";
 import type { Race } from "./times-data";
 
 export interface TeamMapRosterEntry {
@@ -13,6 +14,21 @@ export interface TeamMapContributor {
   athleteId: string;
   name: string;
   trainingGroups: string[];
+  total: number;
+  counts: Record<string, number>;
+}
+
+export interface TeamMapRosterMember {
+  id: string;
+  athleteId: string | null;
+  name: string;
+  trainingGroups: string[];
+  total: number;
+  counts: Record<string, number>;
+}
+
+export interface TeamMapGemHistoryPoint {
+  date: string;
   total: number;
   counts: Record<string, number>;
 }
@@ -40,6 +56,9 @@ export interface TeamMapSnapshot {
     missingAgeSwims: number;
   };
   rankCounts: Record<string, number>;
+  roster: TeamMapRosterMember[];
+  familyCounts: Record<string, number>;
+  gemHistory: TeamMapGemHistoryPoint[];
   totalContributions: number;
   contributorCount: number;
   leaders: TeamMapContributor[];
@@ -249,11 +268,22 @@ export function buildTeamMap({
   )
     throw new Error("Invalid Team Map selection.");
   const people = new Map<string, TeamMapContributor>();
+  const unlinked: TeamMapRosterMember[] = [];
   let unlinkedEntries = 0;
   let duplicateLinks = 0;
-  for (const entry of roster) {
+  for (const [index, entry] of roster.entries()) {
     if (!entry.athleteId?.trim()) {
       unlinkedEntries++;
+      unlinked.push({
+        id: `unlinked:${index}`,
+        athleteId: null,
+        name: entry.name.trim() || "Unnamed athlete",
+        trainingGroups: entry.trainingGroup.trim()
+          ? [entry.trainingGroup.trim()]
+          : [],
+        total: 0,
+        counts: emptyCounts(),
+      });
       continue;
     }
     const existing = people.get(entry.athleteId);
@@ -290,11 +320,13 @@ export function buildTeamMap({
     );
   });
   const seenRaces = new Set<string>();
-  const uniqueHistory = history.filter((race) => {
-    if (seenRaces.has(race.id)) return false;
-    seenRaces.add(race.id);
-    return true;
-  });
+  const uniqueHistory = history
+    .filter((race) => {
+      if (seenRaces.has(race.id)) return false;
+      seenRaces.add(race.id);
+      return true;
+    })
+    .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
   const athletesWithSwims = new Set<string>();
   const annualSwimmers = new Set<string>();
   const annualMeets = new Set<string>();
@@ -305,6 +337,8 @@ export function buildTeamMap({
     swimmers: 0,
   }));
   const achievements = new Map<string, Achievement>();
+  const gemHistory: TeamMapGemHistoryPoint[] = [];
+  const historyCounts = emptyCounts();
   // A daily minimum avoids inventing prelim/final order when dates lack times.
   const dailyBests = new Map<
     string,
@@ -358,7 +392,31 @@ export function buildTeamMap({
       inYear: -1,
       yearDate: "",
     };
-    achievement.highest = Math.max(achievement.highest, earned.level);
+    if (earned.level > achievement.highest) {
+      if (!gemHistory.length) {
+        const baseline = new Date(`${day}T00:00:00Z`);
+        baseline.setUTCDate(baseline.getUTCDate() - 1);
+        const baselineDay = baseline.toISOString().slice(0, 10);
+        if (validDay(baselineDay))
+          gemHistory.push({
+            date: baselineDay,
+            total: 0,
+            counts: emptyCounts(),
+          });
+      }
+      if (achievement.highest >= 0) historyCounts[tiers[achievement.highest]]--;
+      historyCounts[tiers[earned.level]]++;
+      const point = {
+        date: day,
+        total: achievements.size + (achievement.highest < 0 ? 1 : 0),
+        counts: { ...historyCounts },
+      };
+      // Consolidate all earns and upgrades on one day into its closing inventory.
+      if (gemHistory.at(-1)?.date === day)
+        gemHistory[gemHistory.length - 1] = point;
+      else gemHistory.push(point);
+      achievement.highest = earned.level;
+    }
     if (day < start)
       achievement.beforeYear = Math.max(achievement.beforeYear, earned.level);
     if (
@@ -388,6 +446,9 @@ export function buildTeamMap({
       priorBest.set(best.athleteEvent, best.time);
   }
   const rankCounts = emptyCounts();
+  const familyCounts: Record<string, number> = Object.fromEntries(
+    strokeColumns.map(([family]) => [family, 0]),
+  );
   const ages = new Map<string, TeamMapAgeGroup>();
   const agePeople = new Map<string, Map<string, TeamMapContributor>>();
   const recent: TeamMapSnapshot["activity"]["recent"] = [];
@@ -397,6 +458,8 @@ export function buildTeamMap({
     const tier = tiers[achievement.highest];
     const person = people.get(achievement.athleteId)!;
     rankCounts[tier]++;
+    const family = eventColumn(achievement.event);
+    if (family in familyCounts) familyCounts[family]++;
     person.total++;
     person.counts[tier]++;
     const age = ages.get(achievement.ageGroup) ?? {
@@ -449,6 +512,12 @@ export function buildTeamMap({
   const leaders = sortContributors(
     [...people.values()].filter((person) => person.total > 0),
   );
+  if (gemHistory.at(-1)?.date !== asOf)
+    gemHistory.push({
+      date: asOf,
+      total: achievements.size,
+      counts: { ...rankCounts },
+    });
   return {
     asOf,
     year,
@@ -464,6 +533,15 @@ export function buildTeamMap({
       missingAgeSwims,
     },
     rankCounts,
+    roster: [
+      ...[...people.values()].map((person) => ({
+        ...person,
+        id: `linked:${person.athleteId}`,
+      })),
+      ...unlinked,
+    ].sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)),
+    familyCounts,
+    gemHistory,
     totalContributions: achievements.size,
     contributorCount: leaders.length,
     leaders,

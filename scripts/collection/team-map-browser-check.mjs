@@ -316,6 +316,63 @@ try {
   });
   assert.equal(data.totalContributions, 9);
   assert.equal(data.contributorCount, 3);
+  assert.equal(data.roster.length, 4);
+  assert.deepEqual(
+    data.roster.map(({ name, total }) => [name, total]),
+    [
+      [athletes[0].name, 7],
+      [athletes[1].name, 1],
+      [athletes[2].name, 1],
+      ["Unlinked Teammapcheck", 0],
+    ],
+    "The active roster includes everyone, deduplicates links, and keeps unlinked swimmers",
+  );
+  assert.deepEqual(data.familyCounts, {
+    IM: 0,
+    FL: 1,
+    BK: 2,
+    BR: 2,
+    FR: 4,
+    DST: 0,
+  });
+  assert.equal(data.gemHistory[0].total, 0);
+  assert.deepEqual(
+    data.gemHistory.at(-1),
+    { date: day, total: 9, counts: data.rankCounts },
+    "Career history ends at today's current roster inventory",
+  );
+  assert.deepEqual(
+    data.gemHistory
+      .filter(({ total }) => total > 0)
+      .map(({ total }) => total),
+    [4, 5, 9],
+    "Repeats do not add gems and an upgrade does not add a second gem",
+  );
+  const activeRoster = main.getByRole("region", {
+    name: "Active roster",
+    exact: true,
+  });
+  await activeRoster.getByText("Unlinked Teammapcheck", { exact: true }).waitFor();
+  for (const athlete of athletes.slice(0, 3))
+    assert.equal(
+      await activeRoster.getByText(athlete.name, { exact: true }).count(),
+      1,
+    );
+  assert.equal(await activeRoster.locator("[data-gem-tier]").count(), 9);
+  assert.equal(await activeRoster.locator('[data-gem-tier="A"]').count(), 7);
+  const familyChart = main.getByRole("region", {
+    name: "Gems by event family",
+    exact: true,
+  });
+  assert.equal(await familyChart.locator("[data-gem-family]").count(), 6);
+  assert.match(
+    await familyChart.locator('[data-gem-family="FR"]').textContent(),
+    /Free\s*4/,
+  );
+  await main
+    .getByRole("region", { name: "Gems over time", exact: true })
+    .getByRole("img")
+    .waitFor();
   assert.equal(data.activity.swims, 7);
   assert.equal(data.activity.swimmers, 3);
   assert.equal(data.activity.meets, 1);
@@ -487,6 +544,22 @@ try {
       .innerText(),
     "0",
   );
+  assert.equal(await activeRoster.locator("[data-gem-tier]").count(), 0);
+  for (const name of [
+    ...athletes.slice(0, 3).map((athlete) => athlete.name),
+    "Unlinked Teammapcheck",
+  ])
+    assert.equal(
+      await activeRoster.getByText(name, { exact: true }).count(),
+      1,
+      "Swimmers without gems remain in the active roster",
+    );
+  for (const family of ["IM", "FL", "BK", "BR", "FR", "DST"])
+    assert.match(
+      await familyChart.locator(`[data-gem-family="${family}"]`).textContent(),
+      /0$/,
+      "An empty course displays zero on every family axis",
+    );
   await main.getByLabel("Course", { exact: true }).selectOption("");
   await main
     .getByRole("button", {
@@ -598,7 +671,7 @@ try {
     "Account preferences remain unchanged",
   );
   console.log(
-    "Team Map local browser verification passed: exact seven-Gold cumulative counts, age/rank leaders, archive/link dedup, annual progress, courses, retry, private payload, and mobile layouts.",
+    "Team Map local browser verification passed: active roster gem squares, six-family hexagon, cumulative gem history, exact seven-Gold counts, age/rank leaders, archive/link dedup, annual progress, courses, retry, private payload, and mobile layouts.",
   );
 } catch (error) {
   if (page) {
