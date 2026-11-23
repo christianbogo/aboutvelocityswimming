@@ -27,6 +27,7 @@ import grid from "./TimeStandards.module.css";
 import times from "./TimesDatabase.module.css";
 import s from "./MyTimes.module.css";
 import MyTimesSkeleton from "./MyTimesSkeleton";
+import TimesHighlights from "./TimesHighlights";
 import { SkeletonText } from "./LoadingSkeleton";
 import SelectionDropdown from "./TimesSelectionDropdown";
 import selectionStyles from "./TimesSelectionDropdown.module.css";
@@ -100,6 +101,8 @@ function MyTimesResults({
   onRankings: (selection: MyTimesRankingSelection) => void;
 }) {
   const cardId = useId();
+  const [selectedView, setView] = useTimesSelection("myView", "highlights");
+  const view = selectedView === "bests-grid" ? "bests-grid" : "highlights";
   const [athleteId, setAthleteId] = useTimesSelection("myAthlete", "");
   const [filters, setFilters] = useTimesSelection("myFilters", defaultFilters);
   const { show25s, showTimeStats, showDateAge, change, status, ready } =
@@ -192,6 +195,8 @@ function MyTimesResults({
     overview.loading ||
     (Boolean(filteredUrl) &&
       (debouncedUrl !== filteredUrl || filtered.loading));
+  const highlightsLoading =
+    view === "highlights" && standards.loading && !standards.sets.length;
   const filteredDetails = filtered.data?.myTimes;
   const selectedEvents =
     mode === "all"
@@ -204,7 +209,7 @@ function MyTimesResults({
   );
   const bestCount = events?.filter((event) => event.race !== null).length ?? 0;
   const eventRanks = new Map(
-    events?.map((event) => [
+    (view === "bests-grid" ? events : [])?.map((event) => [
       event.event,
       event.race ? motivationalRankForRace(event.race, standards.sets) : null,
     ]),
@@ -268,12 +273,35 @@ function MyTimesResults({
     <section
       className={s.results}
       aria-label="Athlete times"
-      aria-busy={loading}
+      aria-busy={loading || highlightsLoading}
     >
       <section
         className={`${selectionStyles.filterPanel} ${s.filters}`}
         aria-label="Times filters"
       >
+        <SelectionDropdown
+          label="View"
+          selection={view === "highlights" ? "Highlights" : "Bests Grid"}
+        >
+          {(close) =>
+            [
+              ["highlights", "Highlights"],
+              ["bests-grid", "Bests Grid"],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={view === key}
+                onClick={() => {
+                  setView(key);
+                  close();
+                }}
+              >
+                {label}
+              </button>
+            ))
+          }
+        </SelectionDropdown>
         <SelectionDropdown label="Athlete" selection={athlete.name}>
           {(close) => (
             <>
@@ -437,18 +465,22 @@ function MyTimesResults({
           onChange={(checked) => change("show25s", checked)}
           disabled={!ready}
         />
-        <DisplayToggle
-          label="Show time stats"
-          checked={showTimeStats}
-          onChange={(checked) => change("showTimeStats", checked)}
-          disabled={!ready}
-        />
-        <DisplayToggle
-          label="Show date & age"
-          checked={showDateAge}
-          onChange={(checked) => change("showDateAge", checked)}
-          disabled={!ready}
-        />
+        {view === "bests-grid" && (
+          <>
+            <DisplayToggle
+              label="Show time stats"
+              checked={showTimeStats}
+              onChange={(checked) => change("showTimeStats", checked)}
+              disabled={!ready}
+            />
+            <DisplayToggle
+              label="Show date & age"
+              checked={showDateAge}
+              onChange={(checked) => change("showDateAge", checked)}
+              disabled={!ready}
+            />
+          </>
+        )}
       </div>
       {status && (
         <p className={s.preferenceStatus} role="status">
@@ -467,8 +499,9 @@ function MyTimesResults({
           </button>
         </p>
       )}
-      {loading && (
+      {(loading || highlightsLoading) && (
         <MyTimesSkeleton
+          view={view}
           course={course}
           events={
             details?.events ??
@@ -484,6 +517,7 @@ function MyTimesResults({
         />
       )}
       {!loading &&
+        !highlightsLoading &&
         !failedQuery.error &&
         !invalidYears &&
         (unavailableFilter ? (
@@ -503,141 +537,150 @@ function MyTimesResults({
                   No times match these filters.
                 </p>
               )}
-              <div className={grid.grid}>
-                {strokeColumns.map(([stroke, heading, title]) => {
-                  const cards = events
-                    .filter((event) => eventColumn(event.event) === stroke)
-                    .sort((a, b) => compareEvents(a.event, b.event));
-                  return (
-                    <section
-                      className={grid.column}
-                      key={stroke}
-                      aria-label={title}
-                    >
-                      <h2 title={title}>{heading}</h2>
-                      {cards.length === 0 && (
-                        <p className={s.noEvents}>No events</p>
-                      )}
-                      {cards.map((event) => {
-                        const rank = eventRanks.get(event.event);
-                        return (
-                          <button
-                            type="button"
-                            key={event.event}
-                            className={`${grid.chip} ${s.card}`}
-                            data-rank={rank?.rank.tier}
-                            aria-label={`View ${eventLabel(event.event)} rankings`}
-                            aria-describedby={[
-                              `${cardId}-${event.event}-time`,
-                              ...(showDateAge
-                                ? [`${cardId}-${event.event}-date`]
-                                : []),
-                              ...(showTimeStats
-                                ? [`${cardId}-${event.event}-rank`]
-                                : []),
-                              ...(showTimeStats && rank
-                                ? [`${cardId}-${event.event}-motivational`]
-                                : []),
-                            ].join(" ")}
-                            onClick={() => openRankings(event)}
-                          >
-                            <span className={s.cardHeader}>
-                              <span className={s.cardHeading}>
-                                <span className={grid.distance}>
-                                  {event.event.split("_")[0]}{" "}
-                                  {stroke === "DST" ? "Free" : heading}
-                                </span>
-                              </span>
-                              {showTimeStats &&
-                                (rank ||
-                                  (standards.loading &&
-                                    !standards.sets.length)) && (
-                                  <span className={s.rankIcon}>
-                                    {standards.loading &&
-                                    !standards.sets.length ? (
-                                      <SkeletonText
-                                        width="100%"
-                                        height="100%"
-                                      />
-                                    ) : (
-                                      rank && (
-                                        <>
-                                          <MotivationalRankIcon
-                                            tier={rank.rank.tier}
-                                            size={28}
-                                          />
-                                          <span
-                                            className="sr-only"
-                                            id={`${cardId}-${event.event}-motivational`}
-                                          >
-                                            {rank.rank.name} rank:{" "}
-                                            {rank.rank.tier} motivational
-                                            standard
-                                          </span>
-                                        </>
-                                      )
-                                    )}
+              {view === "highlights" ? (
+                <TimesHighlights
+                  events={events}
+                  sets={standards.sets}
+                  onRankings={openRankings}
+                  onBestsGrid={() => setView("bests-grid")}
+                />
+              ) : (
+                <div className={grid.grid}>
+                  {strokeColumns.map(([stroke, heading, title]) => {
+                    const cards = events
+                      .filter((event) => eventColumn(event.event) === stroke)
+                      .sort((a, b) => compareEvents(a.event, b.event));
+                    return (
+                      <section
+                        className={grid.column}
+                        key={stroke}
+                        aria-label={title}
+                      >
+                        <h2 title={title}>{heading}</h2>
+                        {cards.length === 0 && (
+                          <p className={s.noEvents}>No events</p>
+                        )}
+                        {cards.map((event) => {
+                          const rank = eventRanks.get(event.event);
+                          return (
+                            <button
+                              type="button"
+                              key={event.event}
+                              className={`${grid.chip} ${s.card}`}
+                              data-rank={rank?.rank.tier}
+                              aria-label={`View ${eventLabel(event.event)} rankings`}
+                              aria-describedby={[
+                                `${cardId}-${event.event}-time`,
+                                ...(showDateAge
+                                  ? [`${cardId}-${event.event}-date`]
+                                  : []),
+                                ...(showTimeStats
+                                  ? [`${cardId}-${event.event}-rank`]
+                                  : []),
+                                ...(showTimeStats && rank
+                                  ? [`${cardId}-${event.event}-motivational`]
+                                  : []),
+                              ].join(" ")}
+                              onClick={() => openRankings(event)}
+                            >
+                              <span className={s.cardHeader}>
+                                <span className={s.cardHeading}>
+                                  <span className={grid.distance}>
+                                    {event.event.split("_")[0]}{" "}
+                                    {stroke === "DST" ? "Free" : heading}
                                   </span>
-                                )}
-                            </span>
-                            <strong id={`${cardId}-${event.event}-time`}>
-                              <span className="sr-only">
-                                {event.race
-                                  ? "Best time: "
-                                  : "No time in this selection: "}
-                              </span>
-                              {event.race
-                                ? formatSwimTime(event.race.time)
-                                : "—"}
-                            </strong>
-                            {showDateAge && (
-                              <span
-                                className={s.raceDate}
-                                id={`${cardId}-${event.event}-date`}
-                              >
-                                {event.race ? (
-                                  <>
-                                    <time
-                                      dateTime={event.race.date.slice(0, 10)}
-                                    >
-                                      {swimDate(event.race.date)}
-                                    </time>{" "}
-                                    <span className={s.swimAge}>
-                                      ({swimAgeGroup(event.race.ageAtSwim)})
+                                </span>
+                                {showTimeStats &&
+                                  (rank ||
+                                    (standards.loading &&
+                                      !standards.sets.length)) && (
+                                    <span className={s.rankIcon}>
+                                      {standards.loading &&
+                                      !standards.sets.length ? (
+                                        <SkeletonText
+                                          width="100%"
+                                          height="100%"
+                                        />
+                                      ) : (
+                                        rank && (
+                                          <>
+                                            <MotivationalRankIcon
+                                              tier={rank.rank.tier}
+                                              size={28}
+                                            />
+                                            <span
+                                              className="sr-only"
+                                              id={`${cardId}-${event.event}-motivational`}
+                                            >
+                                              {rank.rank.name} rank:{" "}
+                                              {rank.rank.tier} motivational
+                                              standard
+                                            </span>
+                                          </>
+                                        )
+                                      )}
                                     </span>
-                                  </>
-                                ) : (
-                                  "No time in this selection"
-                                )}
+                                  )}
                               </span>
-                            )}
-                            {showTimeStats && (
-                              <span
-                                className={s.teamRank}
-                                id={`${cardId}-${event.event}-rank`}
-                              >
-                                {event.allTimeRank !== null ? (
-                                  <>Rank #{event.allTimeRank}</>
-                                ) : (
-                                  <>
-                                    {event.race?.ageAtSwim != null
-                                      ? "No all-time rank"
-                                      : "Age unavailable"}
-                                  </>
-                                )}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </section>
-                  );
-                })}
-              </div>
+                              <strong id={`${cardId}-${event.event}-time`}>
+                                <span className="sr-only">
+                                  {event.race
+                                    ? "Best time: "
+                                    : "No time in this selection: "}
+                                </span>
+                                {event.race
+                                  ? formatSwimTime(event.race.time)
+                                  : "—"}
+                              </strong>
+                              {showDateAge && (
+                                <span
+                                  className={s.raceDate}
+                                  id={`${cardId}-${event.event}-date`}
+                                >
+                                  {event.race ? (
+                                    <>
+                                      <time
+                                        dateTime={event.race.date.slice(0, 10)}
+                                      >
+                                        {swimDate(event.race.date)}
+                                      </time>{" "}
+                                      <span className={s.swimAge}>
+                                        ({swimAgeGroup(event.race.ageAtSwim)})
+                                      </span>
+                                    </>
+                                  ) : (
+                                    "No time in this selection"
+                                  )}
+                                </span>
+                              )}
+                              {showTimeStats && (
+                                <span
+                                  className={s.teamRank}
+                                  id={`${cardId}-${event.event}-rank`}
+                                >
+                                  {event.allTimeRank !== null ? (
+                                    <>Rank #{event.allTimeRank}</>
+                                  ) : (
+                                    <>
+                                      {event.race?.ageAtSwim != null
+                                        ? "No all-time rank"
+                                        : "Age unavailable"}
+                                    </>
+                                  )}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </section>
+                    );
+                  })}
+                </div>
+              )}
             </>
           )
         ))}
-      {standards.error && showTimeStats && (
+      {standards.error && (showTimeStats || view === "highlights") && (
         <p className={s.notice} role="alert">
           Motivational ranks are temporarily unavailable.{" "}
           <button
@@ -649,7 +692,7 @@ function MyTimesResults({
           </button>
         </p>
       )}
-      {showTimeStats && (
+      {(showTimeStats || view === "highlights") && (
         <p className={s.explainer}>
           Team ranks compare the displayed time with each swimmer’s all-time
           best in that swim’s age group. Select a card for all-time rankings of
@@ -662,7 +705,12 @@ function MyTimesResults({
 }
 
 function MyTimesLoading() {
-  return <MyTimesSkeleton />;
+  const [view] = useTimesSelection("myView", "highlights");
+  return (
+    <MyTimesSkeleton
+      view={view === "bests-grid" ? "bests-grid" : "highlights"}
+    />
+  );
 }
 
 function FollowedAthletes({

@@ -227,7 +227,7 @@ try {
     await page.waitForURL(base + "/tools");
   }
 
-  const myTimesUrl = base + "/tools/my-times";
+  const myTimesUrl = base + "/tools/my-times?myView=bests-grid";
   const myTimes = page.getByRole("region", { name: "Times", exact: true });
   const card = (event) =>
     myTimes.getByRole("button", {

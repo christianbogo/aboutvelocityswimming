@@ -1,0 +1,473 @@
+.highlights {
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+}
+.header,
+.profileHeading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.header h2 {
+  margin: 0.2rem 0 0;
+  font-size: clamp(1.6rem, 3vw, 2rem);
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  line-height: 1.2;
+}
+.header p,
+.profileHeading p {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+.eyebrow {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 550;
+  line-height: 1.5;
+}
+.header .eyebrow {
+  color: var(--accent);
+}
+.featuredList,
+.compactList {
+  display: grid;
+  gap: 0.85rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.featuredList {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.compactList {
+  gap: 0.6rem;
+}
+.item {
+  min-width: 0;
+}
+.highlights .card {
+  --rank-color: var(--accent);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  justify-content: stretch;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--surface);
+  color: var(--text-main);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 150ms,
+    box-shadow 150ms;
+}
+.highlights .card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 4px 18px #0000000a;
+}
+.highlights .card:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+.highlights .featured {
+  align-content: start;
+  gap: 1.25rem;
+  border-top: 3px solid var(--rank-color);
+  background: linear-gradient(
+    155deg,
+    color-mix(in srgb, var(--rank-color) 8%, var(--surface)),
+    var(--surface) 65%
+  );
+}
+.cardTop {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+.position {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  min-width: 2rem;
+  height: 2rem;
+  border: 1px solid color-mix(in srgb, var(--rank-color) 25%, var(--border));
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.event {
+  min-width: 0;
+}
+.event > strong {
+  display: block;
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+.chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.performance {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+.time {
+  font-size: clamp(2rem, 3.2vw, 3rem);
+  font-weight: 750;
+  letter-spacing: -0.055em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.standard {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.standard > span {
+  display: grid;
+  gap: 0.1rem;
+}
+.standard strong {
+  font-size: 0.875rem;
+}
+.standard span span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.noStandard {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.benchmark {
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.tierTrack {
+  display: flex;
+  gap: 4px;
+}
+.tierTrack > span {
+  flex: 1;
+  height: 4px;
+  border-radius: 3px;
+  background: var(--border);
+}
+.tierTrack > span[data-achieved="true"] {
+  background: var(--rank-color);
+}
+.ranking {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.ranking > svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.ranking > span {
+  display: grid;
+  gap: 0.15rem;
+}
+.ranking strong {
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.ranking span span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.ranking .rankContext {
+  margin-left: auto;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.raceDetails {
+  display: grid;
+  gap: 0.35rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.raceDetails strong {
+  font-size: 0.8rem;
+  font-weight: 550;
+}
+.raceDetails > span {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.highlights .compact {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.5fr) minmax(6rem, 0.55fr);
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: 0.8rem;
+}
+.highlights .compact .position {
+  border: 0;
+  color: var(--text-muted);
+}
+.highlights .compact .performance {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.highlights .compact .time {
+  font-size: 1.6rem;
+}
+.highlights .compact .event > strong {
+  font-size: 0.95rem;
+}
+.highlights .compact .ranking {
+  justify-self: end;
+}
+.highlights .compact .ranking strong {
+  font-size: 1.05rem;
+}
+.profileHeading {
+  padding-top: 1rem;
+}
+.profileHeading h3 {
+  font-size: 1.1rem;
+  font-weight: 650;
+  margin-bottom: 0.25rem;
+}
+.profileHeading button {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.aggregates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+.aggregate {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--background-alt);
+}
+.aggregateTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.aggregateTitle > svg {
+  color: var(--accent);
+}
+.aggregateTitle h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.aggregateValue {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.aggregateValue > strong {
+  font-size: 2.5rem;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+}
+.aggregateValue small {
+  font-size: 1.25rem;
+  color: var(--text-muted);
+}
+.aggregateValue > span {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.standardCounts {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+.standardCount {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 0.1rem;
+  background: var(--surface);
+  border-radius: 0.65rem;
+  border: 1px solid var(--border);
+}
+.standardCount > strong {
+  font-size: 1.25rem;
+}
+.standardCount > span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.standardCount[data-empty="true"] img {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+.strokeCounts {
+  display: grid;
+  gap: 0.65rem;
+}
+.strokeRow {
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr) 1.5rem;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+}
+.strokeRow > strong {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.strokeBar {
+  height: 0.4rem;
+  background: var(--border);
+  border-radius: 1rem;
+  overflow: hidden;
+}
+.strokeBar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+}
+.aggregateNote {
+  margin-top: auto;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.explainer {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  max-width: 65rem;
+}
+@container times-workspace (max-width: 850px) {
+  .featuredList {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .highlights .featured {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    gap: 1rem 1.5rem;
+  }
+  .highlights .featured .cardTop {
+    grid-column: 1 / -1;
+  }
+  .highlights .featured .performance {
+    grid-row: span 2;
+    align-content: start;
+    flex-direction: column;
+    align-items: start;
+  }
+  .highlights .featured .raceDetails {
+    grid-column: 1 / -1;
+  }
+  .highlights .featured .time {
+    font-size: 2.75rem;
+  }
+  .highlights .compact {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  }
+  .highlights .compact .ranking {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .highlights .compact .cardTop {
+    grid-row: span 2;
+  }
+  .highlights .compact .performance {
+    display: flex;
+    flex-wrap: wrap;
+  }
+}
+@container times-workspace (max-width: 550px) {
+  .highlights {
+    gap: 1rem;
+  }
+  .highlights .featured {
+    display: flex;
+    flex-direction: column;
+    padding: 1.1rem;
+    gap: 1rem;
+  }
+  .highlights .featured .performance {
+    flex-direction: row;
+    align-items: center;
+  }
+  .highlights .featured .time {
+    font-size: clamp(2rem, 9vw, 2.75rem);
+  }
+  .highlights .featured .raceDetails {
+    margin-top: auto;
+  }
+  .highlights .compact {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.7rem;
+    padding: 0.9rem;
+  }
+  .highlights .compact .cardTop {
+    grid-row: auto;
+    grid-column: 1 / -1;
+  }
+  .highlights .compact .performance {
+    display: flex;
+    gap: 0.75rem;
+  }
+  .highlights .compact .time {
+    font-size: 1.5rem;
+  }
+  .highlights .compact .ranking {
+    grid-column: auto;
+    justify-self: end;
+  }
+  .highlights .compact .standard strong {
+    font-size: 0.8rem;
+  }
+  .highlights .compact .ranking > svg {
+    display: none;
+  }
+  .aggregates {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .aggregate {
+    padding: 1.1rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .highlights .card {
+    transition: none;
+  }
+}

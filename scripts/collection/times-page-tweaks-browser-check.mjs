@@ -1001,7 +1001,7 @@ try {
     console.log(
       "Rankings UI passed always-visible filters and bookmarks, age picker auto-close, historical/year-boundary cutoffs, no fallback for missing editions, white cutoff text, and no lead-off row label.",
     );
-    await gotoView("my-times");
+    await gotoView("my-times", { myView: "bests-grid" });
     const timeFilters = page.getByRole("region", {
       name: "Times filters",
       exact: true,

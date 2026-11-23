@@ -1,3 +1,4 @@
+import { TimesHighlightsSkeleton } from "./TimesHighlights";
 import { SkeletonStatus, SkeletonText } from "./LoadingSkeleton";
 import { strokeColumns, compareEvents, eventColumn } from "./event-layout";
 import { timesEvents } from "./times-data";
@@ -25,6 +26,7 @@ export function MyTimesPageSkeleton() {
 }
 
 export default function MyTimesSkeleton({
+  view = "highlights",
   course = "SCY",
   events,
   full = true,
@@ -32,6 +34,7 @@ export default function MyTimesSkeleton({
   showTimeStats = false,
   showDateAge = false,
 }: {
+  view?: "highlights" | "bests-grid";
   course?: string;
   events?: MyTimesEvent[];
   full?: boolean;
@@ -53,7 +56,7 @@ export default function MyTimesSkeleton({
         {full && (
           <>
             <div className={`${selection.filterPanel} ${s.filters}`}>
-              {["Athlete", "Course", "Best times from"].map((label) => (
+              {["View", "Athlete", "Course", "Best times from"].map((label) => (
                 <div
                   className={`${selection.dropdown} ${selection.skeletonFilter}`}
                   key={label}
@@ -64,79 +67,84 @@ export default function MyTimesSkeleton({
               ))}
             </div>
             <div className={s.displayOptions}>
-              {["Show 25s", "Show time stats", "Show date & age"].map(
-                (label) => (
-                  <span className={s.displayToggle} key={label}>
-                    <SkeletonText
-                      width="2.25rem"
-                      height="1.25rem"
-                      style={{ borderRadius: "999px", flexShrink: 0 }}
-                    />
-                    {label}
-                  </span>
-                ),
-              )}
+              {(view === "highlights"
+                ? ["Show 25s"]
+                : ["Show 25s", "Show time stats", "Show date & age"]
+              ).map((label) => (
+                <span className={s.displayToggle} key={label}>
+                  <SkeletonText
+                    width="2.25rem"
+                    height="1.25rem"
+                    style={{ borderRadius: "999px", flexShrink: 0 }}
+                  />
+                  {label}
+                </span>
+              ))}
             </div>
           </>
         )}
-        <div className={grid.grid}>
-          {strokeColumns.map(([stroke, heading, title]) => {
-            const cards = eventKeys
-              .filter((key) => eventColumn(key) === stroke)
-              .sort(compareEvents);
-            return (
-              <section key={stroke} className={grid.column}>
-                <h2 title={title}>{heading}</h2>
-                {!cards.length && (
-                  <p className={s.noEvents}>
-                    <SkeletonText width="7ch" />
-                  </p>
-                )}
-                {cards.map((event) => (
-                  <div
-                    key={event}
-                    className={`${grid.chip} ${s.card} ${s.skeletonCard}`}
-                    data-loading-card=""
-                  >
-                    <span className={s.cardHeader}>
-                      <span className={s.cardHeading}>
-                        <span className={grid.distance}>
-                          {event.split("_")[0]}{" "}
-                          {stroke === "DST" ? "Free" : heading}
+        {view === "highlights" ? (
+          <TimesHighlightsSkeleton />
+        ) : (
+          <div className={grid.grid}>
+            {strokeColumns.map(([stroke, heading, title]) => {
+              const cards = eventKeys
+                .filter((key) => eventColumn(key) === stroke)
+                .sort(compareEvents);
+              return (
+                <section key={stroke} className={grid.column}>
+                  <h2 title={title}>{heading}</h2>
+                  {!cards.length && (
+                    <p className={s.noEvents}>
+                      <SkeletonText width="7ch" />
+                    </p>
+                  )}
+                  {cards.map((event) => (
+                    <div
+                      key={event}
+                      className={`${grid.chip} ${s.card} ${s.skeletonCard}`}
+                      data-loading-card=""
+                    >
+                      <span className={s.cardHeader}>
+                        <span className={s.cardHeading}>
+                          <span className={grid.distance}>
+                            {event.split("_")[0]}{" "}
+                            {stroke === "DST" ? "Free" : heading}
+                          </span>
                         </span>
+                        {showTimeStats && (
+                          <span className={s.rankIcon}>
+                            <SkeletonText
+                              width="100%"
+                              height="100%"
+                              style={{ borderRadius: 6 }}
+                            />
+                          </span>
+                        )}
                       </span>
-                      {showTimeStats && (
-                        <span className={s.rankIcon}>
-                          <SkeletonText
-                            width="100%"
-                            height="100%"
-                            style={{ borderRadius: 6 }}
-                          />
+                      <strong>
+                        <SkeletonText width="6ch" />
+                      </strong>
+                      {showDateAge && (
+                        <span className={s.raceDate}>
+                          <SkeletonText width="8ch" />{" "}
+                          <span className={s.swimAge}>
+                            <SkeletonText width="6ch" />
+                          </span>
                         </span>
                       )}
-                    </span>
-                    <strong>
-                      <SkeletonText width="6ch" />
-                    </strong>
-                    {showDateAge && (
-                      <span className={s.raceDate}>
-                        <SkeletonText width="8ch" />{" "}
-                        <span className={s.swimAge}>
-                          <SkeletonText width="6ch" />
+                      {showTimeStats && (
+                        <span className={s.teamRank}>
+                          <SkeletonText width="7ch" />
                         </span>
-                      </span>
-                    )}
-                    {showTimeStats && (
-                      <span className={s.teamRank}>
-                        <SkeletonText width="7ch" />
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </section>
-            );
-          })}
-        </div>
+                      )}
+                    </div>
+                  ))}
+                </section>
+              );
+            })}
+          </div>
+        )}
         {full && (
           <p className={s.explainer}>
             <SkeletonText width="98%" />

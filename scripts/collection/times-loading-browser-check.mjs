@@ -529,6 +529,169 @@ async function unchangedRefresh(f, region, view, request, content) {
   await frames(f.page);
 }
 
+async function highlightsView(f, width) {
+  const { page, controls } = f;
+  f.longExpiry();
+  await page.goto(`${base}/tools/my-times`);
+  const region = page.getByRole("region", { name: "Times", exact: true });
+  await region.waitFor();
+  if (width < 768) await collapseMobileNavigation(page);
+  await ready(region, "my-times");
+  await region
+    .getByRole("button", { name: "View: Highlights", exact: true })
+    .waitFor();
+  const highlights = region.getByRole("region", {
+    name: "Highlights",
+    exact: true,
+  });
+  const featured = highlights.locator('[data-highlight-size="featured"]');
+  const compact = highlights.locator('[data-highlight-size="compact"]');
+  assert.equal(await featured.count(), 3);
+  assert.equal(await compact.count(), 5);
+  assert.equal(
+    await highlights
+      .getByRole("button", { name: /^View .* rankings$/ })
+      .count(),
+    8,
+  );
+  assert.equal(
+    await featured.first().getAttribute("aria-label"),
+    "View 100 Freestyle rankings",
+    "The achieved standard outranks the smaller team rank in another event",
+  );
+  await featured
+    .first()
+    .getByText("Loading fixture meet", { exact: true })
+    .waitFor();
+  await featured.first().getByText("AA standard", { exact: true }).waitFor();
+  await featured.first().getByText("#14", { exact: true }).waitFor();
+  await highlights
+    .getByRole("region", { name: "Standards achieved", exact: true })
+    .getByText(new RegExp(`^of ${individualEvents.length} events `))
+    .waitFor();
+  await highlights
+    .getByRole("region", { name: "Stroke coverage", exact: true })
+    .waitFor();
+  assert.equal(await highlights.getByRole("region").count(), 2);
+  const cardGeometry = await highlights
+    .locator("[data-highlight-size]")
+    .evaluateAll((cards) =>
+      cards.map((card) => {
+        const bounds = card.getBoundingClientRect();
+        const escaped = [...card.querySelectorAll("*")]
+          .filter(
+            (child) => !child.closest(".sr-only") && child.checkVisibility(),
+          )
+          .filter((child) => {
+            const box = child.getBoundingClientRect();
+            return (
+              box.left < bounds.left - 1 ||
+              box.right > bounds.right + 1 ||
+              box.top < bounds.top - 1 ||
+              box.bottom > bounds.bottom + 1
+            );
+          })
+          .map((child) => `${child.tagName}: ${child.textContent}`);
+        return {
+          name: card.getAttribute("aria-label"),
+          size: card.getAttribute("data-highlight-size"),
+          display: getComputedStyle(card).display,
+          direction: getComputedStyle(card).flexDirection,
+          height: bounds.height,
+          overflow: card.scrollWidth > card.clientWidth + 1,
+          escaped,
+        };
+      }),
+    );
+  for (const card of cardGeometry) {
+    assert.ok(
+      card.display === "grid" ||
+        (width < 768 &&
+          card.size === "featured" &&
+          card.display === "flex" &&
+          card.direction === "column"),
+      `${card.name} retains a structured card layout`,
+    );
+    assert.ok(
+      card.height < (width >= 768 ? 550 : 650),
+      `${card.name} has a bounded height`,
+    );
+    assert.equal(
+      card.overflow,
+      false,
+      `${card.name} has no horizontal overflow`,
+    );
+    assert.deepEqual(
+      card.escaped,
+      [],
+      `${card.name} contains every visible detail`,
+    );
+  }
+  await noOverflow(page);
+  await page.screenshot({
+    path: `/tmp/velocity-highlights-${width}.png`,
+    fullPage: true,
+    animations: "disabled",
+  });
+
+  // Reusing the same results for each view must preserve filters and not refetch.
+  await region
+    .getByRole("button", { name: "Course: Short Course Yards", exact: true })
+    .click();
+  await region
+    .getByRole("button", { name: "Long Course Meters", exact: true })
+    .click();
+  await ready(region, "my-times");
+  const before = new URL(page.url());
+  const requests = controls.LCM.count;
+  await region
+    .getByRole("button", { name: "View: Highlights", exact: true })
+    .press("ArrowDown");
+  await region
+    .getByRole("group", { name: "View options", exact: true })
+    .getByRole("button", { name: "Bests Grid", exact: true })
+    .click();
+  await region
+    .getByRole("button", { name: "View: Bests Grid", exact: true })
+    .waitFor();
+  assert.equal(new URL(page.url()).searchParams.get("myView"), "bests-grid");
+  assert.equal(
+    new URL(page.url()).searchParams.get("myFilters"),
+    before.searchParams.get("myFilters"),
+  );
+  assert.equal(
+    await region.getByRole("button", { name: /^View .* rankings$/ }).count(),
+    individualEvents.length,
+  );
+  await region
+    .getByRole("button", { name: "View: Bests Grid", exact: true })
+    .press("ArrowDown");
+  await region
+    .getByRole("group", { name: "View options", exact: true })
+    .getByRole("button", { name: "Highlights", exact: true })
+    .click();
+  await highlights.waitFor();
+  assert.equal(new URL(page.url()).searchParams.has("myView"), false);
+  assert.equal(
+    new URL(page.url()).searchParams.get("myFilters"),
+    before.searchParams.get("myFilters"),
+  );
+  assert.equal(controls.LCM.count, requests);
+  await noOverflow(page);
+
+  // A highlight keeps the same event/age/course rankings destination as the grid.
+  await featured.first().click();
+  await page.waitForURL((url) => url.pathname === "/tools/rankings");
+  const selection = JSON.parse(new URL(page.url()).searchParams.get("filters"));
+  assert.equal(selection.event, "100_FR");
+  assert.equal(selection.course, "LCM");
+  assert.deepEqual(selection.genders, ["F"]);
+  assert.deepEqual(selection.ageGroups, ["13-14"]);
+  console.log(
+    `Highlights: ${width}px default, 3+5 cards, aggregates, view switching and rankings navigation passed.`,
+  );
+}
+
 try {
   const failures = [];
   for (const width of widths) {
@@ -537,7 +700,9 @@ try {
       const { page, controls } = f;
       try {
         f.shortExpiry();
-        await page.goto(`${base}/tools/${view}`);
+        await page.goto(
+          `${base}/tools/${view}${view === "my-times" ? "?myView=bests-grid" : ""}`,
+        );
         const region = page.getByRole("region", { name: label, exact: true });
         await region.waitFor();
         if (width < 768) await collapseMobileNavigation(page);
@@ -816,6 +981,7 @@ try {
           animations: "disabled",
         });
         await noOverflow(page);
+        if (view === "my-times") await highlightsView(f, width);
         assert.deepEqual(f.errors, []);
         console.log(
           `${label}: ${width}px delayed loading, reduced motion, stable replacement and refresh passed.`,
