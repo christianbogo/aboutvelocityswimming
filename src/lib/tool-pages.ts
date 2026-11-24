@@ -1,9 +1,5 @@
-import {
-  type LucideIcon,
-} from "lucide-react";
-import {
-  type ToolId,
-} from "./tool-directory";
+import { type LucideIcon } from "lucide-react";
+import { type ToolId } from "./tool-directory";
 
 export type ToolPage = {
   id: string;
@@ -21,6 +17,7 @@ export function getToolPages(tool: ToolId): ToolPage[] {
     case "my-times":
     case "goals":
     case "team-map":
+    case "layout-drafting":
     case "rankings":
     case "records":
     case "standards":

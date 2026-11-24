@@ -52,6 +52,7 @@ describe("independent times tools", () => {
       "data",
       "goals",
       "team-map",
+      "layout-drafting",
     ]);
     expect(
       getAvailableTools({ signedIn: true, allTools: false, staff: false }).map(
@@ -156,5 +157,6 @@ it("shows released tools to members and reserves drafts for the owner", () => {
     "data",
     "goals",
     "team-map",
+    "layout-drafting",
   ]);
 });
