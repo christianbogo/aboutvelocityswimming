@@ -6,26 +6,31 @@ import { Button } from "@/components/shared/Button";
 import type { WorkshareAccount } from "../../lib/accounts";
 import type { AccountSeasonSummary, WorkshareSeason } from "../../lib/tickets";
 import styles from "./Accounts.module.css";
+import { useAuth } from "../../contexts/auth";
 
 export const accountColumns = [
   ["athletes", "Athletes"],
-  ["generalHoursRequired", "General"],
-  ["starlightHoursRequired", "Starlight"],
-  ["appleCapitalHoursRequired", "Apple Capital"],
+  ["generalHoursRequired", "Hours"],
 ] as const;
-type Columns = Record<(typeof accountColumns)[number][0], boolean>;
+type Columns = Record<"athletes" | "generalHoursRequired" | "starlightHoursRequired" | "appleCapitalHoursRequired", boolean>;
+const hourKeys = ["generalHoursRequired", "starlightHoursRequired", "appleCapitalHoursRequired"] as const;
+const columnKeys = ["athletes", ...hourKeys] as const;
 const defaultColumns: Columns = {
   athletes: true,
   generalHoursRequired: true,
   starlightHoursRequired: true,
   appleCapitalHoursRequired: true,
 };
-const storageKey = "velocity-admin-columns-v1";
 function subscribe(onChange: () => void) {
+  if (typeof window === "undefined") return () => {};
   window.addEventListener("storage", onChange);
-  return () => window.removeEventListener("storage", onChange);
+  window.addEventListener("velocity-admin-columns-change", onChange);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener("velocity-admin-columns-change", onChange);
+  };
 }
-function readColumns() {
+function readColumns(storageKey: string) {
   try {
     return localStorage.getItem(storageKey) ?? "";
   } catch {
@@ -33,13 +38,15 @@ function readColumns() {
   }
 }
 export function useAccountColumns(): [Columns, (columns: Columns) => void] {
-  const stored = useSyncExternalStore(subscribe, readColumns, () => "");
+  const { user } = useAuth();
+  const storageKey = `velocity-admin-columns-v1:${user?.uid ?? "signed-out"}`;
+  const stored = useSyncExternalStore(subscribe, () => readColumns(storageKey), () => "");
   const [override, setOverride] = useState<Columns>();
   let columns = defaultColumns;
   try {
     const parsed = JSON.parse(stored);
     columns = Object.fromEntries(
-      accountColumns.map(([key]) => [
+      columnKeys.map((key) => [
         key,
         typeof parsed?.[key] === "boolean" ? parsed[key] : true,
       ]),
@@ -53,6 +60,7 @@ export function useAccountColumns(): [Columns, (columns: Columns) => void] {
       setOverride(next);
       try {
         localStorage.setItem(storageKey, JSON.stringify(next));
+        window.dispatchEvent(new Event("velocity-admin-columns-change"));
       } catch {
         /* Keep the in-memory preference when storage is unavailable. */
       }
@@ -74,7 +82,7 @@ export function ColumnControls({
       </summary>
       <fieldset className={styles.columnMenu}>
         <legend className="sr-only">Visible account columns</legend>
-        {accountColumns.map(([key, label]) => (
+        {columnKeys.map((key) => (
           <label key={key}>
             <input
               type="checkbox"
@@ -83,7 +91,7 @@ export function ColumnControls({
                 onChange({ ...columns, [key]: event.target.checked })
               }
             />
-            {key === "athletes" ? label : `${label} hours`}
+            {key === "athletes" ? "Athletes" : `${key === "generalHoursRequired" ? "General" : key === "starlightHoursRequired" ? "Starlight" : "Apple Capital"} hours`}
           </label>
         ))}
       </fieldset>
@@ -195,35 +203,20 @@ export function AccountTableRow({
           )}
         </td>
       )}
-      {!compact &&
-        accountColumns.slice(1).map(([key], index) => {
-          if (key === "athletes" || !columns[key]) return null;
-          const completed =
-            summary?.completed[
-              (["general", "starlight", "appleCapital"] as const)[index]
-            ] ?? 0;
-          const required =
-            account.requireWorkshare === false
-              ? 0
-              : season
-                ? (summary?.requirements[key] ?? null)
-                : account[key];
-          return (
-            <td key={key} className="whitespace-nowrap tabular-nums">
-              {summaryError ? (
-                <span aria-label="Hours unavailable">—</span>
-              ) : summaryLoading ? (
-                <span aria-label="Loading hours">…</span>
-              ) : (
-                <span
-                  aria-label={`${completed} completed / ${required ?? "unset"} required hours`}
-                >
-                  {completed}/{required ?? "-"}
-                </span>
-              )}
-            </td>
-          );
-        })}
+      {!compact && columns.generalHoursRequired && (
+        <td className="whitespace-nowrap tabular-nums">
+          {summaryError ? <span aria-label="Hours unavailable">—</span> : summaryLoading ? <span aria-label="Loading hours">…</span> : (
+            <div className={styles.hoursList}>
+              {hourKeys.map((key, index) => {
+                const completed = summary?.completed[( ["general", "starlight", "appleCapital"] as const)[index]] ?? 0;
+                const required = account.requireWorkshare === false ? 0 : season ? (summary?.requirements[key] ?? null) : account[key];
+                const label = ["General", "Starlight", "Apple Capital"][index];
+                return <span key={key} aria-label={`${label}: ${completed} completed / ${required ?? "unset"} required hours`}><span className={styles.hoursLabel}>{label}</span> {completed}/{required ?? "-"}</span>;
+              })}
+            </div>
+          )}
+        </td>
+      )}
       {!compact && (
         <td>
           <div className={styles.rowActions}>

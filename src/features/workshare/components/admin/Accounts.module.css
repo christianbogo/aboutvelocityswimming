@@ -248,7 +248,11 @@
 }
 .columns {
   position: relative;
+  z-index: 40;
   font-size: 0.875rem;
+}
+.columns[open] {
+  z-index: 60;
 }
 .columns summary {
   display: flex;
@@ -267,7 +271,7 @@
 }
 .columnMenu {
   position: absolute;
-  z-index: 5;
+  z-index: 60;
   right: 0;
   top: calc(100% + 0.5rem);
   width: 13rem;
@@ -276,6 +280,15 @@
   border-radius: 0.75rem;
   background: var(--color-surface);
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+}
+.hoursList {
+  display: grid;
+  gap: 0.375rem;
+}
+.hoursLabel {
+  display: inline-block;
+  min-width: 6.5rem;
+  color: var(--text-secondary);
 }
 .columnMenu label {
   display: flex;
