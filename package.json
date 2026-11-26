@@ -62,7 +62,7 @@
     "fflate": "0.8.3",
     "framer-motion": "^13.1.0",
     "lucide-react": "^1.21.0",
-    "next": "16.2.12",
+    "next": "16.4.6",
     "node-ical": "^0.26.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -77,17 +77,17 @@
     "@types/react-dom": "^19",
     "csv-parse": "^7.0.2",
     "eslint": "^9",
-    "eslint-config-next": "16.2.12",
+    "eslint-config-next": "16.4.6",
     "iconv-lite": "^0.7.3",
     "jsdom": "^31.0.1",
     "playwright": "^1.64.0",
     "prettier": "3.9.9",
-    "sharp": "0.34.5",
+    "sharp": "0.35.5",
     "tailwindcss": "^4.3.3",
     "typescript": "^5",
     "vitest": "^5.0.3"
   },
   "engines": {
-    "node": ">=24 <25"
+    "node": ">=24.15.0 <25"
   }
 }

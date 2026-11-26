@@ -1,6 +1,6 @@
 # Velocity Swimming
 
-The website and tools share one Next.js app and Supabase project `hgsghjqefynhbavmkehv`. Use Node 24, `npm ci`, and `npm run dev`. Ordinary development uses the configured backend; synthetic local development uses `supabase start`, `npm run seed:local`, and `npm run dev:local`. Never seed a hosted database.
+The website and tools share one Next.js app and Supabase project `hgsghjqefynhbavmkehv`. Use the latest Node 24 LTS (24.15.0 or newer), `npm ci`, and `npm run dev`. Ordinary development uses the configured backend; synthetic local development uses `supabase start`, `npm run seed:local`, and `npm run dev:local`. Never seed a hosted database.
 
 - `/tools/data` is the owner's swimming data editor: Results, Swimmers, Meets, Standards, and Import File. Manual saves and meet files write directly after validation.
 - `/tools/my-times`, `/tools/rankings`, `/tools/records`, and `/tools/standards` display eligible canonical data. Flagged and other excluded results remain stored.

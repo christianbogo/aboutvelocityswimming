@@ -259,6 +259,10 @@ try {
   await records.getByRole("button", { name: "Boys", exact: true }).click();
   assert.equal(await records.getAttribute("data-mobile-gender"), "M");
   await records
+    .getByRole("group", { name: "Record course", exact: true })
+    .getByRole("button", { name: "LCM", exact: true })
+    .click();
+  await records
     .getByRole("button", { name: "LCM 13–14 records", exact: true })
     .click();
   await page.reload();

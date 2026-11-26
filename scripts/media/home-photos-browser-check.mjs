@@ -93,7 +93,8 @@ try {
     );
 
     try {
-      await page.goto(baseURL.href, { waitUntil: "networkidle" });
+      // Background route prefetches can stay open; wait for each image below.
+      await page.goto(baseURL.href, { waitUntil: "domcontentloaded" });
       const hero = page.getByAltText("Velocity Swimming Practice", {
         exact: true,
       });
