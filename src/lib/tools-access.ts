@@ -56,6 +56,7 @@ export function isStaffToolsPath(pathname: string) {
     within(pathname, "/tools/admin") ||
     [
       "/api/workshare/accounts",
+      "/api/workshare/athletes",
       "/api/workshare/seasons",
       "/api/workshare/tickets",
     ].some((prefix) => within(pathname, prefix))

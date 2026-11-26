@@ -27,7 +27,7 @@
     "test:workshare:summary:database": "node --test tests/workshare-account-summary.integration.mjs",
     "test:workshare:staff:database": "node --test tests/workshare-domain-staff.integration.mjs",
     "test:workshare:summary:browser": "node scripts/workshare/account-summary-browser-check.mjs",
-    "test:database": "node --test tests/unified.integration.mjs && npm run test:records:database && npm run test:times:database && npm run test:moderation:database && npm run test:profile:database && npm run test:data:database && npm run test:attendance:database",
+    "test:database": "node --test tests/unified.integration.mjs && npm run test:records:database && npm run test:times:database && npm run test:moderation:database && npm run test:profile:database && npm run test:data:database && npm run test:attendance:database && npm run test:athletes:database",
     "test:profile:database": "node --test tests/account-profile.integration.mjs tests/account-athletes.integration.mjs",
     "test:profile:browser": "node scripts/unified/account-profile-browser-check.mjs",
     "test:passkey:browser": "node scripts/unified/account-passkey-browser-check.mjs",
@@ -51,6 +51,7 @@
     "test:data:database": "node --test tests/data-management.integration.mjs",
     "test:data:retirement": "node --test tests/data-retirement.integration.mjs",
     "test:data:browser": "node --import ./scripts/workshare/register-typescript.mjs scripts/results/browser-check.mjs",
+    "test:athletes:database": "node --test tests/workshare-athletes.integration.mjs",
     "test:attendance:database": "node --test tests/attendance.integration.mjs"
   },
   "dependencies": {

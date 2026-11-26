@@ -35,18 +35,6 @@ import {
 import { TicketsPanel } from "./TicketsPanel";
 import styles from "./Accounts.module.css";
 
-const trainingGroups = [
-  "Splash",
-  "Pre-Team",
-  "Prep",
-  "Age Groupers",
-  "Juniors",
-  "Seniors",
-  "Masters",
-  "Rec Team",
-  "Coaches",
-  "Board Members",
-];
 function TimesLink({
   value,
   onChange,
@@ -564,13 +552,7 @@ export function AccountEditor({
                   }
                 >
                   <option value="">Select training group</option>
-                  {[
-                    ...new Set([
-                      ...trainingGroups,
-                      ...groups,
-                      athlete.trainingGroup,
-                    ]),
-                  ]
+                  {[...new Set([...groups, athlete.trainingGroup])]
                     .filter(Boolean)
                     .map((group) => (
                       <option key={group} value={group}>

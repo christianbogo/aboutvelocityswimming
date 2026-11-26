@@ -1255,6 +1255,7 @@ export type Database = {
           times_athlete_id: string | null
           training_group: string
         }
+        ComputedFields: never
         Insert: {
           account_id: string
           full_name: string
@@ -1280,6 +1281,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "workshare_athletes_group_fkey"
+            columns: ["training_group"]
+            isOneToOne: false
+            referencedRelation: "workshare_groups"
+            referencedColumns: ["name"]
+          },
+          {
             foreignKeyName: "workshare_athletes_times_athlete_id_fkey"
             columns: ["times_athlete_id"]
             isOneToOne: false
@@ -1287,6 +1295,28 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      workshare_groups: {
+        Row: {
+          coach: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        ComputedFields: never
+        Insert: {
+          coach?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          coach?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       workshare_members: {
         Row: {
@@ -1553,6 +1583,7 @@ export type Database = {
       }
     }
     Functions: {
+      manage_workshare_athletes: { Args: { input: Json }; Returns: Json }
       claim_shift_reminders: { Args: { dry_run?: boolean }; Returns: Json }
       commit_records: {
         Args: { reads: Json; writes: Json }

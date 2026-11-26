@@ -34,8 +34,14 @@ import {
 import { useSidebarFocus } from "@/components/shared/ToolSidebarFocus";
 import styles from "./Accounts.module.css";
 import { AccountPaneDivider } from "./AccountPaneDivider";
+import { AthletesPanel } from "./AthletesPanel";
+import { loadTrainingGroups, type TrainingGroup } from "../../lib/athletes";
+
+const adminTabs = ["accounts", "athletes", "tickets"] as const;
 
 export function FamiliesAdmin() {
+  const [managedGroups, setManagedGroups] = useState<TrainingGroup[]>([]);
+  const [athleteEditing, setAthleteEditing] = useState(false);
   const [accounts, setAccounts] = useState<WorkshareAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [seasons, setSeasons] = useState<WorkshareSeason[]>([]);
@@ -53,7 +59,12 @@ export function FamiliesAdmin() {
     template?: WorkshareTicket;
   } | null>(null);
   const params = useSearchParams();
-  const tab = params.get("tab") === "tickets" ? "tickets" : "accounts";
+  const tab =
+    params.get("tab") === "athletes"
+      ? "athletes"
+      : params.get("tab") === "tickets"
+        ? "tickets"
+        : "accounts";
   const season =
     seasons.find((item) => item.id === params.get("season")) ??
     defaultSeason(seasons);
@@ -156,8 +167,10 @@ export function FamiliesAdmin() {
     void Promise.all([
       loadWorkshareAccounts(controller.signal),
       loadSeasons(controller.signal),
+      loadTrainingGroups(controller.signal),
     ])
-      .then(([data, loadedSeasons]) => {
+      .then(([data, loadedSeasons, loadedGroups]) => {
+        setManagedGroups(loadedGroups);
         setAccounts(data);
         setSeasons(loadedSeasons);
         setLoading(false);
@@ -208,7 +221,11 @@ export function FamiliesAdmin() {
     window.history.replaceState(null, "", `?${query}`);
   }, [season, params]);
   const locked =
-    activeEditor !== null || ticketEditing || composer !== null || seasonDialog;
+    activeEditor !== null ||
+    ticketEditing ||
+    composer !== null ||
+    seasonDialog ||
+    athleteEditing;
   const seasonSelector = (
     <label className="relative grid gap-1 text-xs font-semibold leading-4">
       <span className="sr-only">Workshare season</span>
@@ -239,15 +256,7 @@ export function FamiliesAdmin() {
     allAccounts: accounts,
     onTicketEditingChange: setTicketEditing,
   };
-  const groups = [
-    ...new Set(
-      accounts
-        .flatMap((account) =>
-          account.athletes.map((athlete) => athlete.trainingGroup),
-        )
-        .filter(Boolean),
-    ),
-  ].sort();
+  const groups = managedGroups.map((item) => item.name);
   const term = search.trim().toLowerCase();
   const filtered = accounts
     .filter((account) => {
@@ -294,7 +303,7 @@ export function FamiliesAdmin() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className={styles.tabs}>
             <div role="tablist" aria-label="Admin sections" className="flex">
-              {(["accounts", "tickets"] as const).map((value) => (
+              {adminTabs.map((value) => (
                 <button
                   key={value}
                   id={`${tabId}-${value}`}
@@ -312,14 +321,18 @@ export function FamiliesAdmin() {
                     )
                       return;
                     event.preventDefault();
+                    const index = adminTabs.indexOf(value);
                     const target =
                       event.key === "Home"
-                        ? "accounts"
+                        ? adminTabs[0]
                         : event.key === "End"
-                          ? "tickets"
-                          : value === "accounts"
-                            ? "tickets"
-                            : "accounts";
+                          ? adminTabs[adminTabs.length - 1]
+                          : adminTabs[
+                              (index +
+                                (event.key === "ArrowRight" ? 1 : -1) +
+                                adminTabs.length) %
+                                adminTabs.length
+                            ];
                     selectView({ tab: target });
                     document.getElementById(`${tabId}-${target}`)?.focus();
                   }}
@@ -327,80 +340,98 @@ export function FamiliesAdmin() {
                   className={styles.tabButton}
                   onClick={() => selectView({ tab: value })}
                 >
-                  {value === "accounts" ? "Accounts" : "Tickets"}
+                  {value === "accounts"
+                    ? "Accounts"
+                    : value === "athletes"
+                      ? "Athletes"
+                      : "Tickets"}
                 </button>
               ))}
             </div>
-            <button
-              type="button"
-              className={styles.tabButton}
-              disabled={
-                switching ||
-                ticketEditing ||
-                !!composer ||
-                seasonDialog ||
-                loading ||
-                !!error
-              }
-              onClick={() => void selectAccount(null)}
-            >
-              <Plus className="size-4" aria-hidden="true" />
-              Add account
-            </button>
-          </div>
-          <div className="flex flex-wrap items-end gap-2">
-            {tab === "tickets" && (
-              <Button
-                size="sm"
-                disabled={locked || loading || !!error || !season}
-                onClick={() => addTicket()}
-              >
-                Add ticket
-              </Button>
-            )}
-            {tab === "tickets" && seasonSelector}
-            {!seasons.length && (
-              <Button
+            {tab !== "athletes" && (
+              <button
                 type="button"
-                size="sm"
-                variant="outline"
-                disabled={locked || loading || !!error}
-                onClick={() => setSeasonDialog(true)}
+                className={styles.tabButton}
+                disabled={
+                  switching ||
+                  ticketEditing ||
+                  !!composer ||
+                  seasonDialog ||
+                  loading ||
+                  !!error
+                }
+                onClick={() => void selectAccount(null)}
               >
-                Create first season
-              </Button>
+                <Plus className="size-4" aria-hidden="true" />
+                Add account
+              </button>
             )}
           </div>
+          {tab !== "athletes" && (
+            <div className="flex flex-wrap items-end gap-2">
+              {tab === "tickets" && (
+                <Button
+                  size="sm"
+                  disabled={locked || loading || !!error || !season}
+                  onClick={() => addTicket()}
+                >
+                  Add ticket
+                </Button>
+              )}
+              {tab === "tickets" && seasonSelector}
+              {!seasons.length && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={locked || loading || !!error}
+                  onClick={() => setSeasonDialog(true)}
+                >
+                  Create first season
+                </Button>
+              )}
+            </div>
+          )}
         </div>
-        {!loading && !seasons.length && !error && (
+        {tab !== "athletes" && !loading && !seasons.length && !error && (
           <div className="rounded-xl border border-border bg-surface p-4 text-sm text-text-secondary">
             Create the first season to adopt the required hours already entered
             and start adding completed-hours tickets.
           </div>
         )}
-        {summaryResult?.seasonId === season?.id && summaryResult?.error && (
-          <div
-            role="alert"
-            className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-4 text-sm"
-          >
-            <p>{summaryResult.error}</p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={ticketsChanged}
+        {tab !== "athletes" &&
+          summaryResult?.seasonId === season?.id &&
+          summaryResult?.error && (
+            <div
+              role="alert"
+              className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-4 text-sm"
             >
-              Retry season hours
-            </Button>
-          </div>
-        )}
+              <p>{summaryResult.error}</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={ticketsChanged}
+              >
+                Retry season hours
+              </Button>
+            </div>
+          )}
         <div
           role="tabpanel"
           id={`${tabId}-panel`}
           aria-labelledby={`${tabId}-${tab}`}
           className={styles.tabPanel}
         >
-          {tab === "accounts" ? (
+          {tab === "athletes" ? (
+            <AthletesPanel
+              onEditingChange={setAthleteEditing}
+              onLoaded={(data) => {
+                setAccounts(data.accounts);
+                setManagedGroups(data.groups);
+              }}
+            />
+          ) : tab === "accounts" ? (
             <>
               <section aria-label="Account list" className={styles.listPane}>
                 <div className="flex flex-wrap items-center gap-3">

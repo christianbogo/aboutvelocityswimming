@@ -434,3 +434,21 @@ describe("released tools for any verified email", () => {
     );
   });
 });
+
+// The roster API has the same domain-staff scope as the Admin page.
+it("authorizes the athlete roster through database-confirmed Workshare staff", async () => {
+  mocks.getUser.mockResolvedValue({
+    data: {
+      user: {
+        email: "coach@velocity-swimming.com",
+        email_confirmed_at: admin.email_confirmed_at,
+      },
+    },
+    error: null,
+  });
+  mocks.rpc.mockResolvedValue({ data: true, error: null });
+  expect((await proxy(request("/api/workshare/athletes"))).status).toBe(200);
+  expect(mocks.rpc).toHaveBeenCalledWith("is_workshare_staff");
+  mocks.rpc.mockResolvedValue({ data: false, error: null });
+  expect((await proxy(request("/api/workshare/athletes"))).status).toBe(403);
+});

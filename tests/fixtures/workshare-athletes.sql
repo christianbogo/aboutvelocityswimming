@@ -1,0 +1,61 @@
+begin;
+do $test$
+declare
+  staff_id uuid := gen_random_uuid(); outsider_id uuid := gen_random_uuid();
+  account jsonb; old_account jsonb; group_a public.workshare_groups; group_b public.workshare_groups;
+  members jsonb; rejected boolean;
+begin
+  insert into auth.users(id,email,email_confirmed_at,role) values
+    (staff_id,staff_id||'@velocity-swimming.com',now(),'authenticated'),
+    (outsider_id,outsider_id||'@example.test',now(),'authenticated');
+  perform set_config('request.jwt.claims',jsonb_build_object('sub',staff_id,'role','authenticated')::text,true);
+  execute 'set local role authenticated';
+  perform public.manage_workshare_athletes('{"action":"createGroup","name":"Roster Test A","coach":"Coach Avery"}');
+  perform public.manage_workshare_athletes('{"action":"createGroup","name":"Roster Test B","coach":""}');
+  select * into group_a from public.workshare_groups where name='Roster Test A';
+  select * into group_b from public.workshare_groups where name='Roster Test B';
+  account := public.save_workshare_account('{"fullName":"Roster Test Account","emails":[],"athletes":[{"fullName":"Athlete One","trainingGroup":"Roster Test A","timesAthleteId":null,"isArchived":false},{"fullName":"Athlete Two","trainingGroup":"Roster Test A","timesAthleteId":null,"isArchived":true}],"isArchived":false}');
+  old_account := account;
+  select jsonb_agg(jsonb_build_object('id',x->>'id','updatedAt',account->>'updatedAt')) into members from jsonb_array_elements(account->'athletes') x;
+  perform public.manage_workshare_athletes(jsonb_build_object('action','move','destinationId',group_b.id,'athletes',members));
+  if (select count(*) from public.workshare_athletes where account_id=account->>'id' and training_group=group_b.name) <> 2 then raise exception 'Bulk move failed'; end if;
+  rejected := false;
+  begin perform public.save_workshare_account(old_account); exception when serialization_failure then rejected := true; end;
+  if not rejected then raise exception 'Stale account overwrote moved athletes'; end if;
+  rejected := false;
+  begin perform public.manage_workshare_athletes(jsonb_build_object('action','move','destinationId',group_a.id,'athletes',members)); exception when serialization_failure then rejected := true; end;
+  if not rejected then raise exception 'Stale roster overwrote moved athletes'; end if;
+  account := private.workshare_account_snapshot(account->>'id');
+  select jsonb_agg(jsonb_build_object('id',x->>'id','updatedAt',account->>'updatedAt')) into members from jsonb_array_elements(account->'athletes') x;
+  members := jsonb_set(members,'{1,updatedAt}','"2000-01-01T00:00:00Z"');
+  rejected := false;
+  begin perform public.manage_workshare_athletes(jsonb_build_object('action','move','destinationId',group_a.id,'athletes',members)); exception when serialization_failure then rejected := true; end;
+  if not rejected or exists(select 1 from public.workshare_athletes where account_id=account->>'id' and training_group<>group_b.name) then raise exception 'Partial move saved'; end if;
+  perform public.manage_workshare_athletes(jsonb_build_object('action','updateGroup','id',group_b.id,'updatedAt',group_b.updated_at,'name','Roster Test Renamed','coach','Coach Blake'));
+  if (select count(*) from public.workshare_athletes where account_id=account->>'id' and training_group='Roster Test Renamed') <> 2 then raise exception 'Rename did not include archived athletes'; end if;
+  rejected := false;
+  begin perform public.manage_workshare_athletes(jsonb_build_object('action','updateGroup','id',group_b.id,'updatedAt',group_b.updated_at,'name','Stale Name','coach','')); exception when serialization_failure then rejected := true; end;
+  if not rejected then raise exception 'Stale group edit saved'; end if;
+  rejected := false;
+  begin perform public.manage_workshare_athletes('{"action":"createGroup","name":"roster test a","coach":""}'); exception when unique_violation then rejected := true; end;
+  if not rejected then raise exception 'Duplicate name accepted'; end if;
+  select * into group_b from public.workshare_groups where id=group_b.id;
+  if group_b.coach <> 'Coach Blake' then raise exception 'Coach not saved'; end if;
+  rejected := false;
+  begin perform public.manage_workshare_athletes(jsonb_build_object('action','removeGroup','id',group_b.id,'updatedAt',group_b.updated_at,'destinationId','unassigned','athleteIds','[]'::jsonb)); exception when serialization_failure then rejected := true; end;
+  if not rejected then raise exception 'Stale group removal accepted'; end if;
+  select jsonb_agg(id order by id) into members from public.workshare_athletes where account_id=account->>'id';
+  perform public.manage_workshare_athletes(jsonb_build_object('action','removeGroup','id',group_b.id,'updatedAt',group_b.updated_at,'destinationId','unassigned','athleteIds',members));
+  if exists(select 1 from public.workshare_groups where id=group_b.id) or (select count(*) from public.workshare_athletes where account_id=account->>'id' and training_group='') <> 2 then raise exception 'Removal lost athletes or failed reassignment'; end if;
+  delete from public.workshare_groups where id='unassigned';
+  if not exists(select 1 from public.workshare_groups where id='unassigned') then raise exception 'Unassigned group removed'; end if;
+  perform set_config('request.jwt.claims',jsonb_build_object('sub',outsider_id,'role','authenticated')::text,true);
+  if exists(select 1 from public.workshare_groups) then raise exception 'Nonstaff sees groups'; end if;
+  rejected := false;
+  begin perform public.manage_workshare_athletes('{"action":"createGroup","name":"Forbidden","coach":""}'); exception when insufficient_privilege then rejected := true; end;
+  if not rejected then raise exception 'Nonstaff changed roster'; end if;
+  execute 'reset role';
+  if has_function_privilege('anon','public.manage_workshare_athletes(jsonb)','EXECUTE') then raise exception 'Anonymous roster writes allowed'; end if;
+end;
+$test$;
+rollback;
