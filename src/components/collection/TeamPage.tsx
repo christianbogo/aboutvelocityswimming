@@ -28,9 +28,11 @@ function athleteHref(id: string) {
 function Counts({
   counts,
   changes = false,
+  showIcons = true,
 }: {
   counts: RankCounts;
   changes?: boolean;
+  showIcons?: boolean;
 }) {
   return (
     <span className={changes ? s.additionCounts : s.counts}>
@@ -45,7 +47,9 @@ function Counts({
             title={`${name}: ${value}`}
             aria-label={`${name}: ${value}`}
           >
-            <MotivationalRankIcon tier={tier} size={23} decorative />
+            {showIcons && (
+              <MotivationalRankIcon tier={tier} size={23} decorative />
+            )}
             <span className={count > 0 && changes ? s.positive : undefined}>
               {value}
             </span>
@@ -100,7 +104,7 @@ function SwimList({
 export default function TeamPage() {
   const standards = useStandards(true, false);
   const team = useTeamData();
-  const [view, setView] = useState("Career Accomplishments");
+  const [view, setView] = useState("Season Progress");
   const data = team.data;
   const overview = useMemo(
     () => (data ? buildTeamOverview(data, standards.sets) : null),
@@ -138,9 +142,9 @@ export default function TeamPage() {
                   aria-label="Rank Counts view"
                 >
                   {[
-                    "Career Accomplishments",
-                    "Competitive Profile",
                     "Season Progress",
+                    "Competitive Profile",
+                    "Career View",
                   ].map((name) => (
                     <button
                       key={name}
@@ -153,7 +157,7 @@ export default function TeamPage() {
                 </div>
               </div>
               <p className={s.description}>
-                {view === "Career Accomplishments"
+                {view === "Career View"
                   ? "Highest rank for each career-best event and course, scored at the swimmer’s age on the swim date."
                   : view === "Season Progress"
                     ? `Best rank earned per event and course since September 1, ${data.seasonStart.slice(0, 4)}. Ranks use age on the swim date.`
@@ -218,6 +222,7 @@ export default function TeamPage() {
                                   )}
                                 </span>
                                 <Counts
+                                  showIcons={false}
                                   counts={
                                     view === "Season Progress"
                                       ? member.seasonCounts
@@ -384,11 +389,11 @@ function RankDistribution({
   unranked: number;
 }) {
   const segments = [
+    { tier: "unranked", name: "Unranked", color: "#65717c", count: unranked },
     ...motivationalRanks.map((rank) => ({
       ...rank,
       count: counts[rank.tier] ?? 0,
     })),
-    { tier: "unranked", name: "Unranked", color: "#65717c", count: unranked },
   ];
   return (
     <article className={s.profile}>

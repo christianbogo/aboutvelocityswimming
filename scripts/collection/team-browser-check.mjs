@@ -337,9 +337,7 @@ try {
       { exact: true },
     )
     .waitFor();
-  await page
-    .getByRole("button", { name: "Career Accomplishments", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Career View", exact: true }).click();
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   assert.equal(
     teamRequests.length,
