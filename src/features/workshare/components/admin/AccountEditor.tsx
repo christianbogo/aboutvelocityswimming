@@ -35,6 +35,19 @@ import {
 import { TicketsPanel } from "./TicketsPanel";
 import styles from "./Accounts.module.css";
 
+const defaultPracticeGroups = [
+  "Splash",
+  "Pre-Team",
+  "Prep",
+  "Age Groupers",
+  "Juniors",
+  "Seniors",
+  "Masters",
+  "Rec Team",
+  "Coaches",
+  "Board Members",
+];
+
 function TimesLink({
   value,
   onChange,
@@ -147,7 +160,6 @@ export function AccountEditor({
   account,
   onSaved,
   onClose,
-  groups,
   season,
   summary,
   summaryLoading,
@@ -158,6 +170,7 @@ export function AccountEditor({
   ticketRevision,
   onTicketsChanged,
   allAccounts,
+  practiceGroups = defaultPracticeGroups,
   onTicketEditingChange,
   ref,
   switching,
@@ -165,7 +178,6 @@ export function AccountEditor({
   account: WorkshareAccount;
   onSaved: (account: WorkshareAccount) => void;
   onClose: () => void;
-  groups: string[];
   season?: WorkshareSeason;
   summary?: AccountSeasonSummary;
   summaryLoading: boolean;
@@ -176,13 +188,11 @@ export function AccountEditor({
   ticketRevision: number;
   onTicketsChanged: () => void;
   allAccounts: WorkshareAccount[];
+  practiceGroups?: string[];
   onTicketEditingChange: (editing: boolean) => void;
   ref: Ref<AccountEditorHandle>;
   switching: boolean;
 }) {
-  const [athleteSettings, setAthleteSettings] = useState<
-    Record<number, boolean>
-  >({});
   const {
     draft,
     setDraft,
@@ -196,6 +206,16 @@ export function AccountEditor({
     flush,
     reset,
   } = useAccountAutosave(account, onSaved);
+  const [requirementsDraft, setRequirementsDraft] =
+    useState<SeasonRequirements>();
+  const displayedRequirements =
+    requirementsDraft?.seasonId === season?.id
+      ? requirementsDraft
+      : summary?.requirements;
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [athleteSettings, setAthleteSettings] = useState<
+    Record<number, boolean>
+  >({});
   const [closing, setClosing] = useState(false);
   const formId = useId();
   const form = useRef<HTMLFormElement>(null);
@@ -225,6 +245,10 @@ export function AccountEditor({
       requirementsEditor.current?.flush() ?? Promise.resolve(true),
     ]);
     if (results.some((result) => !result)) {
+      setSettingsOpen(true);
+      setAthleteSettings(
+        Object.fromEntries(draft.athletes.map((_, index) => [index, true])),
+      );
       form.current?.reportValidity();
       form.current
         ?.querySelector<HTMLElement>('[role="alert"]')
@@ -263,14 +287,6 @@ export function AccountEditor({
       aria-label={account.id ? `Edit ${account.fullName}` : "New account"}
     >
       <div className={styles.editorHeader}>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
-            Account editor
-          </p>
-          <h2 className="mt-1 break-words text-lg font-bold">
-            {draft.fullName || "New account"}
-          </h2>
-        </div>
         <div className="flex flex-wrap items-center gap-3">
           <Button
             type="button"
@@ -285,12 +301,13 @@ export function AccountEditor({
             variant="outline"
             size="sm"
             disabled={busy || closing || switching || reloadRequired}
-            onClick={() =>
-              setDraft({ ...draft, isArchived: !draft.isArchived })
-            }
+            onClick={() => setDraft({ ...draft, isArchived: !draft.isArchived })}
           >
             {draft.isArchived ? "Unarchive account" : "Archive account"}
           </Button>
+          <h2 className="min-w-0 flex-1 break-words text-lg font-bold">
+            {draft.fullName || "New account"}
+          </h2>
           {!draft.id && !reloadRequired && (
             <Button
               type="button"
@@ -338,7 +355,7 @@ export function AccountEditor({
                   ? "Waiting to save…"
                   : saved
                     ? "All changes saved"
-                    : "Changes save automatically"}
+                    : ""}
           </p>
         </div>
       </div>
@@ -346,6 +363,152 @@ export function AccountEditor({
         disabled={closing || switching}
         className="space-y-5 disabled:opacity-60"
       >
+        <div className="space-y-2">
+          <div className="flex items-end gap-3">
+            <label className="grid w-full min-w-0 max-w-xs content-start gap-1 text-xs font-semibold leading-4">
+              <span>Account full name</span>
+              <Input
+                required
+                data-account-name
+                maxLength={200}
+                value={draft.fullName}
+                onChange={(event) =>
+                  setDraft({ ...draft, fullName: event.target.value })
+                }
+              />
+            </label>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-11 shrink-0 p-0"
+              aria-label="Account settings"
+              aria-expanded={settingsOpen}
+              aria-controls={`${formId}-settings`}
+              onClick={() => setSettingsOpen((open) => !open)}
+            >
+              <Settings className="size-4" aria-hidden="true" />
+            </Button>
+          </div>
+          {!settingsOpen && (
+            <p
+              className="text-xs text-text-secondary"
+              aria-label="Account settings summary"
+            >
+              {[
+                emails
+                  .trim()
+                  .split(/[\n;,]+/)
+                  .map((email) => email.trim())
+                  .filter(Boolean)
+                  .join(", ") || "No emails",
+                draft.requireWorkshare === false
+                  ? "Workshare not required"
+                  : "Workshare required",
+                season
+                  ? summaryLoading
+                    ? "Loading hours…"
+                    : summaryError
+                      ? "Hours unavailable"
+                      : `Required hours: General ${displayedRequirements?.generalHoursRequired ?? "unset"}, Starlight ${displayedRequirements?.starlightHoursRequired ?? "unset"}, Apple Capital ${displayedRequirements?.appleCapitalHoursRequired ?? "unset"}`
+                  : "No season",
+                draft.workshareNote ? `Note: ${draft.workshareNote}` : "",
+                draft.isArchived ? "Archived" : "Active",
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          )}
+        </div>
+        <div
+          id={`${formId}-settings`}
+          hidden={!settingsOpen}
+          className="space-y-4"
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="grid w-full min-w-0 max-w-sm content-start gap-1 text-xs font-semibold leading-4">
+              <span>Account / athlete emails</span>
+              <textarea
+                rows={3}
+                className="block w-full rounded-lg border border-border bg-surface p-3 text-sm font-normal"
+                value={emails}
+                placeholder="One email per line"
+                onChange={(event) => setEmails(event.target.value)}
+              />
+            </label>
+          </div>
+          <section
+            aria-label="Workshare settings"
+            className="space-y-3 border-t border-border pt-4"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold">Require Workshare</h3>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-label="Require Workshare"
+                aria-checked={draft.requireWorkshare !== false}
+                className={styles.requireToggle}
+                onClick={() =>
+                  setDraft({
+                    ...draft,
+                    requireWorkshare: draft.requireWorkshare === false,
+                  })
+                }
+              >
+                <span aria-hidden="true" className={styles.switchTrack}>
+                  <span />
+                </span>
+                {draft.requireWorkshare === false ? "No" : "Yes"}
+              </button>
+            </div>
+
+            {season && draft.id && !summaryLoading && !summaryError ? (
+              <RequirementsEditor
+                key={`${season.id}-${draft.id}`}
+                ref={requirementsEditor}
+                requirements={
+                  summary?.requirements ?? {
+                    accountId: draft.id,
+                    seasonId: season.id,
+                    generalHoursRequired: null,
+                    starlightHoursRequired: null,
+                    appleCapitalHoursRequired: null,
+                    updatedAt: null,
+                  }
+                }
+                onSaved={onRequirementsSaved}
+                onDraftChange={setRequirementsDraft}
+              />
+            ) : (
+              <p className="text-xs text-text-secondary">
+                {!season
+                  ? "Select a season to set hours."
+                  : summaryError
+                    ? "Hours unavailable. Retry above."
+                    : summaryLoading
+                      ? "Loading hours…"
+                      : "Save the account to set hours."}
+              </p>
+            )}
+            <label className="grid gap-1 text-xs font-semibold">
+              <span>Note to Account</span>
+              <textarea
+                rows={3}
+                maxLength={2000}
+                aria-label="Note to Account"
+                className="w-full rounded-lg border border-border bg-surface p-3 text-sm font-normal"
+                value={draft.workshareNote ?? ""}
+                onChange={(event) =>
+                  setDraft({ ...draft, workshareNote: event.target.value })
+                }
+              />
+            </label>
+            <div className="w-fit self-start">
+            </div>
+          </section>
+        </div>
         {season && draft.id && (
           <section
             aria-label="Tickets and work completed"
@@ -363,118 +526,6 @@ export function AccountEditor({
             />
           </section>
         )}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="grid w-full min-w-0 max-w-xs content-start gap-1 text-xs font-semibold leading-4">
-            <span>Account full name</span>
-            <Input
-              required
-              data-account-name
-              maxLength={200}
-              value={draft.fullName}
-              onChange={(event) =>
-                setDraft({ ...draft, fullName: event.target.value })
-              }
-            />
-          </label>
-          <label className="grid w-full min-w-0 max-w-sm content-start gap-1 text-xs font-semibold leading-4">
-            <span>Account / athlete emails</span>
-            <textarea
-              rows={3}
-              className="block w-full rounded-lg border border-border bg-surface p-3 text-sm font-normal"
-              value={emails}
-              placeholder="One email per line"
-              onChange={(event) => setEmails(event.target.value)}
-            />
-          </label>
-        </div>
-        <section
-          aria-label="Workshare settings"
-          className="space-y-3 border-t border-border pt-4"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold">Require Workshare</h3>
-              <p className="mt-1 text-xs text-text-secondary">
-                Applies to this account across all seasons.
-              </p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-label="Require Workshare"
-              aria-checked={draft.requireWorkshare !== false}
-              className={styles.requireToggle}
-              onClick={() =>
-                setDraft({
-                  ...draft,
-                  requireWorkshare: draft.requireWorkshare === false,
-                })
-              }
-            >
-              <span aria-hidden="true" className={styles.switchTrack}>
-                <span />
-              </span>
-              {draft.requireWorkshare === false ? "No" : "Yes"}
-            </button>
-          </div>
-          {draft.requireWorkshare === false && (
-            <p className="text-xs text-text-secondary">
-              Workshare is not required. Saved quotas and completed tickets are
-              retained.
-            </p>
-          )}
-          <label className="grid gap-1 text-xs font-semibold">
-            <span>Note to Account</span>
-            <textarea
-              rows={3}
-              maxLength={2000}
-              aria-label="Note to Account"
-              aria-describedby={`${formId}-note-help`}
-              className="w-full rounded-lg border border-border bg-surface p-3 text-sm font-normal"
-              placeholder="A note about this account’s workshare hours…"
-              value={draft.workshareNote ?? ""}
-              onChange={(event) =>
-                setDraft({ ...draft, workshareNote: event.target.value })
-              }
-            />
-            <span
-              id={`${formId}-note-help`}
-              className="font-normal text-text-secondary"
-            >
-              Shown on the account holder’s Workshare Tracking page.
-            </span>
-          </label>
-          <h3 className="text-sm font-semibold">
-            Required hours{season ? ` · ${season.name}` : ""}
-          </h3>
-          {season && draft.id && !summaryLoading && !summaryError ? (
-            <RequirementsEditor
-              key={`${season.id}-${draft.id}`}
-              ref={requirementsEditor}
-              requirements={
-                summary?.requirements ?? {
-                  accountId: draft.id,
-                  seasonId: season.id,
-                  generalHoursRequired: null,
-                  starlightHoursRequired: null,
-                  appleCapitalHoursRequired: null,
-                  updatedAt: null,
-                }
-              }
-              onSaved={onRequirementsSaved}
-            />
-          ) : (
-            <p className="text-xs text-text-secondary">
-              {!season
-                ? "Create a season to manage required hours and tickets. Existing requirements will be adopted into the first season."
-                : summaryError
-                  ? "Season hours are unavailable. Retry loading season hours above."
-                  : summaryLoading
-                    ? "Loading season requirements…"
-                    : "Required hours are available after this account is created."}
-            </p>
-          )}
-        </section>
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-sm font-semibold">Athletes</h3>
@@ -504,10 +555,10 @@ export function AccountEditor({
           {draft.athletes.map((athlete, index) => (
             <div
               key={index}
-              className="grid items-start gap-3 rounded-xl border border-border bg-surface p-3 sm:grid-cols-2"
+              className={`space-y-3 ${index > 0 ? "border-t border-border pt-4" : ""}`}
             >
-              <div className="flex items-end gap-2 sm:col-span-2">
-                <label className="grid min-w-0 flex-1 content-start gap-1 text-xs font-semibold leading-4">
+              <div className="flex items-end gap-3">
+                <label className="grid w-full min-w-0 max-w-xs content-start gap-1 text-xs font-semibold leading-4">
                   <span>Athlete full name</span>
                   <Input
                     required
@@ -523,12 +574,10 @@ export function AccountEditor({
                   variant="outline"
                   className="h-11 shrink-0"
                   aria-label={`${athlete.isArchived ? "Unarchive" : "Archive"} athlete: ${athlete.fullName}`}
-                  onClick={() =>
-                    changeAthlete(index, {
-                      isArchived: !athlete.isArchived,
-                      trainingGroup: "",
-                    })
-                  }
+                  onClick={() => changeAthlete(index, {
+                    isArchived: !athlete.isArchived,
+                    trainingGroup: "",
+                  })}
                 >
                   {athlete.isArchived ? "Unarchive" : "Archive"}
                 </Button>
@@ -536,49 +585,69 @@ export function AccountEditor({
                   type="button"
                   variant="outline"
                   className="h-11 w-11 shrink-0 p-0"
-                  aria-label={`Athlete settings: ${athlete.fullName}`}
+                  aria-label={`Athlete settings: ${athlete.fullName || "New athlete"}`}
                   aria-expanded={!!athleteSettings[index]}
+                  aria-controls={`${formId}-athlete-${index}`}
                   onClick={() =>
-                    setAthleteSettings((old) => ({
-                      ...old,
-                      [index]: !old[index],
+                    setAthleteSettings((previous) => ({
+                      ...previous,
+                      [index]: !previous[index],
                     }))
                   }
                 >
                   <Settings className="size-4" aria-hidden="true" />
                 </Button>
               </div>
-              {athlete.isArchived && (
-                <p className="text-xs text-text-secondary sm:col-span-2">
-                  Archived · No training group
+              {!athleteSettings[index] && (
+                <p
+                  className="text-xs text-text-secondary"
+                  aria-label={`Settings summary: ${athlete.fullName || "New athlete"}`}
+                >
+                  {[
+                    athlete.trainingGroup || "No practice group",
+                    athlete.timesAthleteId
+                      ? `Times ID: ${athlete.timesAthleteId}`
+                      : "Times not linked",
+                    athlete.isArchived ? "Archived" : "Active",
+                  ].join(" · ")}
                 </p>
               )}
               <div
+                id={`${formId}-athlete-${index}`}
                 hidden={!athleteSettings[index]}
-                className="space-y-3 sm:col-span-2"
+                className="space-y-3"
               >
-                <label className="grid w-full min-w-0 max-w-64 content-start gap-1 text-xs font-semibold leading-4">
-                  <span>Training group</span>
-                  <select
-                    className="block h-11 w-full min-w-0 rounded-lg border border-border bg-surface px-3.5 py-2 text-sm text-text-primary transition-all focus-visible:border-[#0A856C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/20"
-                    disabled={athlete.isArchived}
-                    value={athlete.trainingGroup}
-                    onChange={(event) =>
-                      changeAthlete(index, {
-                        trainingGroup: event.target.value,
-                      })
-                    }
-                  >
-                    <option value="">Select training group</option>
-                    {[...new Set([...groups, athlete.trainingGroup])]
-                      .filter(Boolean)
-                      .map((group) => (
-                        <option key={group} value={group}>
-                          {group}
-                        </option>
-                      ))}
-                  </select>
-                </label>
+                <fieldset className="space-y-2" disabled={athlete.isArchived}>
+                  <legend className="text-xs font-semibold">
+                    Practice group
+                  </legend>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      "",
+                      ...new Set(
+                        [...practiceGroups, athlete.trainingGroup].filter(
+                          Boolean,
+                        ),
+                      ),
+                    ].map((group) => (
+                      <label key={group} className="cursor-pointer">
+                        <input
+                          type="radio"
+                          className="peer sr-only"
+                          name={`${formId}-practice-group-${index}`}
+                          value={group}
+                          checked={athlete.trainingGroup === group}
+                          onChange={() =>
+                            changeAthlete(index, { trainingGroup: group })
+                          }
+                        />
+                        <span className="block rounded-lg border border-border px-3 py-2 text-xs peer-checked:border-accent peer-checked:bg-accent peer-checked:text-primary-ink peer-focus-visible:ring-2 peer-focus-visible:ring-accent">
+                          {group || "None"}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
                 <div className="grid w-full min-w-0 max-w-sm content-start gap-1">
                   <p className="text-xs font-semibold leading-4">
                     Times database linkage
@@ -618,10 +687,7 @@ export function AccountEditor({
             </p>
           )}
         </div>
-        <p className="text-xs text-text-secondary">
-          Leave unknown requirements blank. Enter 0 when no hours are required.
-          Tickets count toward the selected season’s completed hours.
-        </p>
+
         {error && (
           <p role="alert" className="text-sm text-red-600">
             {error}

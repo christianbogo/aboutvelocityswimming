@@ -17,7 +17,6 @@ export function getToolPages(tool: ToolId): ToolPage[] {
     case "my-times":
     case "goals":
     case "team-map":
-    case "layout-drafting":
     case "rankings":
     case "records":
     case "standards":

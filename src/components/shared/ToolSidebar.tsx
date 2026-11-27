@@ -325,18 +325,18 @@ export default function ToolSidebar({
           </div>
           <div className={styles.footer}>
             {renderFooter(
-              collapsed && !mobileOpen && <button
+              !mobileOpen && <button
                 type="button"
                 className={`${styles.item} ${styles.footerAction} ${styles.expandControl}`}
                 ref={expandButton}
                 aria-controls={sidebarId}
-                aria-expanded={false}
-                aria-label="Open navigation sidebar"
-                title="Expand navigation sidebar"
-                onClick={() => setDesktopCollapsed(false)}
+                aria-expanded={!collapsed}
+                aria-label={collapsed ? "Open navigation sidebar" : "Collapse navigation sidebar"}
+                title={collapsed ? "Expand navigation sidebar" : "Collapse navigation sidebar"}
+                onClick={() => setDesktopCollapsed(!collapsed)}
               >
-                <PanelLeftOpen aria-hidden="true" />
-                <span>Expand</span>
+                {collapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
+                <span>{collapsed ? "Expand" : "Collapse"}</span>
               </button>,
             )}
           </div>

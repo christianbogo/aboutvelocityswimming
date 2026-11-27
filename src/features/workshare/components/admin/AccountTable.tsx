@@ -82,7 +82,7 @@ export function ColumnControls({
       </summary>
       <fieldset className={styles.columnMenu}>
         <legend className="sr-only">Visible account columns</legend>
-        {columnKeys.map((key) => (
+        {accountColumns.map(([key, label]) => (
           <label key={key}>
             <input
               type="checkbox"
@@ -91,7 +91,7 @@ export function ColumnControls({
                 onChange({ ...columns, [key]: event.target.checked })
               }
             />
-            {key === "athletes" ? "Athletes" : `${key === "generalHoursRequired" ? "General" : key === "starlightHoursRequired" ? "Starlight" : "Apple Capital"} hours`}
+            {label}
           </label>
         ))}
       </fieldset>
@@ -194,9 +194,9 @@ export function AccountTableRow({
                       </span>
                     )}
                   </p>
-                  <p className="mt-1 text-xs text-text-secondary">
-                    {athlete.trainingGroup || "Group unset"}
-                  </p>
+                  {!athlete.isArchived && athlete.trainingGroup && (
+                    <p className="mt-1 text-xs text-text-secondary">{athlete.trainingGroup}</p>
+                  )}
                 </li>
               ))}
             </ul>

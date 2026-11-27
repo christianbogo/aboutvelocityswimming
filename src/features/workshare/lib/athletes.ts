@@ -9,6 +9,7 @@ export interface TrainingGroup {
   sort_order: number;
 }
 export interface AthleteRoster {
+  swimCounts?: Record<string, number>;
   groups: TrainingGroup[];
   accounts: WorkshareAccount[];
 }

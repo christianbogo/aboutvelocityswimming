@@ -252,3 +252,15 @@ it("opens the athlete's account, hides chosen columns, and offers the Archived l
       .hasAttribute("disabled"),
   ).toBe(true);
 });
+
+it("shows linked swim counts and allows hiding the Swims column", async () => {
+  const linked = structuredClone(roster);
+  linked.accounts[0].athletes[0].timesAthleteId = "times-alex";
+  linked.swimCounts = { "times-alex": 1234 };
+  vi.mocked(loadAthleteRoster).mockResolvedValue(linked);
+  show();
+  expect(await screen.findByText("1,234")).toBeTruthy();
+  fireEvent.click(screen.getByText("Columns"));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Swims" }));
+  expect(screen.queryByRole("columnheader", { name: "Swims" })).toBeNull();
+});

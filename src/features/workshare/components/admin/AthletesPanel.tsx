@@ -60,13 +60,15 @@ export function AthletesPanel({
   const [columnOverride, setColumnOverride] = useState<{
     account: boolean;
     group: boolean;
+    swims: boolean;
   }>();
-  let columns = { account: true, group: true };
+  let columns = { account: true, group: true, swims: true };
   try {
     const saved = JSON.parse(storedColumns);
     columns = {
       account: saved.account !== false,
       group: saved.group !== false,
+      swims: saved.swims !== false,
     };
   } catch {
     /* Use defaults. */
@@ -340,6 +342,7 @@ export function AthletesPanel({
               <button
                 key={group.id}
                 className={styles.group}
+                data-archived-divider={group.id === "archived"}
                 aria-label={`${group.name}, ${members.length} athletes${"coach" in group ? `, ${group.coach || "No coach assigned"}` : ""}`}
                 aria-pressed={filter === group.id}
                 disabled={busy || loading || !!editor || !!ordering}
@@ -711,7 +714,7 @@ export function AthletesPanel({
             </summary>
             <fieldset className="space-y-2 p-2">
               <legend className="sr-only">Visible athlete columns</legend>
-              {(["account", "group"] as const).map((key) => (
+              {(["account", "group", "swims"] as const).map((key) => (
                 <label key={key} className="flex gap-2">
                   <input
                     type="checkbox"
@@ -720,7 +723,7 @@ export function AthletesPanel({
                       setColumns({ ...columns, [key]: event.target.checked })
                     }
                   />
-                  {key === "account" ? "Account" : "Group"}
+                  {key === "account" ? "Account" : key === "group" ? "Group" : "Swims"}
                 </label>
               ))}
             </fieldset>
@@ -757,6 +760,7 @@ export function AthletesPanel({
                   <th>Athlete</th>
                   {columns.account && <th>Account</th>}
                   {columns.group && <th>Group</th>}
+                  {columns.swims && <th>Swims</th>}
                 </tr>
               </thead>
               <tbody>
@@ -782,6 +786,7 @@ export function AthletesPanel({
                     <td>
                       <input
                         type="checkbox"
+                        className={styles.rowSelect}
                         aria-label={`Select ${athlete.fullName}`}
                         disabled={
                           athlete.isArchived ||
@@ -836,13 +841,14 @@ export function AthletesPanel({
                           : athlete.trainingGroup || "Unassigned"}
                       </td>
                     )}
+                    {columns.swims && <td>{athlete.timesAthleteId ? (roster?.swimCounts?.[athlete.timesAthleteId]?.toLocaleString() ?? "—") : "—"}</td>}
                   </tr>
                 ))}
                 {!visible.length && (
                   <tr>
                     <td
                       colSpan={
-                        2 + Number(columns.account) + Number(columns.group)
+                        2 + Number(columns.account) + Number(columns.group) + Number(columns.swims)
                       }
                       className="text-center"
                     >

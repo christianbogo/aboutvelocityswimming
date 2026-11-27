@@ -40,7 +40,7 @@ import { loadTrainingGroups, type TrainingGroup } from "../../lib/athletes";
 const adminTabs = ["accounts", "athletes", "tickets"] as const;
 
 export function FamiliesAdmin() {
-  const [managedGroups, setManagedGroups] = useState<TrainingGroup[]>([]);
+  const [groups, setGroups] = useState<TrainingGroup[]>([]);
   const [athleteEditing, setAthleteEditing] = useState(false);
   const [accounts, setAccounts] = useState<WorkshareAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,7 +125,6 @@ export function FamiliesAdmin() {
   const [attempt, setAttempt] = useState(0);
   const [search, setSearch] = useState("");
   const [archive, setArchive] = useState("active");
-  const [group, setGroup] = useState("");
   const [newAccount, setNewAccount] = useState<WorkshareAccount | null>(null);
   const adding = newAccount !== null;
   const [activeEditor, setActiveEditor] = useState<string | null>(null);
@@ -143,11 +142,14 @@ export function FamiliesAdmin() {
   async function selectAccount(account: WorkshareAccount | null) {
     if (switchingRef.current || ticketEditing || composer || seasonDialog)
       return;
-    if (account?.id && account.id === selectedAccount?.id) return;
     switchingRef.current = true;
     setSwitching(true);
     try {
       if (editor.current && !(await editor.current.flush())) return;
+      if (account?.id && account.id === selectedAccount?.id) {
+        closeEditor();
+        return;
+      }
       if (tab !== "accounts") selectView({ tab: "accounts" });
       setNewAccount(account ? null : emptyAccount());
       setActiveEditor(account?.id ?? "new");
@@ -170,7 +172,7 @@ export function FamiliesAdmin() {
       loadTrainingGroups(controller.signal),
     ])
       .then(([data, loadedSeasons, loadedGroups]) => {
-        setManagedGroups(loadedGroups);
+        setGroups(loadedGroups);
         setAccounts(data);
         setSeasons(loadedSeasons);
         setLoading(false);
@@ -232,7 +234,7 @@ export function FamiliesAdmin() {
       <select
         value={season?.id ?? ""}
         disabled={locked || loading || !seasons.length}
-        className="h-11 max-w-64 rounded-lg border border-border bg-surface px-3 text-sm"
+        className={`h-11 max-w-64 rounded-lg border border-border bg-surface px-3 text-sm ${styles.select}`}
         onChange={(event) => selectView({ season: event.target.value })}
       >
         {!seasons.length && <option value="">No seasons yet</option>}
@@ -254,9 +256,9 @@ export function FamiliesAdmin() {
     ticketRevision,
     onTicketsChanged: ticketsChanged,
     allAccounts: accounts,
+    practiceGroups: groups.map((group) => group.name),
     onTicketEditingChange: setTicketEditing,
   };
-  const groups = managedGroups.map((item) => item.name);
   const term = search.trim().toLowerCase();
   const filtered = accounts
     .filter((account) => {
@@ -265,12 +267,6 @@ export function FamiliesAdmin() {
         !editing &&
         archive !== "all" &&
         account.isArchived !== (archive === "archived")
-      )
-        return false;
-      if (
-        !editing &&
-        group &&
-        !account.athletes.some((athlete) => athlete.trainingGroup === group)
       )
         return false;
       return (
@@ -348,7 +344,9 @@ export function FamiliesAdmin() {
                 </button>
               ))}
             </div>
-            {tab !== "athletes" && (
+          </div>
+          {tab !== "athletes" && (
+            <div className="flex flex-wrap items-end gap-2">
               <button
                 type="button"
                 className={styles.tabButton}
@@ -365,10 +363,6 @@ export function FamiliesAdmin() {
                 <Plus className="size-4" aria-hidden="true" />
                 Add account
               </button>
-            )}
-          </div>
-          {tab !== "athletes" && (
-            <div className="flex flex-wrap items-end gap-2">
               {tab === "tickets" && (
                 <Button
                   size="sm"
@@ -432,7 +426,7 @@ export function FamiliesAdmin() {
               onEditingChange={setAthleteEditing}
               onLoaded={(data) => {
                 setAccounts(data.accounts);
-                setManagedGroups(data.groups);
+                setGroups(data.groups);
               }}
             />
           ) : tab === "accounts" ? (
@@ -459,26 +453,13 @@ export function FamiliesAdmin() {
                       {seasonSelector}
                       <select
                         aria-label="Account archive filter"
-                        className="h-11 rounded-lg border border-border bg-surface px-3 text-sm"
+                        className={`h-11 rounded-lg border border-border bg-surface px-3 text-sm ${styles.select}`}
                         value={archive}
                         onChange={(event) => setArchive(event.target.value)}
                       >
-                        <option value="active">Active accounts</option>
-                        <option value="archived">Archived accounts</option>
-                        <option value="all">All accounts</option>
-                      </select>
-                      <select
-                        aria-label="Training group filter"
-                        className="h-11 max-w-full rounded-lg border border-border bg-surface px-3 text-sm"
-                        value={group}
-                        onChange={(event) => setGroup(event.target.value)}
-                      >
-                        <option value="">All training groups</option>
-                        {groups.map((group) => (
-                          <option key={group} value={group}>
-                            {group}
-                          </option>
-                        ))}
+                        <option value="active">Active</option>
+                        <option value="archived">Archived</option>
+                        <option value="all">All</option>
                       </select>
                       {!editing && (
                         <ColumnControls
@@ -646,7 +627,6 @@ export function FamiliesAdmin() {
               summary={
                 selectedAccount.id ? summaries[selectedAccount.id] : undefined
               }
-              groups={groups}
               onSaved={(next) => {
                 saved(next);
                 if (activeEditor === "new") setNewAccount(next);

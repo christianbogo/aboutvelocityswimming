@@ -7,7 +7,6 @@ import {
   UsersRound,
   Timer,
   Trophy,
-  Ruler,
   type LucideIcon,
 } from "lucide-react";
 
@@ -93,15 +92,6 @@ export const toolDirectory = {
     href: "/tools/team-map",
     homeHref: "/tools/team-map",
     icon: UsersRound,
-    adminOnly: true,
-  },
-  "layout-drafting": {
-    title: "Layout Drafting",
-    description:
-      "Plan a physical achievement board with the active competitive roster, to-scale dice, strings, sleeves, and event trays.",
-    href: "/tools/layout-drafting",
-    homeHref: "/tools/layout-drafting",
-    icon: Ruler,
     adminOnly: true,
   },
 } as const satisfies Record<string, Tool>;

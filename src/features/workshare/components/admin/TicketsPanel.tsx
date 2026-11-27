@@ -40,6 +40,8 @@ export function TicketsPanel({
   onReuse: (ticket: WorkshareTicket) => void;
   onEditingChange?: (editing: boolean) => void;
 }) {
+  const [requestedAccount, setRequestedAccount] = useState<string>();
+  const enabled = !accountId || requestedAccount === accountId;
   const [category, setCategory] = useState<TicketCategory | "">("");
   const [filterAccountId, setFilterAccountId] = useState("");
   const [from, setFrom] = useState("");
@@ -72,7 +74,7 @@ export function TicketsPanel({
     attempt,
   ]);
   const current = result?.key === key ? result : undefined;
-  const loading = !current && !rangeError;
+  const loading = enabled && !current && !rangeError;
   const accountNames = new Map(
     accounts.map((account) => [account.id, account.fullName]),
   );
@@ -89,7 +91,7 @@ export function TicketsPanel({
     return () => clearTimeout(timeout);
   }, [search]);
   useEffect(() => {
-    if (rangeError) return;
+    if (!enabled || rangeError) return;
     const controller = new AbortController();
     void loadTickets(
       {
@@ -122,6 +124,7 @@ export function TicketsPanel({
       });
     return () => controller.abort();
   }, [
+    enabled,
     season.id,
     effectiveAccountId,
     category,
@@ -156,41 +159,69 @@ export function TicketsPanel({
       className="space-y-4"
       aria-label={accountId ? "Account tickets" : "Season tickets"}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold">Tickets</h3>
-          <p className="mt-1 text-xs text-text-secondary">
-            {season.name} · Completed hours, newest work date first
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => onAdd(accountId)}
-        >
-          <Plus className="mr-1 size-3" aria-hidden="true" />
-          Add ticket
-        </Button>
-      </div>
-      <div className="flex flex-wrap items-end gap-3">
-        <label className={`${fieldClass} w-full max-w-xs`}>
-          <span>Search tickets</span>
-          <div className="relative">
-            <Search
-              className="pointer-events-none absolute left-3 top-3.5 size-4 text-text-secondary"
-              aria-hidden="true"
-            />
-            <Input
-              type="search"
-              className="pl-9"
-              maxLength={200}
-              value={search}
-              placeholder="Search descriptions…"
-              onChange={(event) => setSearch(event.target.value)}
-            />
+      {!accountId && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold">Tickets</h3>
+            <p className="mt-1 text-xs text-text-secondary">
+              {season.name} · Completed hours, newest work date first
+            </p>
           </div>
-        </label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onAdd(accountId)}
+          >
+            <Plus className="mr-1 size-3" aria-hidden="true" />
+            Add ticket
+          </Button>
+        </div>
+      )}
+      <div className="flex flex-wrap items-end gap-3">
+        {accountId && !enabled ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setRequestedAccount(accountId)}
+          >
+            Load Tickets
+          </Button>
+        ) : accountId && !result?.data && loading ? (
+          <Button type="button" variant="outline" disabled>
+            Loading tickets…
+          </Button>
+        ) : (
+          <label className={`${fieldClass} w-full max-w-xs`}>
+            <span className={accountId ? "sr-only" : undefined}>
+              Search tickets
+            </span>
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-3 top-3.5 size-4 text-text-secondary"
+                aria-hidden="true"
+              />
+              <Input
+                type="search"
+                className="pl-9"
+                maxLength={200}
+                value={search}
+                placeholder="Search descriptions…"
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </div>
+          </label>
+        )}
+        {accountId && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onAdd(accountId)}
+          >
+            <Plus className="mr-1 size-3" aria-hidden="true" />
+            Add ticket
+          </Button>
+        )}
         {!accountId && (
           <label className={`${fieldClass} w-full max-w-xs`}>
             <span>Account</span>
@@ -283,7 +314,7 @@ export function TicketsPanel({
           </Button>
         )}
       </div>
-      {rangeError ? (
+      {!enabled ? null : rangeError ? (
         <p role="alert" className="text-sm text-red-600">
           {rangeError}
         </p>

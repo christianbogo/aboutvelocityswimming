@@ -1,5 +1,6 @@
 "use client";
 
+import styles from "./Accounts.module.css";
 import { Input } from "@/components/shared/Input";
 import {
   categoryLabels,
@@ -20,7 +21,8 @@ export interface TicketFieldValues {
 export const fieldClass =
   "grid min-w-0 content-start gap-1 text-xs font-semibold leading-4";
 export const selectClass =
-  "h-11 w-full min-w-0 rounded-lg border border-border bg-surface px-3.5 py-2 text-sm text-text-primary transition-all focus-visible:border-[#0A856C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/20 disabled:opacity-60";
+  styles.select +
+  " h-11 w-full min-w-0 rounded-lg border border-border bg-surface px-3.5 py-2 text-sm text-text-primary transition-all focus-visible:border-[#0A856C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/20 disabled:opacity-60";
 
 export function categoryLabel(category: WorkshareTicket["category"]) {
   return categoryLabels[category];

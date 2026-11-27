@@ -4,6 +4,7 @@ import {
   workshareDatabaseError,
   workshareResponse,
 } from "@/features/workshare/lib/server-api";
+import type { WorkshareAccount } from "@/features/workshare/lib/accounts";
 import type { Json } from "@/lib/supabase/database.types";
 
 export async function GET(request: Request) {
@@ -27,7 +28,17 @@ export async function GET(request: Request) {
       "list_workshare_accounts",
     );
     if (error) return workshareDatabaseError(error);
-    return workshareResponse({ data: { groups, accounts } });
+    const ids = [...new Set((accounts as unknown as WorkshareAccount[]).flatMap(account =>
+      account.athletes.flatMap(athlete => athlete.timesAthleteId ? [athlete.timesAthleteId] : [])
+    ))];
+    const swimCounts: Record<string, number> = {};
+    for (let start = 0; start < ids.length; start += 100) {
+      const { data, error: countError } = await client.from("public_athletes")
+        .select("id, public_swims(count)").in("id", ids.slice(start, start + 100));
+      if (countError) return workshareDatabaseError(countError);
+      for (const row of data ?? []) swimCounts[row.id] = row.public_swims[0]?.count ?? 0;
+    }
+    return workshareResponse({ data: { groups, accounts, swimCounts } });
   });
 }
 export async function POST(request: Request) {

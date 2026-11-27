@@ -228,13 +228,11 @@ try {
   await page
     .getByRole("button", { name: `Athlete settings: ${prefix} Alex` })
     .click();
-  const groupSelect = page
-    .getByRole("combobox", { name: "Training group", exact: true })
-    .first();
-  assert.equal(await groupSelect.inputValue(), `${prefix} Performance`);
+  const groupSelect = page.getByRole("radio", { name: "None", exact: true }).first();
+  assert.equal(await page.getByRole("radio", { name: `${prefix} Performance`, exact: true }).isChecked(), true);
   assert.equal(
-    await groupSelect
-      .getByRole("option", { name: `${prefix} Prep`, exact: true })
+    await page
+      .getByRole("radio", { name: `${prefix} Prep`, exact: true })
       .count(),
     0,
   );
@@ -250,7 +248,7 @@ try {
       exact: true,
     })
     .waitFor();
-  assert.equal(await groupSelect.inputValue(), "");
+  assert.equal(await groupSelect.isChecked(), true);
   assert.equal(await groupSelect.isDisabled(), true);
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await page

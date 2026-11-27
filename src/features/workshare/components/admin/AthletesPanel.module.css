@@ -116,3 +116,16 @@
   border: 1px solid var(--border);
   border-radius: 0.5rem;
 }
+
+.group[data-archived-divider="true"] {
+  margin-bottom: .5rem;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  padding-bottom: .75rem;
+}
+@media (hover: hover) {
+  .rowSelect { opacity: 0; }
+  .table tr:hover .rowSelect,
+  .table tr:focus-within .rowSelect,
+  .rowSelect:checked { opacity: 1; }
+}

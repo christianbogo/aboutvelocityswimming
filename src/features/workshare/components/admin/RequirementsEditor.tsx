@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { Input } from "@/components/shared/Input";
 import { Button } from "@/components/shared/Button";
 import {
@@ -19,14 +19,18 @@ export const RequirementsEditor = forwardRef<
   {
     requirements: SeasonRequirements;
     onSaved: (requirements: SeasonRequirements) => void;
+    onDraftChange?: (requirements: SeasonRequirements) => void;
   }
->(function RequirementsEditor({ requirements, onSaved }, ref) {
+>(function RequirementsEditor({ requirements, onSaved, onDraftChange }, ref) {
   const autosave = useVersionedAutosave(
     requirements,
     saveRequirements,
     validateRequirements,
     onSaved,
   );
+  useEffect(() => {
+    onDraftChange?.(autosave.draft);
+  }, [autosave.draft, onDraftChange]);
   const [reloading, setReloading] = useState(false);
   const [reloadError, setReloadError] = useState("");
   async function reload() {
@@ -67,7 +71,7 @@ export const RequirementsEditor = forwardRef<
             key={field}
             className="grid w-full min-w-0 max-w-xs content-start gap-1 text-xs font-semibold leading-4"
           >
-            <span>{label} hours required</span>
+            <span>{label}</span>
             <Input
               className="max-w-40"
               type="number"
