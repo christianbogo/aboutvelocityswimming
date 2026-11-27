@@ -425,6 +425,10 @@ export function FamiliesAdmin() {
         >
           {tab === "athletes" ? (
             <AthletesPanel
+              onOpenAccount={(id) => {
+                const account = accounts.find((item) => item.id === id);
+                if (account) void selectAccount(account);
+              }}
               onEditingChange={setAthleteEditing}
               onLoaded={(data) => {
                 setAccounts(data.accounts);

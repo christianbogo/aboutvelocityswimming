@@ -132,6 +132,10 @@ export default function ToolSidebar({
   const savedWidth = useSyncExternalStore(subscribeToWidth, getSavedWidth, () => defaultWidth);
   const collapsed = focused || (collapsedOverride ?? savedCollapsed);
   const width = dragWidth ?? savedWidth;
+  const themeIndex = Math.max(0, themeOptions.findIndex(({ value }) => value === themePreference));
+  const currentTheme = themeOptions[themeIndex];
+  const nextTheme = themeOptions[(themeIndex + 1) % themeOptions.length];
+  const ThemeIcon = currentTheme.icon;
 
   useEffect(() => {
     if (!dragging) return;
@@ -295,7 +299,17 @@ export default function ToolSidebar({
             {navigation}
           </nav>
           <div className={styles.themeSwitcher} role="group" aria-label="Theme preference">
-            {themeOptions.map(({ value, label, icon: Icon }) => (
+            {collapsed && !mobileOpen ? (
+              <button
+                type="button"
+                className={styles.themeButton}
+                onClick={() => setTheme(nextTheme.value)}
+                title={`Theme: ${currentTheme.value}. Switch to ${nextTheme.value} theme`}
+                aria-label={`Theme: ${currentTheme.value}. Switch to ${nextTheme.value} theme`}
+              >
+                <ThemeIcon size={16} aria-hidden="true" />
+              </button>
+            ) : themeOptions.map(({ value, label, icon: Icon }) => (
               <button
                 key={value}
                 type="button"

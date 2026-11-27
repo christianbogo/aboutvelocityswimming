@@ -75,6 +75,16 @@ try {
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(base + "/tools/admin?tab=athletes");
   await page.getByRole("heading", { name: "Athletes", exact: true }).waitFor();
+  const themes = page.getByRole("group", { name: "Theme preference" });
+  assert.equal(await themes.getByRole("button").count(), 3);
+  await page.getByRole("separator", { name: "Resize navigation sidebar" }).press("Escape");
+  assert.equal(await themes.getByRole("button").count(), 1);
+  for (const [current, next] of [["system", "light"], ["light", "dark"], ["dark", "system"]]) {
+    await themes.getByRole("button", { name: `Theme: ${current}. Switch to ${next} theme` }).click();
+    assert.equal(await page.locator("html").getAttribute("data-theme-preference"), next);
+  }
+  await page.getByRole("button", { name: "Open navigation sidebar", exact: true }).press("Enter");
+  assert.equal(await themes.getByRole("button").count(), 3);
   await page.getByRole("button", { name: "Add group", exact: true }).click();
   await page
     .getByRole("textbox", { name: "Group name" })
@@ -171,7 +181,7 @@ try {
     .click();
   await page.getByRole("button", { name: "Remove group", exact: true }).click();
   assert.match(
-    await page.getByText(/Move all 1 athlete/).textContent(),
+    await page.getByText(/Move all 0 athletes/).textContent(),
     /including archived/,
   );
   await page
@@ -183,7 +193,7 @@ try {
   await page
     .getByText("Group removed and athletes reassigned.", { exact: true })
     .waitFor();
-  await page.getByRole("checkbox", { name: "Include archived" }).check();
+  await page.getByRole("button", { name: /^Archived,/ }).click();
   await page
     .getByRole("checkbox", { name: `Select ${prefix} Blake`, exact: true })
     .waitFor();
@@ -215,6 +225,9 @@ try {
     .getByRole("searchbox", { name: "Search accounts and athletes" })
     .fill(prefix);
   await page.getByText(`${prefix} Family`, { exact: true }).click();
+  await page
+    .getByRole("button", { name: `Athlete settings: ${prefix} Alex` })
+    .click();
   const groupSelect = page
     .getByRole("combobox", { name: "Training group", exact: true })
     .first();
@@ -225,6 +238,32 @@ try {
       .count(),
     0,
   );
+  await page
+    .getByRole("button", {
+      name: `Archive athlete: ${prefix} Alex`,
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("button", {
+      name: `Unarchive athlete: ${prefix} Alex`,
+      exact: true,
+    })
+    .waitFor();
+  assert.equal(await groupSelect.inputValue(), "");
+  assert.equal(await groupSelect.isDisabled(), true);
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await page
+    .getByRole("form", { name: `Edit ${prefix} Family`, exact: true })
+    .waitFor({ state: "hidden" });
+  const archived = await client
+    .from("workshare_athletes")
+    .select("is_archived,training_group")
+    .eq("account_id", accountId)
+    .eq("full_name", `${prefix} Alex`)
+    .single();
+  assert.ifError(archived.error);
+  assert.deepEqual(archived.data, { is_archived: true, training_group: "" });
   assert.deepEqual(errors, []);
   console.log(
     "PASS: shared group ordering, keyboard/mobile controls, persistence, create, coach assignment, bulk move, rename, archived reassignment, Accounts sync.",

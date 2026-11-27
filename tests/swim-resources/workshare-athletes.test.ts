@@ -54,7 +54,7 @@ const roster: AthleteRoster = {
         {
           id: "b",
           fullName: "Blake Morgan",
-          trainingGroup: "Prep",
+          trainingGroup: "",
           timesAthleteId: null,
           isArchived: true,
         },
@@ -68,6 +68,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  localStorage.clear();
   vi.clearAllMocks();
 });
 function show() {
@@ -109,7 +110,7 @@ it("clears hidden selection when filtering and explicitly includes archived athl
   fireEvent.click(screen.getByRole("checkbox", { name: "Include archived" }));
   await screen.findByText("Blake Morgan");
 });
-it("requires a removal destination and includes archived membership in the reviewed request", async () => {
+it("requires a removal destination and reviews only currently assigned members", async () => {
   show();
   await screen.findByText("Alex Morgan");
   fireEvent.click(screen.getByRole("button", { name: /Prep.*Avery/ }));
@@ -129,7 +130,7 @@ it("requires a removal destination and includes archived membership in the revie
       id: "prep",
       updatedAt: "v1",
       destinationId: "unassigned",
-      athleteIds: ["a", "b"],
+      athleteIds: ["a"],
     }),
   );
 });
@@ -225,4 +226,29 @@ it("cancels an unsaved order and retains a failed draft until reload", async () 
   await waitFor(() =>
     expect(screen.queryByRole("list", { name: "Group order" })).toBeNull(),
   );
+});
+
+it("opens the athlete's account, hides chosen columns, and offers the Archived list", async () => {
+  const onOpenAccount = vi.fn();
+  render(
+    React.createElement(AthletesPanel, {
+      onLoaded: vi.fn(),
+      onEditingChange: vi.fn(),
+      onOpenAccount,
+    }),
+  );
+  await screen.findByText("Alex Morgan");
+  fireEvent.click(screen.getByRole("button", { name: "Alex Morgan" }));
+  expect(onOpenAccount).toHaveBeenCalledWith("account");
+  fireEvent.click(screen.getByText("Columns", { exact: true }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Account" }));
+  expect(screen.queryByRole("columnheader", { name: "Account" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /^Archived,/ }));
+  await screen.findByText("Blake Morgan");
+  expect(screen.queryByText("Alex Morgan")).toBeNull();
+  expect(
+    screen
+      .getByRole("checkbox", { name: "Select Blake Morgan" })
+      .hasAttribute("disabled"),
+  ).toBe(true);
 });

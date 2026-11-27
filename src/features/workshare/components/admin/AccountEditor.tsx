@@ -8,7 +8,7 @@ import {
   useState,
   type Ref,
 } from "react";
-import { Check, Plus } from "lucide-react";
+import { Plus, Settings } from "lucide-react";
 import { Input } from "@/components/shared/Input";
 import { Button } from "@/components/shared/Button";
 import { useUpdateBlocker } from "@/hooks/useUpdateBlocker";
@@ -139,36 +139,6 @@ function TimesLink({
   );
 }
 
-function ArchiveToggle({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <label
-      className={`flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border bg-surface px-3.5 py-2 text-xs font-medium transition-colors ${checked ? "border-accent" : "border-border"}`}
-    >
-      <input
-        type="checkbox"
-        className="peer sr-only"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-      />
-      <span
-        aria-hidden="true"
-        className={`flex size-4 shrink-0 items-center justify-center rounded border peer-focus-visible:ring-2 peer-focus-visible:ring-accent/40 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-surface ${checked ? "border-accent bg-accent text-white" : "border-border bg-bg"}`}
-      >
-        <Check className={`size-3 ${checked ? "opacity-100" : "opacity-0"}`} />
-      </span>
-      {label}
-    </label>
-  );
-}
-
 export interface AccountEditorHandle {
   flush: () => Promise<boolean>;
 }
@@ -210,6 +180,9 @@ export function AccountEditor({
   ref: Ref<AccountEditorHandle>;
   switching: boolean;
 }) {
+  const [athleteSettings, setAthleteSettings] = useState<
+    Record<number, boolean>
+  >({});
   const {
     draft,
     setDraft,
@@ -307,6 +280,17 @@ export function AccountEditor({
           >
             {closing ? "Finishing…" : "Done"}
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy || closing || switching || reloadRequired}
+            onClick={() =>
+              setDraft({ ...draft, isArchived: !draft.isArchived })
+            }
+          >
+            {draft.isArchived ? "Unarchive account" : "Archive account"}
+          </Button>
           {!draft.id && !reloadRequired && (
             <Button
               type="button"
@@ -402,13 +386,6 @@ export function AccountEditor({
               onChange={(event) => setEmails(event.target.value)}
             />
           </label>
-          <div className="w-fit self-start">
-            <ArchiveToggle
-              label="Archive account"
-              checked={draft.isArchived}
-              onChange={(isArchived) => setDraft({ ...draft, isArchived })}
-            />
-          </div>
         </div>
         <section
           aria-label="Workshare settings"
@@ -529,74 +506,109 @@ export function AccountEditor({
               key={index}
               className="grid items-start gap-3 rounded-xl border border-border bg-surface p-3 sm:grid-cols-2"
             >
-              <label className="grid w-full min-w-0 max-w-xs content-start gap-1 text-xs font-semibold leading-4">
-                <span>Athlete full name</span>
-                <Input
-                  required
-                  maxLength={200}
-                  value={athlete.fullName}
-                  onChange={(event) =>
-                    changeAthlete(index, { fullName: event.target.value })
-                  }
-                />
-              </label>
-              <label className="grid w-full min-w-0 max-w-64 content-start gap-1 text-xs font-semibold leading-4">
-                <span>Training group</span>
-                <select
-                  className="block h-11 w-full min-w-0 rounded-lg border border-border bg-surface px-3.5 py-2 text-sm text-text-primary transition-all focus-visible:border-[#0A856C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/20"
-                  value={athlete.trainingGroup}
-                  onChange={(event) =>
+              <div className="flex items-end gap-2 sm:col-span-2">
+                <label className="grid min-w-0 flex-1 content-start gap-1 text-xs font-semibold leading-4">
+                  <span>Athlete full name</span>
+                  <Input
+                    required
+                    maxLength={200}
+                    value={athlete.fullName}
+                    onChange={(event) =>
+                      changeAthlete(index, { fullName: event.target.value })
+                    }
+                  />
+                </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 shrink-0"
+                  aria-label={`${athlete.isArchived ? "Unarchive" : "Archive"} athlete: ${athlete.fullName}`}
+                  onClick={() =>
                     changeAthlete(index, {
-                      trainingGroup: event.target.value,
+                      isArchived: !athlete.isArchived,
+                      trainingGroup: "",
                     })
                   }
                 >
-                  <option value="">Select training group</option>
-                  {[...new Set([...groups, athlete.trainingGroup])]
-                    .filter(Boolean)
-                    .map((group) => (
-                      <option key={group} value={group}>
-                        {group}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              <div className="grid w-full min-w-0 max-w-sm content-start gap-1">
-                <p className="text-xs font-semibold leading-4">
-                  Times database linkage
-                </p>
-                <TimesLink
-                  value={athlete.timesAthleteId}
-                  onChange={(timesAthleteId) =>
-                    changeAthlete(index, { timesAthleteId })
+                  {athlete.isArchived ? "Unarchive" : "Archive"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 w-11 shrink-0 p-0"
+                  aria-label={`Athlete settings: ${athlete.fullName}`}
+                  aria-expanded={!!athleteSettings[index]}
+                  onClick={() =>
+                    setAthleteSettings((old) => ({
+                      ...old,
+                      [index]: !old[index],
+                    }))
                   }
-                />
+                >
+                  <Settings className="size-4" aria-hidden="true" />
+                </Button>
               </div>
-              <div className="w-fit space-y-2 sm:pt-5">
-                <ArchiveToggle
-                  label="Archive athlete"
-                  checked={athlete.isArchived}
-                  onChange={(isArchived) =>
-                    changeAthlete(index, { isArchived })
-                  }
-                />
-                {!athlete.id && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      setDraft((previous) => ({
-                        ...previous,
-                        athletes: previous.athletes.filter(
-                          (_, i) => i !== index,
-                        ),
-                      }))
+              {athlete.isArchived && (
+                <p className="text-xs text-text-secondary sm:col-span-2">
+                  Archived · No training group
+                </p>
+              )}
+              <div
+                hidden={!athleteSettings[index]}
+                className="space-y-3 sm:col-span-2"
+              >
+                <label className="grid w-full min-w-0 max-w-64 content-start gap-1 text-xs font-semibold leading-4">
+                  <span>Training group</span>
+                  <select
+                    className="block h-11 w-full min-w-0 rounded-lg border border-border bg-surface px-3.5 py-2 text-sm text-text-primary transition-all focus-visible:border-[#0A856C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/20"
+                    disabled={athlete.isArchived}
+                    value={athlete.trainingGroup}
+                    onChange={(event) =>
+                      changeAthlete(index, {
+                        trainingGroup: event.target.value,
+                      })
                     }
                   >
-                    Remove
-                  </Button>
-                )}
+                    <option value="">Select training group</option>
+                    {[...new Set([...groups, athlete.trainingGroup])]
+                      .filter(Boolean)
+                      .map((group) => (
+                        <option key={group} value={group}>
+                          {group}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <div className="grid w-full min-w-0 max-w-sm content-start gap-1">
+                  <p className="text-xs font-semibold leading-4">
+                    Times database linkage
+                  </p>
+                  <TimesLink
+                    value={athlete.timesAthleteId}
+                    onChange={(timesAthleteId) =>
+                      changeAthlete(index, { timesAthleteId })
+                    }
+                  />
+                </div>
+                <div className="w-fit space-y-2 sm:pt-5">
+                  {!athlete.id && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setDraft((previous) => ({
+                          ...previous,
+                          athletes: previous.athletes.filter(
+                            (_, i) => i !== index,
+                          ),
+                        }))
+                      }
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           ))}

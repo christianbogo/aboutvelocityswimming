@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   Plus,
   Search,
@@ -10,6 +10,8 @@ import {
   ArrowUp,
   ArrowDown,
   ListOrdered,
+  Link2,
+  Columns3,
 } from "lucide-react";
 import { Button } from "@/components/shared/Button";
 import { Input } from "@/components/shared/Input";
@@ -23,15 +25,62 @@ import {
 } from "../../lib/athletes";
 import styles from "./AthletesPanel.module.css";
 
+const columnsKey = "velocity-athlete-columns-v1";
+function subscribeColumns(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener("velocity-athlete-columns", callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("velocity-athlete-columns", callback);
+  };
+}
+function readColumns() {
+  try {
+    return localStorage.getItem(columnsKey) ?? "";
+  } catch {
+    return "";
+  }
+}
 const selectClass =
   "h-11 rounded-lg border border-border bg-surface px-3 text-sm";
 export function AthletesPanel({
   onLoaded,
   onEditingChange,
+  onOpenAccount,
 }: {
+  onOpenAccount?: (id: string) => void;
   onLoaded: (roster: AthleteRoster) => void;
   onEditingChange: (editing: boolean) => void;
 }) {
+  const storedColumns = useSyncExternalStore(
+    subscribeColumns,
+    readColumns,
+    () => "",
+  );
+  const [columnOverride, setColumnOverride] = useState<{
+    account: boolean;
+    group: boolean;
+  }>();
+  let columns = { account: true, group: true };
+  try {
+    const saved = JSON.parse(storedColumns);
+    columns = {
+      account: saved.account !== false,
+      group: saved.group !== false,
+    };
+  } catch {
+    /* Use defaults. */
+  }
+  columns = columnOverride ?? columns;
+  function setColumns(next: typeof columns) {
+    setColumnOverride(next);
+    try {
+      localStorage.setItem(columnsKey, JSON.stringify(next));
+      window.dispatchEvent(new Event("velocity-athlete-columns"));
+    } catch {
+      /* Keep in-memory preference. */
+    }
+  }
   const [roster, setRoster] = useState<AthleteRoster>();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -84,6 +133,7 @@ export function AthletesPanel({
     account.athletes.map((athlete) => ({
       ...athlete,
       id: athlete.id!,
+      accountId: account.id!,
       accountName: account.fullName,
       updatedAt: account.updatedAt!,
       archived: account.isArchived || athlete.isArchived,
@@ -94,9 +144,13 @@ export function AthletesPanel({
   const visible = athletes
     .filter(
       (athlete) =>
-        (showArchived || !athlete.archived) &&
-        (filter === "all" ||
-          athlete.trainingGroup === (activeGroup?.name ?? "")) &&
+        (filter === "archived"
+          ? athlete.isArchived
+          : showArchived || !athlete.archived) &&
+        (filter === "archived" ||
+          filter === "all" ||
+          (!athlete.isArchived &&
+            athlete.trainingGroup === (activeGroup?.name ?? ""))) &&
         (!term ||
           [athlete.fullName, athlete.accountName, athlete.trainingGroup].some(
             (value) => value.toLowerCase().includes(term),
@@ -107,7 +161,10 @@ export function AthletesPanel({
     selected.has(athlete.id),
   );
   const allSelected =
-    visible.length > 0 && visible.every((athlete) => selected.has(athlete.id));
+    visible.some((athlete) => !athlete.isArchived) &&
+    visible
+      .filter((athlete) => !athlete.isArchived)
+      .every((athlete) => selected.has(athlete.id));
   const groupMembers =
     typeof editor === "object" && editor
       ? athletes.filter((athlete) => athlete.trainingGroup === editor.name)
@@ -139,6 +196,7 @@ export function AthletesPanel({
       if (
         filter !== "all" &&
         filter !== "unassigned" &&
+        filter !== "archived" &&
         !data.groups.some((group) => group.id === filter)
       )
         setFilter("all");
@@ -264,14 +322,19 @@ export function AthletesPanel({
           {[
             { id: "all", name: "All athletes" },
             { id: "unassigned", name: "Unassigned" },
+            { id: "archived", name: "Archived" },
             ...groups,
           ].map((group) => {
             const members = athletes.filter(
               (athlete) =>
-                (showArchived || !athlete.archived) &&
-                (group.id === "all" ||
-                  athlete.trainingGroup ===
-                    (group.id === "unassigned" ? "" : group.name)),
+                (group.id === "archived"
+                  ? athlete.isArchived
+                  : showArchived || !athlete.archived) &&
+                (group.id === "archived" ||
+                  group.id === "all" ||
+                  (!athlete.isArchived &&
+                    athlete.trainingGroup ===
+                      (group.id === "unassigned" ? "" : group.name))),
             );
             return (
               <button
@@ -530,7 +593,8 @@ export function AthletesPanel({
               <h3 className="font-semibold">
                 {filter === "all"
                   ? "All athletes"
-                  : (activeGroup?.name ?? "Unassigned")}
+                  : (activeGroup?.name ??
+                    (filter === "archived" ? "Archived" : "Unassigned"))}
               </h3>
               <p className="text-xs text-text-secondary">
                 {visible.length} athletes
@@ -640,6 +704,27 @@ export function AthletesPanel({
               )}
             </div>
           )}
+          <details className="relative w-fit rounded-lg border border-border p-2 text-sm">
+            <summary className="flex cursor-pointer items-center gap-2">
+              <Columns3 className="size-4" aria-hidden="true" />
+              Columns
+            </summary>
+            <fieldset className="space-y-2 p-2">
+              <legend className="sr-only">Visible athlete columns</legend>
+              {(["account", "group"] as const).map((key) => (
+                <label key={key} className="flex gap-2">
+                  <input
+                    type="checkbox"
+                    checked={columns[key]}
+                    onChange={(event) =>
+                      setColumns({ ...columns, [key]: event.target.checked })
+                    }
+                  />
+                  {key === "account" ? "Account" : "Group"}
+                </label>
+              ))}
+            </fieldset>
+          </details>
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
@@ -660,24 +745,51 @@ export function AthletesPanel({
                         setSelected(
                           allSelected
                             ? new Set()
-                            : new Set(visible.map((athlete) => athlete.id)),
+                            : new Set(
+                                visible
+                                  .filter((athlete) => !athlete.isArchived)
+                                  .map((athlete) => athlete.id),
+                              ),
                         )
                       }
                     />
                   </th>
                   <th>Athlete</th>
-                  <th>Account</th>
-                  <th>Group</th>
+                  {columns.account && <th>Account</th>}
+                  {columns.group && <th>Group</th>}
                 </tr>
               </thead>
               <tbody>
                 {visible.map((athlete) => (
-                  <tr key={athlete.id} data-selected={selected.has(athlete.id)}>
+                  <tr
+                    key={athlete.id}
+                    data-selected={selected.has(athlete.id)}
+                    className="cursor-pointer"
+                    onClick={(event) => {
+                      if (
+                        !busy &&
+                        !loading &&
+                        !editor &&
+                        !ordering &&
+                        !(
+                          event.target instanceof Element &&
+                          event.target.closest("button,input,a")
+                        )
+                      )
+                        onOpenAccount?.(athlete.accountId);
+                    }}
+                  >
                     <td>
                       <input
                         type="checkbox"
                         aria-label={`Select ${athlete.fullName}`}
-                        disabled={busy || loading || !!editor || !!ordering}
+                        disabled={
+                          athlete.isArchived ||
+                          busy ||
+                          loading ||
+                          !!editor ||
+                          !!ordering
+                        }
                         checked={selected.has(athlete.id)}
                         onChange={() =>
                           setSelected((previous) => {
@@ -690,20 +802,50 @@ export function AthletesPanel({
                       />
                     </td>
                     <td className="font-medium">
-                      {athlete.fullName}
+                      <button
+                        type="button"
+                        className="text-left hover:underline"
+                        disabled={busy || loading || !!editor || !!ordering}
+                        onClick={() => onOpenAccount?.(athlete.accountId)}
+                      >
+                        {athlete.fullName}
+                      </button>
+                      {athlete.timesAthleteId && (
+                        <span
+                          role="img"
+                          aria-label="Linked to Times"
+                          title="Linked to Times"
+                        >
+                          <Link2
+                            className="ml-1 inline size-4 text-accent"
+                            aria-hidden="true"
+                          />
+                        </span>
+                      )}
                       {athlete.archived && (
                         <span className="ml-2 text-xs text-text-secondary">
                           Archived
                         </span>
                       )}
                     </td>
-                    <td>{athlete.accountName}</td>
-                    <td>{athlete.trainingGroup || "Unassigned"}</td>
+                    {columns.account && <td>{athlete.accountName}</td>}
+                    {columns.group && (
+                      <td>
+                        {athlete.isArchived
+                          ? "Archived"
+                          : athlete.trainingGroup || "Unassigned"}
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {!visible.length && (
                   <tr>
-                    <td colSpan={4} className="text-center">
+                    <td
+                      colSpan={
+                        2 + Number(columns.account) + Number(columns.group)
+                      }
+                      className="text-center"
+                    >
                       <Users
                         className="mx-auto mb-2 size-5 text-text-secondary"
                         aria-hidden="true"

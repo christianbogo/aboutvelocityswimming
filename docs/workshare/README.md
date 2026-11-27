@@ -243,3 +243,16 @@ verified-email association controls which account holders can read the note.
 Account writes accept `requireWorkshare` (boolean) and `workshareNote` (text).
 Older clients may omit them without resetting either field. Apply migration
 `20261119202705_workshare_account_preferences.sql` before releasing the UI.
+
+## Archiving and athlete navigation
+
+The account editor places Archive/Unarchive account beside Done. Each athlete
+has Archive/Unarchive beside their name, followed by the settings button.
+Archived athletes appear in the fixed Archived filter, have no training-group
+assignment, and cannot be selected for group moves. Unarchiving leaves them
+unassigned. A database trigger enforces this for older clients as well.
+
+The Athletes table's Columns control remembers Account/Group visibility in the
+browser. Athlete names remain visible for navigation; clicking a name or row
+opens its registration account in the Accounts tab. The link icon matches the
+Accounts table's Linked to Times indicator.
