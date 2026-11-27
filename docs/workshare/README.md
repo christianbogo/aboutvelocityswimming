@@ -14,6 +14,25 @@ permissions for Data or other data tools. Other Tools remain restricted to the
 existing owner account. Eligibility creates no grants or invitations. Sign-in
 sends staff to Admin and preserves account-linking returns.
 
+## Athletes and group order
+
+The **Athletes** tab manages the registration roster's groups and coach names.
+Use **Reorder groups**, move groups up/down, then **Save order**. Cancel discards
+only the draft order. All athletes and Unassigned are fixed navigation filters.
+
+`workshare_groups.sort_order` is the shared, ascending display order, independent
+of names. Both `GET /api/workshare/athletes` and `?groupsOnly=1` return groups in
+that order (with ID as a deterministic tiebreaker). The Athletes sidebar, move
+menus, and Accounts group controls consume it directly; future consumers should
+use the same order rather than sorting names. Renames keep their position and
+new groups append, including groups introduced by older account clients.
+
+`POST /api/workshare/athletes` with `action: "reorderGroups"` and a `groups` array
+of `{id, updatedAt}` pairs in the desired order invokes `reorder_workshare_groups`.
+Include every real group exactly once; omit the reserved `unassigned` record.
+The staff-only transaction rejects stale or incomplete lists without partial
+writes. Reordering does not change athletes, coaches, or group names.
+
 ## Seasons and required hours
 
 One season picker applies to both tabs and is retained in the URL. The default is

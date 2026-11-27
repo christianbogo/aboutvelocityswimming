@@ -82,6 +82,58 @@ try {
   await page.getByRole("textbox", { name: "Coach name" }).fill("Coach Avery");
   await page.getByRole("button", { name: "Save group" }).click();
   await page.getByText("Group created.", { exact: true }).waitFor();
+  await page
+    .getByRole("button", { name: "Reorder groups", exact: true })
+    .click();
+  const moveUp = page.getByRole("button", {
+    name: `Move ${prefix} Seniors up`,
+    exact: true,
+  });
+  await moveUp.focus();
+  await page.keyboard.press("Enter");
+  const order = page.getByRole("list", { name: "Group order", exact: true });
+  const labels = await order.getByRole("listitem").allTextContents();
+  assert.ok(labels.at(-2).includes(`${prefix} Seniors`));
+  assert.ok(labels.at(-1).includes(`${prefix} Prep`));
+  await page.setViewportSize({ width: 390, height: 844 });
+  const closeOrderNavigation = page.getByRole("button", {
+    name: "Close navigation sidebar",
+    exact: true,
+  });
+  if (await closeOrderNavigation.isVisible())
+    await closeOrderNavigation.click();
+  mkdirSync("/tmp/velocity-athletes-check", { recursive: true });
+  await page.screenshot({
+    path: "/tmp/velocity-athletes-check/group-order-mobile.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth + 1,
+    ),
+    "Group ordering must fit mobile width",
+  );
+  await page.getByRole("button", { name: "Save order", exact: true }).click();
+  await page.getByText("Group order saved.", { exact: true }).waitFor();
+  await page.reload();
+  const orderedResponse = await page.request.get(
+    base + "/api/workshare/athletes?groupsOnly=1",
+  );
+  assert.equal(orderedResponse.status(), 200);
+  const persistedGroups = (await orderedResponse.json()).data;
+  assert.deepEqual(
+    persistedGroups.slice(-2).map((group) => group.name),
+    [`${prefix} Seniors`, `${prefix} Prep`],
+  );
+  assert.ok(
+    persistedGroups.every(
+      (group, index) =>
+        !index || group.sort_order > persistedGroups[index - 1].sort_order,
+    ),
+  );
+  await page.setViewportSize({ width: 1440, height: 1050 });
+
   await page.getByRole("searchbox", { name: "Search athletes" }).fill(prefix);
   await page
     .getByRole("checkbox", { name: `Select ${prefix} Alex`, exact: true })
@@ -175,7 +227,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: create, coach assignment, bulk move, rename, archived reassignment, persistence, Accounts sync, desktop and mobile.",
+    "PASS: shared group ordering, keyboard/mobile controls, persistence, create, coach assignment, bulk move, rename, archived reassignment, Accounts sync.",
   );
 } finally {
   await browser.close();

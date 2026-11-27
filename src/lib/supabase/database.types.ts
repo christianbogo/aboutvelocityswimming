@@ -1301,6 +1301,7 @@ export type Database = {
           coach: string
           id: string
           name: string
+          sort_order: number
           updated_at: string
         }
         ComputedFields: never
@@ -1308,12 +1309,14 @@ export type Database = {
           coach?: string
           id?: string
           name: string
+          sort_order?: number
           updated_at?: string
         }
         Update: {
           coach?: string
           id?: string
           name?: string
+          sort_order?: number
           updated_at?: string
         }
         Relationships: []
@@ -1583,6 +1586,7 @@ export type Database = {
       }
     }
     Functions: {
+      reorder_workshare_groups: { Args: { input: Json }; Returns: Json }
       manage_workshare_athletes: { Args: { input: Json }; Returns: Json }
       claim_shift_reminders: { Args: { dry_run?: boolean }; Returns: Json }
       commit_records: {

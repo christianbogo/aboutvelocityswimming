@@ -6,12 +6,14 @@ export interface TrainingGroup {
   name: string;
   coach: string;
   updated_at: string;
+  sort_order: number;
 }
 export interface AthleteRoster {
   groups: TrainingGroup[];
   accounts: WorkshareAccount[];
 }
 export type RosterAction =
+  | { action: "reorderGroups"; groups: { id: string; updatedAt: string }[] }
   | { action: "createGroup"; name: string; coach: string }
   | {
       action: "updateGroup";

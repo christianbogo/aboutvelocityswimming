@@ -12,9 +12,9 @@ export async function GET(request: Request) {
     for (let from = 0; ; from += 500) {
       const { data, error } = await client
         .from("workshare_groups")
-        .select("id, name, coach, updated_at")
+        .select("id, name, coach, updated_at, sort_order")
         .neq("id", "unassigned")
-        .order("name")
+        .order("sort_order")
         .order("id")
         .range(from, from + 499);
       if (error) return workshareDatabaseError(error);
@@ -33,9 +33,17 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return withWorkshareStaff(request, true, async (client) => {
     const input = await readWorkshareBody(request);
-    const { data, error } = await client.rpc("manage_workshare_athletes", {
-      input: input as Json,
-    });
+    const reorder =
+      input !== null &&
+      typeof input === "object" &&
+      "action" in input &&
+      input.action === "reorderGroups";
+    const { data, error } = await client.rpc(
+      reorder ? "reorder_workshare_groups" : "manage_workshare_athletes",
+      {
+        input: input as Json,
+      },
+    );
     if (error) return workshareDatabaseError(error);
     return workshareResponse({ data });
   });

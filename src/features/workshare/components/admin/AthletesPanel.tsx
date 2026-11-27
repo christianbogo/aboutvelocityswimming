@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Plus, Search, Users, ArrowRight, Settings } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Users,
+  ArrowRight,
+  Settings,
+  ArrowUp,
+  ArrowDown,
+  ListOrdered,
+} from "lucide-react";
 import { Button } from "@/components/shared/Button";
 import { Input } from "@/components/shared/Input";
 import { useUpdateBlocker } from "@/hooks/useUpdateBlocker";
@@ -33,6 +42,7 @@ export function AthletesPanel({
   const [showArchived, setShowArchived] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [destination, setDestination] = useState("");
+  const [ordering, setOrdering] = useState<TrainingGroup[] | null>(null);
   const [editor, setEditor] = useState<TrainingGroup | "new" | null>(null);
   const [name, setName] = useState("");
   const [coach, setCoach] = useState("");
@@ -63,10 +73,12 @@ export function AthletesPanel({
     return () => controller.abort();
   }, []);
   useEffect(() => {
-    callbacks.current.onEditingChange(busy || loading || editor !== null);
+    callbacks.current.onEditingChange(
+      busy || loading || editor !== null || ordering !== null,
+    );
     return () => callbacks.current.onEditingChange(false);
-  }, [busy, loading, editor]);
-  useUpdateBlocker(busy || loading || editor !== null);
+  }, [busy, loading, editor, ordering]);
+  useUpdateBlocker(busy || loading || editor !== null || ordering !== null);
   const groups = roster?.groups ?? [];
   const athletes = (roster?.accounts ?? []).flatMap((account) =>
     account.athletes.map((athlete) => ({
@@ -123,6 +135,7 @@ export function AthletesPanel({
       callbacks.current.onLoaded(data);
       setSelected(new Set());
       setEditor(null);
+      setOrdering(null);
       if (
         filter !== "all" &&
         filter !== "unassigned" &&
@@ -149,8 +162,9 @@ export function AthletesPanel({
       const data = await loadAthleteRoster();
       setRoster(data);
       callbacks.current.onLoaded(data);
-      setSelected(new Set());
+      if (action.action !== "reorderGroups") setSelected(new Set());
       setEditor(null);
+      setOrdering(null);
       setNotice(message);
       if (action.action === "removeGroup") setFilter(action.destinationId);
     } catch (cause) {
@@ -192,7 +206,7 @@ export function AthletesPanel({
             Manage practice groups, coaches, and your registration roster.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -202,8 +216,23 @@ export function AthletesPanel({
             {loading ? "Reloading…" : "Reload roster"}
           </Button>
           <Button
+            variant="outline"
             size="sm"
-            disabled={busy || loading || !!editor || !roster}
+            disabled={
+              busy || loading || !!editor || !!ordering || groups.length < 2
+            }
+            onClick={() => {
+              setOrdering([...groups]);
+              setError("");
+              setNotice("");
+            }}
+          >
+            <ListOrdered className="mr-2 size-4" aria-hidden="true" />
+            Reorder groups
+          </Button>
+          <Button
+            size="sm"
+            disabled={busy || loading || !!editor || !!ordering || !roster}
             onClick={() => openEditor("new")}
           >
             <Plus className="mr-2 size-4" aria-hidden="true" />
@@ -250,7 +279,7 @@ export function AthletesPanel({
                 className={styles.group}
                 aria-label={`${group.name}, ${members.length} athletes${"coach" in group ? `, ${group.coach || "No coach assigned"}` : ""}`}
                 aria-pressed={filter === group.id}
-                disabled={busy || loading || !!editor}
+                disabled={busy || loading || !!editor || !!ordering}
                 onClick={() => changeFilter(group.id)}
               >
                 <span className="min-w-0">
@@ -269,6 +298,99 @@ export function AthletesPanel({
           })}
         </aside>
         <div className="min-w-0 space-y-4">
+          {ordering && (
+            <section className={styles.editor} aria-label="Reorder groups">
+              <div>
+                <h3 className="font-semibold">Group order</h3>
+                <p className="mt-1 text-sm text-text-secondary">
+                  Use the arrows to arrange groups, then save. This order is
+                  shared across group lists. New groups are added at the end.
+                </p>
+              </div>
+              <ol aria-label="Group order" className="space-y-2">
+                {ordering.map((group, index) => (
+                  <li key={group.id} className={styles.orderRow}>
+                    <span
+                      className="text-sm tabular-nums text-text-secondary"
+                      aria-hidden="true"
+                    >
+                      {index + 1}
+                    </span>
+                    <span className="min-w-0 flex-1 break-words text-sm font-medium">
+                      {group.name}
+                    </span>
+                    <div className="flex shrink-0 gap-1">
+                      {([-1, 1] as const).map((direction) => (
+                        <Button
+                          key={direction}
+                          variant="outline"
+                          className="h-11 w-11 p-0"
+                          aria-label={`Move ${group.name} ${direction === -1 ? "up" : "down"}`}
+                          disabled={
+                            busy ||
+                            loading ||
+                            index + direction < 0 ||
+                            index + direction >= ordering.length
+                          }
+                          onClick={() =>
+                            setOrdering((previous) => {
+                              if (!previous) return previous;
+                              const next = [...previous];
+                              [next[index], next[index + direction]] = [
+                                next[index + direction],
+                                next[index],
+                              ];
+                              return next;
+                            })
+                          }
+                        >
+                          {direction === -1 ? (
+                            <ArrowUp className="size-4" aria-hidden="true" />
+                          ) : (
+                            <ArrowDown className="size-4" aria-hidden="true" />
+                          )}
+                        </Button>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  disabled={
+                    busy ||
+                    loading ||
+                    ordering.every(
+                      (group, index) => group.id === groups[index]?.id,
+                    )
+                  }
+                  onClick={() =>
+                    void save(
+                      {
+                        action: "reorderGroups",
+                        groups: ordering.map((group) => ({
+                          id: group.id,
+                          updatedAt: group.updated_at,
+                        })),
+                      },
+                      "Group order saved.",
+                    )
+                  }
+                >
+                  {busy ? "Saving…" : "Save order"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy || loading}
+                  onClick={() => setOrdering(null)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </section>
+          )}
           {editor && (
             <form
               className={styles.editor}
@@ -421,7 +543,7 @@ export function AthletesPanel({
               <Button
                 variant="outline"
                 size="sm"
-                disabled={busy || loading || !!editor}
+                disabled={busy || loading || !!editor || !!ordering}
                 onClick={() => openEditor(activeGroup)}
               >
                 <Settings className="mr-2 size-4" aria-hidden="true" />
@@ -470,7 +592,7 @@ export function AthletesPanel({
                 aria-label="Move selected athletes to"
                 className={selectClass}
                 value={destination}
-                disabled={busy || loading || !!editor}
+                disabled={busy || loading || !!editor || !!ordering}
                 onChange={(event) => setDestination(event.target.value)}
               >
                 <option value="" disabled>
@@ -484,6 +606,7 @@ export function AthletesPanel({
                   busy ||
                   loading ||
                   !!editor ||
+                  !!ordering ||
                   !destination ||
                   selected.size > 1000
                 }
@@ -525,7 +648,13 @@ export function AthletesPanel({
                     <input
                       type="checkbox"
                       aria-label="Select all visible athletes"
-                      disabled={!visible.length || busy || loading || !!editor}
+                      disabled={
+                        !visible.length ||
+                        busy ||
+                        loading ||
+                        !!editor ||
+                        !!ordering
+                      }
                       checked={allSelected}
                       onChange={() =>
                         setSelected(
@@ -548,7 +677,7 @@ export function AthletesPanel({
                       <input
                         type="checkbox"
                         aria-label={`Select ${athlete.fullName}`}
-                        disabled={busy || loading || !!editor}
+                        disabled={busy || loading || !!editor || !!ordering}
                         checked={selected.has(athlete.id)}
                         onChange={() =>
                           setSelected((previous) => {
