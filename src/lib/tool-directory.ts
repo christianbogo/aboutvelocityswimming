@@ -4,6 +4,7 @@ import {
   ClipboardList,
   Shield,
   Timer,
+  Users,
   Trophy,
   type LucideIcon,
 } from "lucide-react";
@@ -25,6 +26,13 @@ export const timesViewPaths = {
 } as const;
 
 export const toolDirectory = {
+  team: {
+    title: "Team",
+    description: "Group rank counts, athlete highlights, and meet breakdowns.",
+    href: "/tools/team",
+    homeHref: "/tools/team",
+    icon: Users,
+  },
   "my-times": {
     title: "Times",
     description:

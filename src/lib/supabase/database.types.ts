@@ -1586,6 +1586,10 @@ export type Database = {
       }
     }
     Functions: {
+      team_dashboard: {
+        Args: { selected_meet?: string }
+        Returns: Json
+      }
       reorder_workshare_groups: { Args: { input: Json }; Returns: Json }
       manage_workshare_athletes: { Args: { input: Json }; Returns: Json }
       claim_shift_reminders: { Args: { dry_run?: boolean }; Returns: Json }

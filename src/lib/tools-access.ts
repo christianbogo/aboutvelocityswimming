@@ -13,12 +13,9 @@ export function isToolsPage(pathname: string) {
 }
 
 export function isToolsApi(pathname: string) {
-  return [
-    "/api/data",
-    "/api/attendance",
-    "/api/workshare",
-    "/api/times",
-  ].some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"));
+  return ["/api/data", "/api/attendance", "/api/workshare", "/api/times"].some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
+  );
 }
 
 export interface ToolsIdentity {
@@ -68,6 +65,8 @@ export function isSignedInToolsPath(pathname: string) {
   return (
     ["/tools", "/tools/", "/api/times"].includes(pathname) ||
     [
+      "/tools/team",
+      "/api/times/team",
       "/tools/my-times",
       "/tools/times",
       "/tools/rankings",

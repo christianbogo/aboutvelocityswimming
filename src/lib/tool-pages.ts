@@ -14,6 +14,7 @@ export type ToolPage = {
 // Keep landing-page summaries and sidebar destinations in sync.
 export function getToolPages(tool: ToolId): ToolPage[] {
   switch (tool) {
+    case "team":
     case "my-times":
     case "rankings":
     case "records":

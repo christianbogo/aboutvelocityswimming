@@ -33,6 +33,7 @@ describe("independent times tools", () => {
       staff: false,
     });
     expect(tools.map(([id, tool]) => [id, tool.homeHref])).toEqual([
+      ["team", "/tools/team"],
       ["my-times", "/tools/my-times"],
       ["rankings", "/tools/rankings"],
       ["records", "/tools/records"],
@@ -44,6 +45,7 @@ describe("independent times tools", () => {
     expect(
       getAvailableTools({ allTools: true, staff: true }).map(([id]) => id),
     ).toEqual([
+      "team",
       "my-times",
       "rankings",
       "records",
@@ -122,21 +124,15 @@ it("shows released tools to members and reserves drafts for the owner", () => {
     getAvailableTools({ signedIn: true, allTools: false, staff: false }).map(
       ([id]) => id,
     ),
-  ).toEqual(["my-times", "rankings", "records", "standards"]);
+  ).toEqual(["team", "my-times", "rankings", "records", "standards"]);
   expect(
     getAvailableTools({ signedIn: true, allTools: false, staff: true }).map(
       ([id]) => id,
     ),
-  ).toEqual(["my-times", "rankings", "records", "standards", "admin"]);
+  ).toEqual(["team", "my-times", "rankings", "records", "standards", "admin"]);
   expect(
     getAvailableTools({ signedIn: true, allTools: true, staff: false }).map(
       ([id]) => id,
     ),
-  ).toEqual([
-    "my-times",
-    "rankings",
-    "records",
-    "standards",
-    "data",
-  ]);
+  ).toEqual(["team", "my-times", "rankings", "records", "standards", "data"]);
 });
