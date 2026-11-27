@@ -83,6 +83,7 @@ function ToolsNavigation({
       <SidebarLink
         {...routeItem(pathname, "/tools", "Account", CircleUserRound)}
       />
+      <hr className={styles.divider} />
       <ul className={styles.groups}>
         {getAvailableTools(access).map(
           ([id, { homeHref, title, icon: Icon }]) => {
@@ -94,6 +95,7 @@ function ToolsNavigation({
               subpages.some((page) => page.active && page.href === homeHref);
             return (
               <li key={id}>
+                {id === "admin" && <hr className={styles.divider} />}
                 <Link
                   href={homeHref}
                   className={`${styles.item} ${styles.groupLink}`}

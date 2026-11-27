@@ -107,7 +107,6 @@ describe("temporary tools lock", () => {
 
   it.each([
     "/api/times/moderation",
-    "/api/times/team-map",
     "/api/times/manage",
 
     "/api/data",
@@ -268,8 +267,6 @@ describe("scoped staff Admin access", () => {
   it.each([
     "/tools/review",
     "/tools/admin-other",
-    "/tools/goals",
-    "/tools/team-map",
     "/api/times/manage",
     "/api/workshare",
     "/api/workshare/accounts-other",
@@ -417,9 +414,6 @@ describe("released tools for any verified email", () => {
   it.each([
     "/tools/review",
     "/tools/review/held-observations",
-    "/tools/goals",
-    "/tools/team-map",
-    "/api/times/team-map",
     "/api/times/import",
   ])("restricts %s to the owner even for staff", async (path) => {
     mocks.getUser.mockResolvedValue({ data: { user: staffUser }, error: null });

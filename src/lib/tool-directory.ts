@@ -3,8 +3,6 @@ import {
   BarChart3,
   ClipboardList,
   Shield,
-  Target,
-  UsersRound,
   Timer,
   Trophy,
   type LucideIcon,
@@ -74,24 +72,6 @@ export const toolDirectory = {
     href: "/tools/data",
     homeHref: "/tools/data",
     icon: ClipboardList,
-    adminOnly: true,
-  },
-  goals: {
-    title: "Goals",
-    description:
-      "Find the next standards, ranking milestones, and new events for your primary and favorite athletes.",
-    href: "/tools/goals",
-    homeHref: "/tools/goals",
-    icon: Target,
-    adminOnly: true,
-  },
-  "team-map": {
-    title: "Team Map",
-    description:
-      "Explore the current roster’s rank contributions, age-group leaders, and progress through the year.",
-    href: "/tools/team-map",
-    homeHref: "/tools/team-map",
-    icon: UsersRound,
     adminOnly: true,
   },
 } as const satisfies Record<string, Tool>;

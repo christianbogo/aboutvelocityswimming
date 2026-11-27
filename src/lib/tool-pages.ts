@@ -15,8 +15,6 @@ export type ToolPage = {
 export function getToolPages(tool: ToolId): ToolPage[] {
   switch (tool) {
     case "my-times":
-    case "goals":
-    case "team-map":
     case "rankings":
     case "records":
     case "standards":

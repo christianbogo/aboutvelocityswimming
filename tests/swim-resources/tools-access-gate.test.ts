@@ -39,7 +39,7 @@ describe("already-loaded tool access", () => {
       emailVerified: true,
     };
     expect(render()).toBe("Protected tool content");
-    mocks.pathname = "/tools/goals";
+    mocks.pathname = "/tools/data";
     expect(render()).not.toContain("Protected tool content");
   });
   it("shows tools for the verified admin", () => {

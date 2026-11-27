@@ -50,28 +50,12 @@ describe("independent times tools", () => {
       "standards",
       "admin",
       "data",
-      "goals",
-      "team-map",
     ]);
-    expect(
-      getAvailableTools({ signedIn: true, allTools: false, staff: false }).map(
-        ([id]) => id,
-      ),
-    ).not.toContain("goals");
     expect(
       getAvailableTools({ allTools: true, staff: true }).find(
         ([id]) => id === "data",
       )?.[1].title,
     ).toBe("Data");
-    expect(
-      getAvailableTools({ allTools: true, staff: true }).map(([id]) => id),
-    ).toContain("team-map");
-    expect(
-      getAvailableTools({ signedIn: true, allTools: false, staff: false }).map(
-        ([id]) => id,
-      ),
-    ).not.toContain("team-map");
-    expect(getToolPages("team-map")).toEqual([]);
     expect(
       getAvailableTools({ allTools: true, staff: true }).map(
         ([id, { title, homeHref }]) => ({ id, title, homeHref }),
@@ -154,7 +138,5 @@ it("shows released tools to members and reserves drafts for the owner", () => {
     "records",
     "standards",
     "data",
-    "goals",
-    "team-map",
   ]);
 });

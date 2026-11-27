@@ -331,8 +331,8 @@ try {
   await page.getByRole("button", { name: `Edit ${prefix}`, exact: true }).click();
   await edit.getByLabel("Athlete full name", { exact: true }).fill("Rostercheck Navigated");
   await edit.getByLabel("Apple Capital hours required", { exact: true }).fill("5");
-  await navigation.getByRole("link", { name: "Goals", exact: true }).click();
-  await page.waitForURL(base + "/tools/goals");
+  await navigation.getByRole("link", { name: "Rankings", exact: true }).click();
+  await page.waitForURL(base + "/tools/rankings");
   await waitForAccount({ appleCapitalHoursRequired: 5 }, { fullName: "Rostercheck Navigated" });
   await navigation.getByRole("link", { name: "Admin", exact: true }).click();
   await page.waitForURL(base + "/tools/admin");
