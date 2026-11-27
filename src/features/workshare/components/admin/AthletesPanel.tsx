@@ -286,6 +286,7 @@ export function AthletesPanel({
                     athlete.trainingGroup ===
                       (group.id === "unassigned" ? "" : group.name))),
             );
+            if (group.id === "unassigned" && members.length === 0) return null;
             return (
               <button
                 key={group.id}
