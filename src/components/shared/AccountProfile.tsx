@@ -2,15 +2,14 @@
 
 import { LogOut, Settings2, ShieldCheck } from "lucide-react";
 import { useId, useState } from "react";
-import { useAuth } from "@/features/workshare/contexts/auth";
+import { useAuth } from "@/features/auth/context";
 import AccountAthletes from "./AccountAthletes";
 import AccountSignInMethods from "./AccountSignInMethods";
 import AccountWorkshare from "./AccountWorkshare";
-import VelocityFamily, { familyPreview } from "./VelocityFamily";
 import { Button } from "./Button";
 
 export default function AccountProfile() {
-  const { user, accountFamilyId, logout, loading } = useAuth();
+  const { user, logout, loading } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -99,7 +98,6 @@ export default function AccountProfile() {
           )}
         </section>
       </div>
-      <VelocityFamily family={familyPreview(accountFamilyId, user.email)} />
       <AccountAthletes key={user.uid} userId={user.uid} />
       <AccountWorkshare
         key={`${user.uid}:${user.email ?? ""}`}

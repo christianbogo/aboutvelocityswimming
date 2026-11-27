@@ -1,5 +1,5 @@
 import { syntheticStandard } from "./synthetic-standard.mjs";
-import { validateStandard } from "../../src/components/collection/validate-standard.ts";
+import { validateStandard } from "../../src/features/swimming/domain/validate-standard.ts";
 import { createClient } from "@supabase/supabase-js";
 import { localSupabase, localEnvironmentFile } from "../local-supabase.mjs";
 import { writeFileSync } from "node:fs";

@@ -3,7 +3,7 @@ import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import type { StandardSet } from "@/features/swim-resources/types/schema";
 import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
-import type { Race } from "./times-data";
+import type { Race } from "@/features/swimming/domain/times";
 import { resultCuts, type ResultCut } from "./result-cuts";
 import { MotivationalRankIcon } from "./MotivationalRankIcon";
 import { motivationalRankForTier } from "./motivational-ranks";

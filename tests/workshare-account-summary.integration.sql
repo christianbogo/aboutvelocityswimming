@@ -31,7 +31,7 @@ values
 ('summary-anonymous','summary-anonymous@example.test');
 
 insert into public.workshare_athletes(account_id,full_name,training_group)
-values ('summary-linked-a','Summary Swimmer','Gold'), ('summary-unrelated','Private Swimmer','Silver');
+values ('summary-linked-a','Summary Swimmer','Juniors'), ('summary-unrelated','Private Swimmer','Seniors');
 update auth.users set encrypted_password='synthetic-hash' where id='95222222-2222-4222-8222-222222222222';
 
 set local role authenticated;
@@ -48,7 +48,7 @@ begin
   assert item->'completed'='{"general":0,"starlight":0,"appleCapital":0}'::jsonb, 'No-season completed hours start at zero';
   assert item->'emails'='["private-secondary@example.test","summary-parent@example.test"]'::jsonb, 'All linked account emails are included';
   assert item->'athletes'->0->>'fullName'='Summary Swimmer', 'Linked athlete name is included';
-  assert item->'athletes'->0->>'trainingGroup'='Gold', 'Linked athlete training group is included';
+  assert item->'athletes'->0->>'trainingGroup'='Juniors', 'Linked athlete training group is included';
   assert not(item ? 'updatedAt'), 'Internal revision stays private';
   assert not public.has_account_password(), 'Account without a password returns false';
   assert item->'tickets'='[]'::jsonb, 'No season has no tickets';

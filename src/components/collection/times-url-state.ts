@@ -1,5 +1,5 @@
 import { timesViewPaths, type TimesView } from "@/lib/tool-directory";
-import { initialFilters, type Filters } from "./times-data";
+import { initialFilters, type Filters } from "@/features/swimming/domain/times";
 
 // Decode only the shape represented by the defaults; malformed shared links
 // must not put null arrays or objects into filter controls.

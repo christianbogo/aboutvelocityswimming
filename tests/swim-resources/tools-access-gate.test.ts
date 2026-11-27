@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 vi.mock("next/navigation", () => ({ usePathname: () => mocks.pathname }));
-vi.mock("@/features/workshare/contexts/auth", () => ({
+vi.mock("@/features/auth/context", () => ({
   useAuth: () => mocks.auth,
 }));
 import ToolsAccessGate from "@/components/shared/ToolsAccessGate";

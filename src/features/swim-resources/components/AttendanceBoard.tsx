@@ -10,7 +10,7 @@ import {
 import { teamDate } from "@/lib/dates";
 import { Button } from "@/components/shared/Button";
 import { Input } from "@/components/shared/Input";
-import { useAuth } from "@/features/workshare/contexts/auth";
+import { useAuth } from "@/features/auth/context";
 export default function AttendanceBoard() {
   const { isAdmin, loading } = useAuth();
   const [day, setDay] = useState<AttendanceDay | null>(null);

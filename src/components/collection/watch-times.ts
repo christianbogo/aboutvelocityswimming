@@ -1,11 +1,10 @@
-import type { TimesResponse } from "./times-api";
+import type { TimesResponse } from "@/features/swimming/domain/times-query";
 import { loadTimes, TimesReadError } from "./load-times";
+import { timesCache, timesGeneration } from "./times-cache";
 import {
-  timesCache,
-  timesGeneration,
   timesRefreshDelay,
   timesRetryDelay,
-} from "./times-cache";
+} from "@/features/swimming/domain/cache-policy";
 
 export const timesCacheChangedEvent = "ies-times-cache";
 export type TimesReadState = {

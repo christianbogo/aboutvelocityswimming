@@ -7,8 +7,8 @@ import TeamRecords, {
   type RecordSelection,
 } from "./TeamRecords";
 import { QueryNotice, TimesConfigurationNotice } from "./TimesNotices";
-import { timesUrl } from "./times-api";
-import { initialFilters } from "./times-data";
+import { timesUrl } from "@/features/swimming/domain/times-query";
+import { initialFilters } from "@/features/swimming/domain/times";
 import { rankingsHref } from "./times-url-state";
 import { useTimes } from "./use-times";
 import s from "./TimesDatabase.module.css";

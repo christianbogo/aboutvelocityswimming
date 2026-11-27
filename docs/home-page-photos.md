@@ -1,15 +1,16 @@
 # Home page photos
 
-The original photos remain in `public/assets/photos/`. The home page serves
+Selected original photos live in `assets/photos/` as build inputs. The home page serves
 pre-generated WebP derivatives through the site's CDN, with responsive widths
 and a separate larger version fetched only when a visitor opens a lightbox.
 There is no image resizing service in the request path.
 
 ## Replacing photos
 
-1. Add or replace the original in `public/assets/photos/`.
+1. Add or replace the original in `assets/photos/`.
 2. If the filename changes, update `src/data/site-photo-sources.json`. This file
-   controls the hero, feature photos, coaches, and youth carousel.
+   controls the hero, feature photos, coaches, and youth carousel. Its
+   `/assets/photos/...` values are source IDs, not public original-image URLs.
 3. Run `npm run images:generate` with Node 24, then review the page on desktop
    and mobile. Commit the originals, source list, generated JSON manifest, and
    generated WebP files together.
@@ -30,7 +31,10 @@ Generated filenames contain a hash of the actual output bytes. Only
 max-age=31536000, immutable`. Replacing a photo produces new URLs automatically,
 so a browser can cache the old file for a year without hiding the replacement.
 The generator removes obsolete derivatives after a successful run and leaves
-originals untouched. Avoid manually changing a generated file under its old URL.
+selected originals untouched. Unused original photos and videos were removed
+from the working tree; previous versions remain recoverable in Git history.
+Only optimized derivatives belong under `public/assets/photos/`. Avoid manually
+changing a generated file under its old URL.
 
 The hero loads eagerly with high fetch priority. Other photos use native lazy
 loading and intrinsic dimensions; carousels pause offscreen, while the page is

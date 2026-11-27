@@ -1,6 +1,6 @@
 import type { StandardSet } from "@/features/swim-resources/types/schema";
 import { currentStandard } from "@/features/swim-resources/lib/domain/standards";
-import type { Filters } from "./times-data";
+import type { Filters } from "@/features/swimming/domain/times";
 import {
   motivationalRankForTier,
   type MotivationalRank,

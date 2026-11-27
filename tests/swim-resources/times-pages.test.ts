@@ -3,7 +3,7 @@
 import { createElement } from "react";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { initialFilters } from "@/components/collection/times-data";
+import { initialFilters, type Race } from "@/features/swimming/domain/times";
 import RankingsPage from "@/components/collection/RankingsPage";
 import RecordsPage from "@/components/collection/RecordsPage";
 import MyTimesPage from "@/components/collection/MyTimesPage";
@@ -86,6 +86,135 @@ beforeEach(() => {
   mocks.standardSelection.mockReturnValue({ set: { id: "selected" } });
 });
 afterEach(cleanup);
+
+const rankingRace: Race = {
+  id: "avery-100-free",
+  athleteId: "avery",
+  athleteName: "Avery Swimmer",
+  date: "2026-11-21",
+  event: "100_FR",
+  course: "SCY",
+  time: 61230,
+  status: "OK",
+  round: "F",
+  team: "VS",
+  official: true,
+  relay: false,
+  meetId: "fall-meet",
+  meet: "Fall Meet",
+};
+
+it("rankings keeps athlete links, row navigation, and result details", () => {
+  mocks.times.mockReturnValue({
+    data: { rows: [{ race: rankingRace, rank: 1 }], total: 1 },
+    loading: false,
+    error: "",
+  });
+  const screen = render(createElement(RankingsPage));
+  const table = screen.getByRole("table", {
+    name: "Rankings, one best swim per athlete in the selected age groups",
+  });
+  expect(table.getAttribute("aria-busy")).toBe("false");
+  expect(screen.getByRole("columnheader", { name: "Rank" })).toBeTruthy();
+  expect(screen.getByText("Nov 21, 2026")).toBeTruthy();
+  const profile = screen.getByRole("link", {
+    name: "View Times profile for Avery Swimmer",
+  });
+  expect(profile.textContent).toBe("1:01.23");
+  const href = profile.getAttribute("href");
+  const url = new URL(href!, window.location.origin);
+  expect(url.pathname).toBe("/tools/my-times");
+  expect(url.searchParams.get("myAthlete")).toBe("avery");
+  fireEvent.click(screen.getByText("Fall Meet"));
+  expect(mocks.push).toHaveBeenCalledExactlyOnceWith(href);
+
+  mocks.push.mockClear();
+  profile.addEventListener("click", (event) => event.preventDefault(), {
+    once: true,
+  });
+  fireEvent.click(profile);
+  expect(mocks.push).not.toHaveBeenCalled();
+});
+
+it("recent relay results omit ranks and retain individual lineup links", () => {
+  window.history.replaceState(
+    {},
+    "",
+    `/tools/rankings?${new URLSearchParams({
+      filters: JSON.stringify({
+        ...initialFilters,
+        event: "200_FR-R",
+        mode: "recent",
+        relay: true,
+      }),
+    })}`,
+  );
+  mocks.times.mockReturnValue({
+    data: {
+      rows: [
+        {
+          race: {
+            ...rankingRace,
+            relay: true,
+            event: "200_FR-R",
+            status: "DQ",
+            members: [{ leg: 1, athleteId: "avery", name: "Avery Swimmer" }],
+          },
+          rank: 1,
+        },
+      ],
+      total: 1,
+    },
+    loading: false,
+    error: "",
+  });
+  const screen = render(createElement(RankingsPage));
+  expect(
+    screen.getByRole("table", {
+      name: "Recent event results, newest first",
+    }),
+  ).toBeTruthy();
+  expect(screen.queryByRole("columnheader", { name: "Rank" })).toBeNull();
+  expect(screen.getByRole("columnheader", { name: "Relay team" })).toBeTruthy();
+  expect(
+    screen.getByRole("list", { name: "Relay swimmers" }).children,
+  ).toHaveLength(4);
+  expect(
+    screen
+      .getByRole("link", {
+        name: "View Times profile for Avery Swimmer",
+      })
+      .getAttribute("href"),
+  ).toContain("myAthlete=avery");
+  fireEvent.click(screen.getByText("DQ"));
+  expect(mocks.push).not.toHaveBeenCalled();
+});
+
+it("loading rankings preserve the previous page shape without exposing stale results", () => {
+  const placeholderRows = [0, 1, 2].map((index) => ({
+    race: { ...rankingRace, id: `race-${index}` },
+    rank: 25 + index,
+  }));
+  mocks.times.mockReturnValue({
+    loading: true,
+    placeholderData: { rows: placeholderRows, total: 27 },
+    placeholderUrl: "/api/times?view=rankings&offset=24&limit=26",
+    error: "",
+  });
+  const screen = render(createElement(RankingsPage));
+  const table = screen.getByRole("table");
+  expect(table.getAttribute("aria-busy")).toBe("true");
+  expect(table.querySelector("tbody")?.getAttribute("aria-hidden")).toBe(
+    "true",
+  );
+  expect(table.querySelectorAll("tbody tr")).toHaveLength(2);
+  expect(screen.queryByText("Avery Swimmer")).toBeNull();
+  expect(screen.queryByText("No matching results")).toBeNull();
+  expect(
+    (screen.getByRole("button", { name: "Next" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+});
 
 it("rankings loads only its queries and retains bookmarked filters", () => {
   const filters = {

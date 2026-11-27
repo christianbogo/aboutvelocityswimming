@@ -1,7 +1,7 @@
 "use client";
 import { holdUpdates } from "@/lib/update-safety";
 import { useEffect, useState } from "react";
-import type { Race } from "./times-data";
+import type { Race } from "@/features/swimming/domain/times";
 import { clearTimesCache } from "./times-cache";
 import {
   moderationReasons,
@@ -9,7 +9,7 @@ import {
   reasonLabel,
   type ModerationDetail,
   type ResultType,
-} from "./result-moderation";
+} from "@/features/swimming/domain/moderation";
 import s from "./ResultModeration.module.css";
 
 export function ModerationNotice({ race }: { race: Race }) {
@@ -27,23 +27,42 @@ function sourceUrl(value: string) {
     return undefined;
   }
 }
+export interface ModerationEditingState {
+  dirty: boolean;
+  busy: boolean;
+}
 export function ModerationEditor({
   resultType,
   resultId,
   onChanged,
+  onEditingChange,
+  disabled = false,
 }: {
   resultType: ResultType;
   resultId: string;
   onChanged: (detail: ModerationDetail) => void;
+  onEditingChange?: (state: ModerationEditingState) => void;
+  disabled?: boolean;
 }) {
   const [detail, setDetail] = useState<ModerationDetail | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [reason, setReason] = useState<string>(moderationReasons[0][0]);
+  const [savedReason, setSavedReason] = useState<string>(
+    moderationReasons[0][0],
+  );
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [message, setMessage] = useState("");
+  const dirty = note.length > 0 || (!detail?.flagged && reason !== savedReason);
+  useEffect(() => {
+    onEditingChange?.({ dirty, busy });
+  }, [dirty, busy, onEditingChange]);
+  useEffect(
+    () => () => onEditingChange?.({ dirty: false, busy: false }),
+    [onEditingChange],
+  );
   useEffect(() => {
     const controller = new AbortController();
     async function load() {
@@ -74,7 +93,7 @@ export function ModerationEditor({
   }, [resultType, resultId, attempt]);
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!detail || !detail.available || busy || conflict) return;
+    if (!detail || !detail.available || busy || disabled || conflict) return;
     setBusy(true);
     const release = holdUpdates();
     setError("");
@@ -99,6 +118,7 @@ export function ModerationEditor({
       }
       setDetail(data);
       setNote("");
+      setSavedReason(reason);
       setMessage(
         data.flagged
           ? "Result flagged and excluded."
@@ -126,7 +146,7 @@ export function ModerationEditor({
           <button
             type="button"
             className={s.button}
-            disabled={busy}
+            disabled={busy || disabled}
             onClick={() => {
               setDetail(null);
               setAttempt((n) => n + 1);
@@ -164,7 +184,7 @@ export function ModerationEditor({
                 <select
                   value={reason}
                   onChange={(event) => setReason(event.target.value)}
-                  disabled={busy}
+                  disabled={busy || disabled}
                 >
                   {moderationReasons.map(([key, label]) => (
                     <option key={key} value={key}>
@@ -185,7 +205,7 @@ export function ModerationEditor({
                 maxLength={4000}
                 required={detail.flagged || reason === "other"}
                 onChange={(event) => setNote(event.target.value)}
-                disabled={busy}
+                disabled={busy || disabled}
               />
             </label>
             <p>Notes and reviewer details are visible only to staff.</p>
@@ -193,6 +213,7 @@ export function ModerationEditor({
               className={s.button}
               disabled={
                 busy ||
+                disabled ||
                 !detail.available ||
                 conflict ||
                 ((detail.flagged || reason === "other") && !note.trim())

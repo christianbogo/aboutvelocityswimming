@@ -6,7 +6,7 @@ import { Button } from "@/components/shared/Button";
 import type { WorkshareAccount } from "../../lib/accounts";
 import type { AccountSeasonSummary, WorkshareSeason } from "../../lib/tickets";
 import styles from "./Accounts.module.css";
-import { useAuth } from "../../contexts/auth";
+import { useAuth } from "@/features/auth/context";
 
 export const accountColumns = [
   ["athletes", "Athletes"],

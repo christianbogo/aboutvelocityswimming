@@ -13,7 +13,7 @@ vi.mock("@/lib/attendance", () => ({
   loadAttendanceDay: mocks.load,
   saveAttendance: mocks.save,
 }));
-vi.mock("@/features/workshare/contexts/auth", () => ({
+vi.mock("@/features/auth/context", () => ({
   useAuth: () => ({ isAdmin: true, loading: false }),
 }));
 vi.mock("@/lib/dates", () => ({ teamDate: () => "2026-11-19" }));

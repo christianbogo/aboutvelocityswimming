@@ -2,7 +2,7 @@
 
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "../../contexts/auth";
+import { useAuth } from "@/features/auth/context";
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, isAdmin, loading } = useAuth();

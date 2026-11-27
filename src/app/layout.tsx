@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Outfit, Bebas_Neue } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/features/workshare/contexts/AuthContext";
+import { AuthProvider } from "@/features/auth/AuthProvider";
 import SiteAccount from "@/components/shared/SiteAccount";
 import Header from "@/components/Header";
 import NavigationScroll from "@/components/NavigationScroll";

@@ -6,8 +6,16 @@ import { holdUpdates } from "@/lib/update-safety";
 import { clearTimesCache } from "@/components/collection/times-cache";
 import RecordPicker from "./RecordPicker";
 import { requestData } from "./data-api";
+import {
+  useDataNavigation,
+  type DataNavigationState,
+} from "./use-data-navigation";
 import s from "./DataManager.module.css";
-export default function ImportFile() {
+export default function ImportFile({
+  onNavigationChange,
+}: {
+  onNavigationChange?: (state: DataNavigationState) => void;
+}) {
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [error, setError] = useState(""),
@@ -21,6 +29,7 @@ export default function ImportFile() {
   const router = useRouter();
   const controller = useRef<AbortController | null>(null),
     rejectReader = useRef<((error: Error) => void) | null>(null);
+  useDataNavigation({ dirty: false, busy }, onNavigationChange);
   useEffect(
     () => () => {
       worker.current?.terminate();

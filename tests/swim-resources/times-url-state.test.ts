@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { initialFilters } from "@/components/collection/times-data";
+import { initialFilters } from "@/features/swimming/domain/times";
 import {
   athleteTimesHref,
   normalizeRankingFilters,

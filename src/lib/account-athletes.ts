@@ -1,4 +1,4 @@
-import { athleteName } from "@/components/collection/times-data";
+import { athleteName } from "@/features/swimming/domain/athlete-name";
 import { browserClient } from "./supabase/client";
 import { withUpdateHold } from "./update-safety";
 

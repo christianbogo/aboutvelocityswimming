@@ -17,9 +17,8 @@ beforeEach(() => {
       variants: [
         {
           id: 2,
-          external_id: "shirt-medium",
           name: "Team shirt - M",
-          retail_price: "25",
+          retailPrice: "25.00",
         },
       ],
     }),

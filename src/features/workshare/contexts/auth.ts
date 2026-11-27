@@ -1,32 +1,4 @@
 "use client";
-import { createContext, useContext } from "react";
-import type { User } from "@/lib/auth";
 
-interface AuthContextType {
-  user: User | null;
-  isAdmin: boolean;
-  familyId: string | null;
-  // The signed-in account's membership, independent of an admin's client preview.
-  accountFamilyId: string | null;
-  loading: boolean;
-  logout: () => Promise<void>;
-  clientMode: boolean;
-  setClientMode: (mode: boolean) => void;
-  previewFamilyId: string | null;
-  setPreviewFamilyId: (id: string | null) => void;
-}
-
-export const AuthContext = createContext<AuthContextType>({
-  user: null,
-  isAdmin: false,
-  familyId: null,
-  accountFamilyId: null,
-  loading: true,
-  logout: async () => {},
-  clientMode: false,
-  setClientMode: () => {},
-  previewFamilyId: null,
-  setPreviewFamilyId: () => {},
-});
-
-export const useAuth = () => useContext(AuthContext);
+// Compatibility for in-progress tools. New consumers use features/auth directly.
+export { AuthContext, useAuth } from "@/features/auth/context";

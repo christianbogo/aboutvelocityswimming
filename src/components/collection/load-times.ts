@@ -1,4 +1,4 @@
-import type { TimesResponse } from "./times-api";
+import type { TimesResponse } from "@/features/swimming/domain/times-query";
 import { timesGeneration } from "./times-cache";
 
 const message = "We couldn’t load these results. Please try again.";

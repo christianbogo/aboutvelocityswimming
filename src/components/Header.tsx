@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { isToolsPage } from "@/lib/tools-access";
-import { useAuth } from "@/features/workshare/contexts/auth";
+import { useAuth } from "@/features/auth/context";
 import styles from "./Header.module.css";
 import { scopedClasses } from "@/lib/styles";
 

@@ -5,7 +5,7 @@ insert into auth.users(id,email,email_confirmed_at,is_anonymous,raw_app_meta_dat
 values
 ('72720000-0000-4000-8000-000000000001','domain-coach@velocity-swimming.com',now(),false,'{}','{}'),
 ('72720000-0000-4000-8000-000000000002','UPPER@VELOCITY-SWIMMING.COM',now(),false,'{}','{}'),
-('72720000-0000-4000-8000-000000000003','unverified@velocity-swimming.com',null,false,'{}','{}'),
+('72720000-0000-4000-8000-000000000003','domain-authority-unverified@velocity-swimming.com',null,false,'{}','{}'),
 ('72720000-0000-4000-8000-000000000004','coach@velocity-swimming.com.evil.test',now(),false,'{}','{}'),
 ('72720000-0000-4000-8000-000000000005','spoof@example.test',now(),false,'{"staff":true}','{"email":"coach@velocity-swimming.com","staff":true}'),
 ('72720000-0000-4000-8000-000000000006','anonymous@velocity-swimming.com',now(),true,'{}','{}'),

@@ -8,7 +8,7 @@ import {
   formatSwimTime,
   parseSwimTime,
 } from "@/features/swim-resources/lib/domain/swim-time";
-import { validateStandard } from "@/components/collection/validate-standard";
+import { validateStandard } from "@/features/swimming/domain/validate-standard";
 import {
   recordKinds,
   type DataRecord,

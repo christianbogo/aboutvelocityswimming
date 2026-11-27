@@ -2,7 +2,7 @@ import { dataOwner } from "@/lib/results/server";
 export const maxDuration = 60;
 import { sameOrigin } from "@/lib/same-origin";
 import { invalidateTimes } from "@/lib/times/server";
-import { moderationReasons } from "@/components/collection/result-moderation";
+import { moderationReasons } from "@/features/swimming/domain/moderation";
 
 const headers = { "Cache-Control": "private, no-store" };
 const response = (body: unknown, status = 200) =>

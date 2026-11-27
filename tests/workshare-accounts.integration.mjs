@@ -2,8 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { localDatabaseContainer } from "../scripts/local-supabase.mjs";
 
-const container = process.env.WORKSHARE_TEST_DB_CONTAINER ?? "supabase_db_aboutvelocityswimming";
+const container = process.env.WORKSHARE_TEST_DB_CONTAINER ?? localDatabaseContainer();
 assert.match(container, /^supabase_db_[a-zA-Z0-9_-]+$/, "Tests require a local Supabase database container.");
 
 await test("Accounts & Roster persistence, validation, concurrency, security, import and retirement", () => {

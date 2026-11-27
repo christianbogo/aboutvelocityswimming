@@ -9,33 +9,33 @@ accounts with account, category, date-range, description, and pagination control
 Verified `christiancutter02@gmail.com` and verified addresses on the exact
 `velocity-swimming.com` domain can access Admin and their own Account page.
 Existing explicit staff grants remain valid. The scoped `is_workshare_staff`
-authority protects the Workshare API and tables; it does not grant broader staff
-permissions for Data or other data tools. Other Tools remain restricted to the
-existing owner account. Eligibility creates no grants or invitations. Sign-in
-sends staff to Admin and preserves account-linking returns.
+authority protects the Workshare API and tables; it does not grant owner access
+to Data. Released Times, Rankings, Records, and Standards tools accept verified
+accounts. Eligibility creates no grants or invitations. Ordinary sign-in opens
+Account at `/tools`; authorized return paths and account-linking returns are preserved.
 
-## Athletes and group order
+## Athletes and fixed practice groups
 
-The **Athletes** tab manages the registration roster's groups and coach names.
-Use **Reorder groups**, move groups up/down, then **Save order**. Cancel discards
-only the draft order. All athletes and Unassigned are fixed navigation filters.
+The **Athletes** tab manages the registration roster and athlete group assignments.
+Practice groups are fixed in this order: Seniors, Juniors, Age Groupers, Prep,
+Other. Other has a divider above it. Groups have no assigned coach and cannot be
+created, renamed, removed, or reordered. All athletes, Unassigned, and Archived
+are navigation filters; Unassigned appears when it contains athletes.
 
 `workshare_groups.sort_order` is the shared, ascending display order, independent
 of names. Both `GET /api/workshare/athletes` and `?groupsOnly=1` return groups in
 that order (with ID as a deterministic tiebreaker). The Athletes sidebar, move
-menus, and Accounts group controls consume it directly; future consumers should
-use the same order rather than sorting names. Renames keep their position and
-new groups append, including groups introduced by older account clients.
+menus, and Accounts group controls consume it directly; new consumers should use
+the same order. Database guards reject unsupported group edits from older clients.
 
-`POST /api/workshare/athletes` with `action: "reorderGroups"` and a `groups` array
-of `{id, updatedAt}` pairs in the desired order invokes `reorder_workshare_groups`.
-Include every real group exactly once; omit the reserved `unassigned` record.
-The staff-only transaction rejects stale or incomplete lists without partial
-writes. Reordering does not change athletes, coaches, or group names.
+`POST /api/workshare/athletes` accepts `action: "move"`, a `destinationId`, and
+an `athletes` array of `{id, updatedAt}` pairs. The staff-only transaction verifies
+every account version before moving any athlete; stale moves do not partially save.
+The fixed-group migration preserves athletes and consolidates retired groups into Other.
 
 ## Seasons and required hours
 
-One season picker applies to both tabs and is retained in the URL. The default is
+One season picker applies to Accounts and Tickets and is retained in the URL. The default is
 the season containing today in America/Los_Angeles, then the most recently started
 season, then the earliest future season. Season switching is disabled during editing.
 
@@ -73,7 +73,7 @@ another coach's changes. Archiving accounts or athletes preserves tickets.
 Creation keys survive deletion, so delayed requests cannot recreate an undone ticket.
 There is no detailed revision-history interface.
 
-The Account page includes **Workshare Tracking** above Athlete Tracking. It shows
+The Account page includes **Workshare Tracking** below Athlete Tracking. It shows
 completed / required totals for the registration accounts whose contact emails
 match the user's current verified sign-in email. A season picker provides past
 totals; before first-season setup, existing requirements appear with zero
@@ -87,13 +87,13 @@ Workshare URLs continue to redirect to Admin.
 
 ## Data model and staff editing API
 
-| Table | Purpose |
-| --- | --- |
-| `workshare_accounts`, `workshare_account_emails`, `workshare_athletes` | Registration identity, contacts, roster, and independent account version |
-| `workshare_seasons` | Named, non-overlapping date ranges |
-| `workshare_account_requirements` | Nullable General/Starlight/Apple Capital quotas and version per account/season |
-| `workshare_tickets` | Independent dated credits with category, amount, and version |
-| `workshare_ticket_create_keys` | Idempotency fingerprints retained after ticket deletion |
+| Table                                                                  | Purpose                                                                        |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `workshare_accounts`, `workshare_account_emails`, `workshare_athletes` | Registration identity, contacts, roster, and independent account version       |
+| `workshare_seasons`                                                    | Named, non-overlapping date ranges                                             |
+| `workshare_account_requirements`                                       | Nullable General/Starlight/Apple Capital quotas and version per account/season |
+| `workshare_tickets`                                                    | Independent dated credits with category, amount, and version                   |
+| `workshare_ticket_create_keys`                                         | Idempotency fingerprints retained after ticket deletion                        |
 
 All new tables use staff-only row-level security. API writes require an
 authenticated staff session, same origin, and valid bounded JSON. Responses are
@@ -135,7 +135,7 @@ Prepare a registration export without changing the workbook or database:
 
 ```sh
 python3 scripts/workshare/prepare-accounts.py "/path/to/registration.xlsx" \
-  --output backups/workshare/staged-accounts.json
+  --output /path/to/private/workshare/staged-accounts.json
 ```
 
 Use `--sheet "Worksheet name"` to select a worksheet; otherwise the first sheet
@@ -154,18 +154,18 @@ explicit season for requirement exports and writes:
 
 ```sh
 node scripts/workshare/accounts.mjs list \
-  --output backups/workshare/current-accounts.json --config local-status.json
+  --output /path/to/private/workshare/current-accounts.json --config local-status.json
 node scripts/workshare/accounts.mjs import \
-  --file backups/workshare/staged-accounts.json \
-  --output backups/workshare/import-receipt.json --config local-status.json
+  --file /path/to/private/workshare/staged-accounts.json \
+  --output /path/to/private/workshare/import-receipt.json --config local-status.json
 node scripts/workshare/accounts.mjs apply \
-  --file backups/workshare/edited-accounts.json \
-  --output backups/workshare/edit-receipt.json --config local-status.json
+  --file /path/to/private/workshare/edited-accounts.json \
+  --output /path/to/private/workshare/edit-receipt.json --config local-status.json
 node scripts/workshare/accounts.mjs list --season SEASON_UUID \
-  --output backups/workshare/season-accounts.json --config local-status.json
+  --output /path/to/private/workshare/season-accounts.json --config local-status.json
 node scripts/workshare/accounts.mjs apply-requirements --season SEASON_UUID \
-  --file backups/workshare/season-accounts.json \
-  --output backups/workshare/requirements-receipt.json --config local-status.json
+  --file /path/to/private/workshare/season-accounts.json \
+  --output /path/to/private/workshare/requirements-receipt.json --config local-status.json
 ```
 
 `--config` accepts JSON from `supabase status --output json`, using `API_URL` and
@@ -194,29 +194,17 @@ configuration paths.
 
 ## Verification
 
-```sh
-npm run typecheck
-npm run test:workshare
-npx vitest run tests/swim-resources/workshare-accounts.test.ts
-npm run test:workshare:database
-npm run test:workshare:browser -- /tmp/local-status.json
-npm run test:workshare:tickets:database
-npm run test:workshare:tickets:browser -- /tmp/local-status.json
-```
+With a seeded local Supabase stack, run `npm run verify`. The default database
+suite includes accounts, seasonal tickets, account summaries, and domain-staff
+access tests. These SQL fixtures roll back their transactions.
 
-The database check uses the local Supabase Docker container, with the current
-migrations applied. The browser check accepts local `supabase status --output
-json` configuration and uses `http://127.0.0.1:3011` by default; set
-`WORKSHARE_BROWSER_URL` for another local app port. It tests creation, validation,
-Times linkage, archive flags, stale-version rejection, editing controls, and mobile
-form layout with synthetic records. The local unified browser check also covers
-admin navigation and retired Workshare bookmarks. No Firebase setup is used.
-
-The ticket browser check uses synthetic local staff/nonstaff sign-ins, accounts,
-and seasons, cleans its fixtures, and refuses hosted service URLs. It covers scoped
-staff access, repeated credits, idempotent retries, Undo/deletion, autosave corrections,
-season copying, totals, filters, and mobile layout. Ticket database tests run in a
-transaction that rolls back its fixtures. No production release is performed here.
+With the local app running, `npm run test:smoke:browser` checks current sign-in,
+account settings, athlete preferences, and staff roster autosave/access. It
+creates isolated synthetic users and accounts, cleans them afterward, and rejects
+hosted backend URLs. `VELOCITY_BROWSER_URL` selects another local app port;
+`VELOCITY_SUPABASE_WORKDIR` and `VELOCITY_SUPABASE_DB_CONTAINER` select a disposable
+stack. See [repository verification](../verification.md) for the full CI workflow
+and the distinction between maintained smoke checks and older targeted scripts.
 
 ## Account editor and workshare preferences
 
@@ -256,10 +244,3 @@ The Athletes table's Columns control remembers Account/Group visibility in the
 browser. Athlete names remain visible for navigation; clicking a name or row
 opens its registration account in the Accounts tab. The link icon matches the
 Accounts table's Linked to Times indicator.
-
-### Fixed practice groups
-Practice groups are now fixed in this order: Seniors, Juniors, Age Groupers,
-Prep, Other. Other has a divider above it. Groups have no assigned coach and
-cannot be created, renamed, removed, or reordered. Unassigned and Archived
-remain roster filters. The fixed-group migration preserves athlete records
-and moves assignments from retired groups (including Staff) into Other.

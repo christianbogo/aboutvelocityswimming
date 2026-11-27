@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Bookmark as BookmarkIcon, Pencil } from "lucide-react";
-import { useAuth } from "@/features/workshare/contexts/auth";
+import { useAuth } from "@/features/auth/context";
 import { browserClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
-import { eventLabel, initialFilters, rounds, type Filters } from "./times-data";
-import { timesUrl } from "./times-api";
+import { eventLabel, initialFilters, rounds, type Filters } from "@/features/swimming/domain/times";
+import { timesUrl } from "@/features/swimming/domain/times-query";
 import { normalizeRankingFilters, readTimesSelection } from "./times-url-state";
 import s from "./RankingFilters.module.css";
 import times from "./TimesDatabase.module.css";

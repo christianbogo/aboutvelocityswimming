@@ -137,11 +137,8 @@ begin
     raise exception 'Expected retired roster insert denial';
   exception when feature_not_supported then null;
   end;
-  begin
-    perform public.collect_records('[]','[{"path":"work_descriptions/retired-test","after":{"text":"retired"}}]');
-    raise exception 'Expected generic retired write denial';
-  exception when feature_not_supported then null;
-  end;
+  assert to_regprocedure('public.collect_records(jsonb,jsonb)') is null,
+    'Retired generic collection write RPC is absent';
 end;
 $$;
 rollback;

@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import MyTimes from "@/components/collection/MyTimes";
-import type { MyTimesEvent } from "@/components/collection/times-api";
+import type { MyTimesEvent } from "@/features/swimming/domain/times-query";
 import type { AccountAthletePreferences } from "@/lib/account-athletes";
 
 const mocks = vi.hoisted(() => ({
@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(window.location.search),
 }));
-vi.mock("@/features/workshare/contexts/auth", () => ({
+vi.mock("@/features/auth/context", () => ({
   useAuth: () => ({ user: { uid: "user" }, loading: false }),
 }));
 vi.mock("@/lib/supabase/client", () => ({

@@ -7,7 +7,10 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
+    env:
+      SUPABASE_TELEMETRY_DISABLED: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,23 +19,48 @@ jobs:
           cache: npm
       - uses: supabase/setup-cli@v1
         with:
-          version: 2.117.0
+          version: 3.4.0
       - run: npm ci
       - run: node scripts/results/prepare-retirement-test.mjs
       - run: npm run seed:local
-      - run: npm run verify
+      - name: Verify repository
+        run: |
+          set -a
+          source supabase/.env.local
+          set +a
+          npm run verify
       - run: npx playwright install --with-deps chromium
+      - name: Verify release update safety
+        run: |
+          set -a
+          source supabase/.env.local
+          set +a
+          VELOCITY_TEST_BUILD=true npm run build
+          npm run test:updates:browser
       - name: Verify browser workflows
         run: |
           npm run dev:local > /tmp/velocity-next.log 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true' EXIT
+          ready=false
           for attempt in $(seq 1 60); do
-            curl --fail --silent http://127.0.0.1:3001/tools > /dev/null && break
+            if curl --max-time 5 --fail --silent http://127.0.0.1:3001/login > /dev/null; then
+              ready=true
+              break
+            fi
+            if ! kill -0 "$app_pid" 2>/dev/null; then
+              break
+            fi
             sleep 1
           done
+          if [ "$ready" != true ]; then
+            tail -100 /tmp/velocity-next.log
+            exit 1
+          fi
           npm run test:browser
-          npm run test:records:browser
       - name: Check database advisors
-        run: supabase db advisors --local --type all --fail-on error
+        # Supabase CLI 3 targets the local stack by default.
+        run: supabase db advisors --type all --fail-on error
       - name: Stop local services
         if: always()
         run: supabase stop

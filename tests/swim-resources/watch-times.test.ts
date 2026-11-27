@@ -6,9 +6,11 @@ import {
 import {
   clearTimesCache,
   timesCache,
+} from "@/components/collection/times-cache";
+import {
   timesRefreshDelay,
   timesRetryDelay,
-} from "@/components/collection/times-cache";
+} from "@/features/swimming/domain/cache-policy";
 
 const fetchMock = vi.fn();
 let doc: EventTarget & { visibilityState: string };

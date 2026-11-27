@@ -6,6 +6,12 @@ Data (`/tools/data`) replaces the historical import-review system. Only the veri
 
 Results includes individual swims, relays, and flag/restoration history. Swimmers, Meets, and Standards each have direct editors. Saves validate the whole record and compare an opaque version with the current database contents. A stale edit returns HTTP 409 and writes nothing. Cancel and reopen the record to load current facts.
 
+Changed record and moderation drafts ask for confirmation before Cancel, section
+changes, or normal internal links. Saves and imports lock section navigation;
+reload/close uses the browser's native unsaved-work prompt. Clicking the active
+section preserves the editor. Browser Back/Forward and unrelated programmatic
+navigation are not intercepted, so save or explicitly discard before using them.
+
 Results retain their source identity when edited. A correction rebuilds both the previous and new event groups, refreshes team records, and invalidates the Times cache. Profile edits do not infer roster membership or backfill old results. Meet dates cannot exclude already recorded races.
 
 A relay total belongs to the team. Its first swimmer is not automatically an individual result. A separate lead-off requires a linked first swimmer, verified flat-start timing, and source evidence. Use the relay editor's linked-first-leg correction option to commit related corrections together. Every dependent result has its own stale-edit check. Historical parentless lead-offs retain immutable source attestations; edits cannot contradict that verified identity, occurrence, or timing.
@@ -34,7 +40,7 @@ Retirement compares counts and content checksums for canonical records, public p
 
 ## Verification and private artifacts
 
-Current result-management and Times-dispatcher SQL definitions are collected in `20261120073127_explicit_result_functions.sql`. Full and event-scoped record refreshes share `private.team_record_winners`; their queue and locking behavior remain separate. Future changes should supply explicit function definitions in a new migration instead of replacing strings inside existing function source. Applied migration history stays intact.
+Current result-management and Times-dispatcher SQL definitions are collected in `20261120074116_explicit_result_functions.sql`. Full and event-scoped record refreshes share `private.team_record_winners`; their queue and locking behavior remain separate. Future changes should supply explicit function definitions in a new migration instead of replacing strings inside existing function source. Applied migration history stays intact.
 
 `npm run test:data:database` exercises authorization, manual saves, stale conflicts, ranking changes, standards, partial imports, duplicates, identity conflicts, ambiguous meets, historical affiliation, and atomic relay/lead-off corrections. It uses synthetic local data and rolls back. `npm run test:swim-resources` covers the parser, API boundary, and shared result rules. `npm run test:data:browser` requires seeded local data and a local app.
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { athleteTimesHref } from "./times-url-state";
-import { relayMemberName, type Race } from "./times-data";
+import { relayMemberName, type Race } from "@/features/swimming/domain/times";
 import s from "./RelayLineup.module.css";
 
 export default function RelayLineup({

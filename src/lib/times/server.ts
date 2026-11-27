@@ -7,8 +7,8 @@ import type {
   TimesInput,
   TimesKind,
   TimesResponse,
-} from "@/components/collection/times-api";
-import { timesExpiry } from "@/components/collection/times-cache";
+} from "@/features/swimming/domain/times-query";
+import { timesExpiry } from "@/features/swimming/domain/cache-policy";
 import { diagnosticCode } from "@/lib/request-diagnostics";
 const tag = "ies-times";
 let generation = 0;

@@ -6,6 +6,11 @@ import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
 import { blankRecord, label, requestData } from "./data-api";
 import RecordEditor from "./RecordEditor";
 import ImportFile from "./ImportFile";
+import {
+  confirmDataNavigation,
+  idleDataNavigation,
+  type DataNavigationState,
+} from "./use-data-navigation";
 import FlaggedResults from "@/components/collection/FlaggedResults";
 import s from "./DataManager.module.css";
 const sections = [
@@ -22,7 +27,7 @@ export default function DataManager() {
     ? params.get("view")!
     : "results";
   const [resultKind, setResultKind] = useState<RecordKind>("swim");
-  const [navigation, setNavigation] = useState(0);
+  const [navigation, setNavigation] = useState(idleDataNavigation);
   const kind: RecordKind =
     section === "athletes"
       ? "athlete"
@@ -45,9 +50,10 @@ export default function DataManager() {
           <button
             key={id}
             type="button"
+            disabled={navigation.busy}
             aria-current={section === id ? "page" : undefined}
             onClick={() => {
-              setNavigation((value) => value + 1);
+              if (section === id || !confirmDataNavigation(navigation)) return;
               router.replace(`/tools/data?view=${id}`);
             }}
           >
@@ -55,14 +61,20 @@ export default function DataManager() {
           </button>
         ))}
       </nav>
+      {navigation.busy && (
+        <p role="status">
+          Wait for the save or import to finish before leaving.
+        </p>
+      )}
       {section === "import" ? (
-        <ImportFile />
+        <ImportFile onNavigationChange={setNavigation} />
       ) : (
         <RecordBrowser
-          key={`${section}:${kind}:${navigation}`}
+          key={`${section}:${kind}`}
           kind={kind}
           section={section}
           onKindChange={setResultKind}
+          onNavigationChange={setNavigation}
         />
       )}
     </main>
@@ -75,10 +87,12 @@ function RecordBrowser({
   kind,
   section,
   onKindChange,
+  onNavigationChange,
 }: {
   kind: RecordKind;
   section: string;
   onKindChange: (kind: RecordKind) => void;
+  onNavigationChange: (state: DataNavigationState) => void;
 }) {
   const [rows, setRows] = useState<ManagedRecord[]>([]),
     [query, setQuery] = useState(""),
@@ -151,6 +165,7 @@ function RecordBrowser({
           key={`${kind}:${selected.id}:${selected.version}`}
           kind={kind}
           record={selected}
+          onNavigationChange={onNavigationChange}
           onCancel={() => {
             setSelected(null);
             setRevision((r) => r + 1);

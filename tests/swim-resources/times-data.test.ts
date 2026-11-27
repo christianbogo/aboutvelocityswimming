@@ -18,7 +18,7 @@ import {
   rankedTimes,
   type Race,
   initialFilters,
-} from "../../src/components/collection/times-data";
+} from "@/features/swimming/domain/times";
 const race = (id: string, time: number, extra: Partial<Race> = {}): Race => ({
   id,
   athleteId: id,

@@ -10,7 +10,7 @@ import {
   teamRecords,
   recordKey,
   initialFilters,
-} from "../src/components/collection/times-data.ts";
+} from "../src/features/swimming/domain/times.ts";
 const config = JSON.parse(
   execFileSync("supabase", ["status", "--output", "json", ...(process.env.VELOCITY_SUPABASE_WORKDIR ? ["--workdir", process.env.VELOCITY_SUPABASE_WORKDIR] : [])], {
     encoding: "utf8",

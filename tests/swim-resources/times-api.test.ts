@@ -1,17 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { parseTimesQuery, timesUrl } from "@/components/collection/times-api";
 import {
-  timesExpiry,
+  parseTimesQuery,
+  timesUrl,
+} from "@/features/swimming/domain/times-query";
+import {
   clearTimesCache,
   timesCache,
   timesGeneration,
 } from "@/components/collection/times-cache";
+import { timesExpiry } from "@/features/swimming/domain/cache-policy";
 import {
   groupedEvents,
   initialFilters,
   matches,
   type Race,
-} from "@/components/collection/times-data";
+} from "@/features/swimming/domain/times";
 describe("Velocity times requests", () => {
   it("rejects the retired performance-analysis endpoint", () => {
     expect(() =>

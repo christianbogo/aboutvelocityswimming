@@ -1,4 +1,4 @@
-import { parseTimesQuery } from "@/components/collection/times-api";
+import { parseTimesQuery } from "@/features/swimming/domain/times-query";
 import { readTimes } from "@/lib/times/server";
 import { requestDiagnostics } from "@/lib/request-diagnostics";
 export async function GET(request: Request) {

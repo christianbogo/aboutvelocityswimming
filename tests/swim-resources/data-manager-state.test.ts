@@ -114,14 +114,16 @@ afterEach(() => {
 });
 
 describe("data editor request ownership", () => {
-  it("resets the current section without letting a pending Edit reopen it", async () => {
+  it("keeps the current section and its pending selection on a repeated tab click", async () => {
     const pending = pendingRecord();
     details.push(pending);
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Results" }));
-    expect(signals[0].aborted).toBe(true);
+    expect(signals[0].aborted).toBe(false);
     await finish(pending, record("swim", "old-swim"));
-    expect(screen.queryByRole("region", { name: "Record editor" })).toBeNull();
+    expect(
+      screen.getByRole("region", { name: "Record editor" }).textContent,
+    ).toContain("swim:old-swim");
   });
 
   it("ignores an Edit response after switching record kinds", async () => {

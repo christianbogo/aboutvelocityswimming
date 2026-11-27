@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resultCuts } from "@/components/collection/result-cuts";
-import type { Race } from "@/components/collection/times-data";
+import type { Race } from "@/features/swimming/domain/times";
 import type { StandardSet } from "@/features/swim-resources/types/schema";
 const race: Race = {
   id: "r",

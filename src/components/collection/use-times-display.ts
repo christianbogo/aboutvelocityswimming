@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useAuth } from "@/features/workshare/contexts/auth";
+import { useAuth } from "@/features/auth/context";
 import { browserClient } from "@/lib/supabase/client";
 import { withUpdateHold } from "@/lib/update-safety";
 

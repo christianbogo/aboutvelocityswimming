@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { ageGroups } from "./times-data";
+import { ageGroups } from "@/features/swimming/domain/times";
 
 interface RecordsSelection {
   course: "SCY" | "LCM";

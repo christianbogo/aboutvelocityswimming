@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import MyTimes, { type MyTimesRankingSelection } from "./MyTimes";
 import { MyTimesPageSkeleton } from "./MyTimesSkeleton";
 import { TimesConfigurationNotice } from "./TimesNotices";
-import { initialFilters } from "./times-data";
+import { initialFilters } from "@/features/swimming/domain/times";
 import { rankingsHref } from "./times-url-state";
 import { useStandards } from "./use-standards";
 import s from "./TimesDatabase.module.css";

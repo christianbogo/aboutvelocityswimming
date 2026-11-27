@@ -53,6 +53,7 @@ export default function nextConfig(phase: string): NextConfig {
         "./supabase/.env*",
         "./scripts/legacy-firebase/**/*",
         "./firebase/**/*",
+        "./assets/photos/**/*",
       ],
     },
   };

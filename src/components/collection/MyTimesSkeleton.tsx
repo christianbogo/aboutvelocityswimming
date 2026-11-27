@@ -1,8 +1,8 @@
 import { TimesHighlightsSkeleton } from "./TimesHighlights";
 import { SkeletonStatus, SkeletonText } from "./LoadingSkeleton";
 import { strokeColumns, compareEvents, eventColumn } from "./event-layout";
-import { timesEvents } from "./times-data";
-import type { MyTimesEvent } from "./times-api";
+import { timesEvents } from "@/features/swimming/domain/times";
+import type { MyTimesEvent } from "@/features/swimming/domain/times-query";
 import grid from "./TimeStandards.module.css";
 import times from "./TimesDatabase.module.css";
 import loading from "./TimesLoading.module.css";

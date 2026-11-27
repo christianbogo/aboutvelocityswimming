@@ -37,4 +37,5 @@ execFileSync(
   { stdio: "inherit" },
 );
 // The normal checkout now advances the tested disposable database to the final schema.
-execFileSync("supabase", ["migration", "up", "--local"], { stdio: "inherit" });
+// CLI 3 targets the local stack unless --remote is explicitly provided.
+execFileSync("supabase", ["migration", "up"], { stdio: "inherit" });

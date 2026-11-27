@@ -1,4 +1,7 @@
 -- Preserve roster records while consolidating retired groups into Other.
+-- The locks and deferred group-order constraint must share a transaction,
+-- including when replayed by a CLI that executes statements individually.
+begin;
 lock table public.workshare_accounts in exclusive mode;
 lock table public.workshare_groups in share row exclusive mode;
 insert into public.workshare_groups(name) values ('Seniors'),('Juniors'),('Age Groupers'),('Prep'),('Other') on conflict(name) do nothing;
@@ -58,3 +61,4 @@ revoke all on function public.manage_workshare_athletes(jsonb) from public, anon
 grant execute on function public.manage_workshare_athletes(jsonb) to authenticated, service_role;
 revoke execute on function public.reorder_workshare_groups(jsonb) from authenticated, anon;
 notify pgrst, 'reload schema';
+commit;

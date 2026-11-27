@@ -2,7 +2,7 @@
 import { CircleUserRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAuth } from "@/features/workshare/contexts/auth";
+import { useAuth } from "@/features/auth/context";
 import {
   canAccessToolsPath,
   getToolsHome,

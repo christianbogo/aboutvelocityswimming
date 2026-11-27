@@ -2,7 +2,7 @@
 
 Any verified email can sign in or create an account using an email code and access Account, Times, Rankings, Records, and Standards. No approved-email list is required for those tools. All accounts land on Account after sign-in unless returning to an allowed destination. Admin appears for database-authorized staff. Data (including its views) is restricted to `christiancutter02@gmail.com`; staff authority alone does not unlock them. These restrictions apply to navigation, direct page requests, and backing endpoints. Workshare Tracking appears only when the signed-in email is associated with a Workshare account.
 
-The Account page exposes Google linking, password setup, and passkeys behind **Account Sign-in Settings**, beside Sign out. Google linking uses `auth.linkIdentity()` for the existing Supabase user. Apple and Microsoft sign-in and linking are not offered. Verified users can set or change an email/password sign-in using `auth.updateUser({ password })`; password fields are cleared after a confirmed save. Passkey creation uses `auth.registerPasskey()`; the login page uses `auth.signInWithPasskey()`. Provider linking and passkey registration never create local placeholder credentials.
+The Account page exposes Google linking, password setup, and passkeys behind **Manage Account**, beside Sign out. Google linking uses `auth.linkIdentity()` for the existing Supabase user. Apple and Microsoft sign-in and linking are not offered. Verified users can set or change an email/password sign-in using `auth.updateUser({ password })`; password fields are cleared after a confirmed save. Passkey creation uses `auth.registerPasskey()`; the login page uses `auth.signInWithPasskey()`. Provider linking and passkey registration never create local placeholder credentials.
 
 For the hosted project:
 
@@ -39,10 +39,10 @@ Account and Google data deletion requests go to `execboard@velocity-swimming.com
 
 References: [Google verification requirements](https://support.google.com/cloud/answer/13464321), [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy), [Supabase Google setup](https://supabase.com/docs/guides/auth/social-login/auth-google).
 
-## Athlete following and family preview
+## Athlete following and Workshare accounts
 
-Apply `supabase/migrations/20261116194519_account_followed_athletes.sql` before deploying this account page. Primary and favorite athlete selections are stored privately for each account, using canonical public athlete IDs. Selecting or removing an athlete saves automatically; writes are serialized so slower responses cannot replace newer edits. Failed saves preserve the selection and offer a retry. The search/load/save functions enforce account ownership; they do not grant ownership of an athlete or change Velocity Times yet.
+Primary and favorite athlete selections are stored privately for each account, using canonical public athlete IDs. Selecting or removing an athlete saves automatically; writes are serialized so slower responses cannot replace newer edits. Failed saves preserve the selection and offer a retry. My Times uses these saved preferences, and athlete links open that athlete's results. The search/load/save functions enforce account ownership; following an athlete does not grant permission to edit their data.
 
-Velocity Family appears only when the signed-in email has a family membership. Its additional accounts are labeled sample content until the family account backend is ready. Admin client previews do not change which family appears on the Account page.
+Workshare Tracking reads real accounts associated with the verified signed-in email. The former sample Velocity Family card and its legacy family-membership lookup have been removed. Authentication is shared across the website through `src/features/auth`; Workshare is a consumer of that identity.
 
-For local verification, run `npm run test:profile:database`, `npm run test:profile:browser`, and `npm run test:passkey:browser` with Node 24 and the local app running on port 3001. The passkey check uses a virtual authenticator and removes its test credential afterward.
+For local verification, run `npm run test:profile:database` and `npm run test:smoke:browser` with Node 24 and the seeded local app running on port 3001. The smoke check covers current account settings, athlete following, persistence, and sign-in/out. The former profile browser script depended on the removed sample-family UI and has been retired. `npm run test:passkey:browser` remains a targeted check using localhost and a virtual authenticator; it removes its test credential afterward. See [repository verification](verification.md) for the full CI coverage.

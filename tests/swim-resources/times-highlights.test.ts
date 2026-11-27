@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { StandardSet } from "@/features/swim-resources/types/schema";
-import type { MyTimesEvent } from "@/components/collection/times-api";
-import type { Race } from "@/components/collection/times-data";
+import type { MyTimesEvent } from "@/features/swimming/domain/times-query";
+import type { Race } from "@/features/swimming/domain/times";
 import { rankHighlights } from "@/components/collection/times-highlights";
 
 const race: Race = {

@@ -5,7 +5,7 @@ import { cleanup, render } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { GemFamilyChart } from "@/components/collection/GemFamilyChart";
 import TimesHighlights from "@/components/collection/TimesHighlights";
-import type { MyTimesEvent } from "@/components/collection/times-api";
+import type { MyTimesEvent } from "@/features/swimming/domain/times-query";
 import type { StandardSet } from "@/features/swim-resources/types/schema";
 
 afterEach(cleanup);

@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useAuth } from "@/features/workshare/contexts/auth";
+import { useAuth } from "@/features/auth/context";
 import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
-import { eventLabel, type Race } from "./times-data";
+import { eventLabel, type Race } from "@/features/swimming/domain/times";
 import { ModerationEditor, ModerationNotice } from "./ResultModeration";
-import { reasonLabel, type ModerationList } from "./result-moderation";
+import { reasonLabel, type ModerationList } from "@/features/swimming/domain/moderation";
 import s from "./ResultModeration.module.css";
 
 function ResultHeading({ race }: { race: Race }) {

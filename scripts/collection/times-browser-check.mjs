@@ -6,7 +6,7 @@ import {
   initialFilters,
   matches,
   teamRecords,
-} from "../../src/components/collection/times-data.ts";
+} from "../../src/features/swimming/domain/times.ts";
 const base = process.env.VELOCITY_TEST_URL ?? "http://127.0.0.1:3001";
 assert.ok(
   ["localhost", "127.0.0.1"].includes(new URL(base).hostname),

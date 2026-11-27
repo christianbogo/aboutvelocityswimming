@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowUpRight, UserRound } from "lucide-react";
 import { useEffect, useId, useState } from "react";
-import { useAuth } from "@/features/workshare/contexts/auth";
+import { useAuth } from "@/features/auth/context";
 import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
 import {
   loadAccountAthlete,
@@ -14,8 +14,8 @@ import {
   type AccountAthletePreferences,
 } from "@/lib/account-athletes";
 import { hasBackendConfiguration } from "@/lib/supabase/client";
-import { ageGroups, eventLabel } from "./times-data";
-import { timesUrl, type MyTimesEvent } from "./times-api";
+import { ageGroups, eventLabel } from "@/features/swimming/domain/times";
+import { timesUrl, type MyTimesEvent } from "@/features/swimming/domain/times-query";
 import { useTimes, useDebouncedSearch } from "./use-times";
 import type { useStandards } from "./use-standards";
 import { useTimesSelection } from "./use-times-selection";

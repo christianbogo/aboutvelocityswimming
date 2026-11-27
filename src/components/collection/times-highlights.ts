@@ -4,8 +4,8 @@ import {
   motivationalRankForRace,
   motivationalRanks,
 } from "./motivational-ranks";
-import type { MyTimesEvent } from "./times-api";
-import type { Race } from "./times-data";
+import type { MyTimesEvent } from "@/features/swimming/domain/times-query";
+import type { Race } from "@/features/swimming/domain/times";
 
 export type TimesHighlight = {
   event: MyTimesEvent & { race: Race };

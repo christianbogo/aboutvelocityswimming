@@ -13,7 +13,7 @@ import {
   type AccountProvider,
 } from "@/lib/account-security";
 import { auth } from "../../lib/backend";
-import { useAuth } from "../../contexts/auth";
+import { useAuth } from "@/features/auth/context";
 import { getToolsHome } from "@/lib/tools-access";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";

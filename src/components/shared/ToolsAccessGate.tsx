@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAuth } from "@/features/workshare/contexts/auth";
+import { useAuth } from "@/features/auth/context";
 import { canAccessToolsPath, isToolsPage } from "@/lib/tools-access";
 
 export default function ToolsAccessGate({ children }: { children: ReactNode }) {

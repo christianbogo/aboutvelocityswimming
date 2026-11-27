@@ -1,5 +1,5 @@
 import type { StandardSet } from "@/features/swim-resources/types/schema";
-import type { Race } from "./times-data";
+import type { Race } from "@/features/swimming/domain/times";
 import { resultCuts, type ResultCut } from "./result-cuts";
 
 /** Velocity's icon labels for the six USA Swimming motivational standards. */

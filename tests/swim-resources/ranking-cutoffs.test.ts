@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { StandardSet } from "@/features/swim-resources/types/schema";
-import { initialFilters } from "@/components/collection/times-data";
+import { initialFilters } from "@/features/swimming/domain/times";
 import {
   crossedRankingCutoffs,
   rankingCutoffs,

@@ -16,6 +16,11 @@ import { holdUpdates } from "@/lib/update-safety";
 import { requestData } from "./data-api";
 import RecordPicker from "./RecordPicker";
 import StandardCutsEditor from "./StandardCutsEditor";
+import {
+  idleDataNavigation,
+  useDataNavigation,
+  type DataNavigationState,
+} from "./use-data-navigation";
 import s from "./DataManager.module.css";
 const obj = (v: unknown) => (v && typeof v === "object" ? v : {}) as DataRecord;
 export default function RecordEditor({
@@ -23,11 +28,13 @@ export default function RecordEditor({
   record,
   onSaved,
   onCancel,
+  onNavigationChange,
 }: {
   kind: RecordKind;
   record: ManagedRecord;
   onSaved: (record: ManagedRecord) => void;
   onCancel: () => void;
+  onNavigationChange?: (state: DataNavigationState) => void;
 }) {
   const [data, setData] = useState<DataRecord>(() =>
       structuredClone(
@@ -62,6 +69,17 @@ export default function RecordEditor({
   const [linked, setLinked] = useState<ManagedRecord[]>([]),
     [correctLinked, setCorrectLinked] = useState(false),
     [linkedError, setLinkedError] = useState("");
+  const [moderation, setModeration] = useState(idleDataNavigation);
+  const operationBusy = busy || moderation.busy;
+  const draft = JSON.stringify({ data, time, memberId, correctLinked });
+  const [initialDraft] = useState(draft);
+  const canLeave = useDataNavigation(
+    {
+      dirty: draft !== initialDraft || Boolean(cutsError) || moderation.dirty,
+      busy: operationBusy,
+    },
+    onNavigationChange,
+  );
   useEffect(() => {
     if (kind !== "relay" || record.version === "new") return;
     const controller = new AbortController();
@@ -119,6 +137,15 @@ export default function RecordEditor({
   }
   async function save(event: FormEvent) {
     event.preventDefault();
+    // A successful record save closes both forms. Preserve an unsaved review
+    // unless the user explicitly agrees to discard it first.
+    if (
+      busy ||
+      moderation.busy ||
+      (moderation.dirty &&
+        !window.confirm("Discard your unsaved review and save the record?"))
+    )
+      return;
     setError("");
     setBusy(true);
     const release = holdUpdates();
@@ -244,7 +271,7 @@ export default function RecordEditor({
               : kind}
       </h2>
       <form onSubmit={save}>
-        <fieldset disabled={busy} className={s.fields}>
+        <fieldset disabled={operationBusy} className={s.fields}>
           {kind === "athlete" && (
             <>
               <label>
@@ -453,7 +480,7 @@ export default function RecordEditor({
         </fieldset>
         {kind === "standard" && (
           <StandardCutsEditor
-            disabled={busy}
+            disabled={operationBusy}
             cuts={obj(data.cuts)}
             onChange={(cuts, message) => {
               setCutsError(message ?? "");
@@ -462,7 +489,7 @@ export default function RecordEditor({
           />
         )}
         {kind === "relay" && (
-          <fieldset disabled={busy}>
+          <fieldset disabled={operationBusy}>
             <legend>Relay lineup</legend>
             {members.map((member, index) => (
               <div key={index} className={s.lineup}>
@@ -580,7 +607,7 @@ export default function RecordEditor({
           </p>
         )}
         {linked.length > 0 && (
-          <fieldset disabled={busy}>
+          <fieldset disabled={operationBusy}>
             <legend>Linked first-leg results</legend>
             <p>
               {linked.length} verified individual result(s) depend on this
@@ -600,7 +627,7 @@ export default function RecordEditor({
         {race && (
           <details>
             <summary>Race splits and occurrence</summary>
-            <fieldset disabled={busy}>
+            <fieldset disabled={operationBusy}>
               <div className={s.fields}>
                 {select("splitCoverage", "Split coverage", [
                   "unavailable",
@@ -687,7 +714,7 @@ export default function RecordEditor({
         {kind === "swim" && (
           <details>
             <summary>Relay lead-off</summary>
-            <fieldset disabled={busy}>
+            <fieldset disabled={operationBusy}>
               {data.resultOrigin === "relay_leadoff" &&
               !data.parentRelayResultId ? (
                 <p>
@@ -771,10 +798,16 @@ export default function RecordEditor({
           </p>
         )}
         <div className={s.actions}>
-          <button type="submit" disabled={busy} className={s.primary}>
+          <button type="submit" disabled={operationBusy} className={s.primary}>
             {busy ? "Saving…" : "Save changes"}
           </button>
-          <button type="button" disabled={busy} onClick={onCancel}>
+          <button
+            type="button"
+            disabled={operationBusy}
+            onClick={() => {
+              if (canLeave()) onCancel();
+            }}
+          >
             Cancel
           </button>
         </div>
@@ -786,6 +819,8 @@ export default function RecordEditor({
             resultType={kind === "relay" ? "relay" : "swim"}
             resultId={record.id}
             onChanged={() => router.refresh()}
+            onEditingChange={setModeration}
+            disabled={busy}
           />
         </details>
       )}

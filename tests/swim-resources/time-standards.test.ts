@@ -7,7 +7,7 @@ import {
   standardEventKeys,
   standardDiff,
 } from "@/components/collection/standards-data";
-import { validateStandard } from "@/components/collection/validate-standard";
+import { validateStandard } from "@/features/swimming/domain/validate-standard";
 import { eventColumn } from "@/components/collection/event-layout";
 import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
 import type { StandardSet } from "@/features/swim-resources/types/schema";

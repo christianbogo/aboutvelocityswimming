@@ -4,21 +4,19 @@ import { useEffect, useRef, useState } from "react";
 import styles from "../Store.module.css";
 import { scopedClasses } from "@/lib/styles";
 import { holdUpdates } from "@/lib/update-safety";
-
-interface Variant {
-  id: number;
-  external_id: string;
-  name: string;
-  retail_price: string;
-}
+import type { StoreProduct } from "@/lib/store-catalog";
 
 interface ProductFormProps {
   productId: number;
   productName: string;
-  variants: Variant[];
+  variants: StoreProduct["variants"];
 }
 
-export default function ProductForm({ productId, productName, variants }: ProductFormProps) {
+export default function ProductForm({
+  productId,
+  productName,
+  variants,
+}: ProductFormProps) {
   const [selectedVariantId, setSelectedVariantId] = useState(variants[0]?.id);
   const [checkoutPending, setCheckoutPending] = useState(false);
   const checkoutRelease = useRef<(() => void) | null>(null);
@@ -37,40 +35,58 @@ export default function ProductForm({ productId, productName, variants }: Produc
       release();
     };
   }, []);
-  
-  const selectedVariant = variants.find((v) => v.id === selectedVariantId) || variants[0];
-  
+
+  const selectedVariant =
+    variants.find((v) => v.id === selectedVariantId) || variants[0];
+
   const currentSizeLabel = selectedVariant?.name
-    ? selectedVariant.name.replace(`${productName} - `, "").replace(`${productName} / `, "").trim()
+    ? selectedVariant.name
+        .replace(`${productName} - `, "")
+        .replace(`${productName} / `, "")
+        .trim()
     : "";
 
   return (
     <div className="product-form-container">
       <div className={scopedClasses(styles, "price")}>
-        ${selectedVariant?.retail_price}
+        ${selectedVariant?.retailPrice}
       </div>
-      
-      <form action="/api/checkout" method="POST" onSubmit={(event) => {
-        if (checkoutRelease.current) {
-          event.preventDefault();
-          return;
-        }
-        checkoutRelease.current = holdUpdates();
-        setCheckoutPending(true);
-      }}>
-        <input type="hidden" name="sync_variant_id" value={selectedVariant?.id} />
+
+      <form
+        action="/api/checkout"
+        method="POST"
+        onSubmit={(event) => {
+          if (checkoutRelease.current) {
+            event.preventDefault();
+            return;
+          }
+          checkoutRelease.current = holdUpdates();
+          setCheckoutPending(true);
+        }}
+      >
+        <input
+          type="hidden"
+          name="sync_variant_id"
+          value={selectedVariant?.id}
+        />
         <input type="hidden" name="product_id" value={productId} />
-        
+
         {variants.length > 1 && (
           <div className={scopedClasses(styles, "size-selector-container")}>
             <div className={scopedClasses(styles, "size-selector-label")}>
               <span>Size</span>
               {currentSizeLabel && (
-                <span className={scopedClasses(styles, "selected-size-badge")}>{currentSizeLabel}</span>
+                <span className={scopedClasses(styles, "selected-size-badge")}>
+                  {currentSizeLabel}
+                </span>
               )}
             </div>
-            
-            <div className={scopedClasses(styles, "size-chips-grid")} role="radiogroup" aria-label="Available sizes">
+
+            <div
+              className={scopedClasses(styles, "size-chips-grid")}
+              role="radiogroup"
+              aria-label="Available sizes"
+            >
               {variants.map((v) => {
                 const isSelected = v.id === selectedVariantId;
                 const sizeLabel = v.name
@@ -82,7 +98,10 @@ export default function ProductForm({ productId, productName, variants }: Produc
                   <button
                     key={v.id}
                     type="button"
-                    className={scopedClasses(styles, `size-chip ${isSelected ? "active" : ""}`)}
+                    className={scopedClasses(
+                      styles,
+                      `size-chip ${isSelected ? "active" : ""}`,
+                    )}
                     onClick={() => setSelectedVariantId(v.id)}
                     role="radio"
                     aria-checked={isSelected}
@@ -95,14 +114,26 @@ export default function ProductForm({ productId, productName, variants }: Produc
             </div>
           </div>
         )}
-        
-        <button type="submit" disabled={!selectedVariant || checkoutPending} className={scopedClasses(styles, "btn btn-primary buy-button-large")}>
+
+        <button
+          type="submit"
+          disabled={!selectedVariant || checkoutPending}
+          className={scopedClasses(styles, "btn btn-primary buy-button-large")}
+        >
           {checkoutPending ? "Opening checkout…" : "Checkout with Stripe"}
         </button>
         {checkoutPending && (
           <div role="status">
-            <p>Opening secure checkout. If navigation was stopped or nothing opens, reload this page before trying again. Reloading will not submit another checkout.</p>
-            <button type="button" className="btn" onClick={() => window.location.reload()}>
+            <p>
+              Opening secure checkout. If navigation was stopped or nothing
+              opens, reload this page before trying again. Reloading will not
+              submit another checkout.
+            </p>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => window.location.reload()}
+            >
               Reload page
             </button>
           </div>

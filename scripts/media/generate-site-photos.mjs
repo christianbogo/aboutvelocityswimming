@@ -118,7 +118,9 @@ for (const source of photos) {
   if (!/^\/assets\/photos\/[\w-]+\.(?:jpe?g|png)$/i.test(source)) {
     throw new Error(`Unsupported site photo path: ${source}`);
   }
-  const input = await readFile(path.join(root, "public", source));
+  // Source IDs match the manifest keys, but originals are build inputs outside
+  // public. Only the generated derivatives are served to visitors.
+  const input = await readFile(path.join(root, source));
   originalBytes += input.length;
   const widths = source === sources.hero ? recipe.heroWidths : recipe.widths;
   const generationKey = createHash("sha256")

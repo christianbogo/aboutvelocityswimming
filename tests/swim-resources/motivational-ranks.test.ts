@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { Race } from "@/components/collection/times-data";
+import type { Race } from "@/features/swimming/domain/times";
 import type { StandardSet } from "@/features/swim-resources/types/schema";
 import {
   motivationalRankForRace,

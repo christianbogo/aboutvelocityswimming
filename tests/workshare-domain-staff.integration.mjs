@@ -2,8 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { localDatabaseContainer } from "../scripts/local-supabase.mjs";
 
-const container = process.env.WORKSHARE_TEST_DB_CONTAINER ?? "supabase_db_aboutvelocityswimming";
+const container = process.env.WORKSHARE_TEST_DB_CONTAINER ?? localDatabaseContainer();
 assert.match(container, /^supabase_db_[a-zA-Z0-9_-]+$/, "Tests require a local Supabase database container.");
 function query(sql) {
   const label = execFileSync("docker", ["inspect", "--format", '{{index .Config.Labels "com.supabase.cli.project"}}', container], { encoding: "utf8", timeout: 20_000 }).trim();

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CircleUserRound, House, Shield, type LucideIcon } from "lucide-react";
 import { useId, type ReactNode } from "react";
-import { useAuth } from "@/features/workshare/contexts/auth";
+import { useAuth } from "@/features/auth/context";
 import {
   getAvailableTools,
   toolDirectory,

@@ -16,7 +16,7 @@ import {
   standardEventKeys,
   type StandardSelection,
 } from "./standards-data";
-import { eventLabel } from "./times-data";
+import { eventLabel } from "@/features/swimming/domain/times";
 import { FilterChips, FilterSummary } from "./TimesFilters";
 import DiscreteSlider from "./DiscreteSlider";
 import { MotivationalRankIcon } from "./MotivationalRankIcon";
