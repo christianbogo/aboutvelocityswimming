@@ -5,6 +5,7 @@ import { formatSwimTime } from "@/features/swim-resources/lib/domain/swim-time";
 import type { MyTimesEvent } from "./times-api";
 import { eventLabel } from "./times-data";
 import { motivationalRanks } from "./motivational-ranks";
+import { pointsForRank } from "./rank-points";
 import { MotivationalRankIcon } from "./MotivationalRankIcon";
 import { rankHighlights, type TimesHighlight } from "./times-highlights";
 import { SkeletonText } from "./LoadingSkeleton";
@@ -190,10 +191,12 @@ export default function TimesHighlights({
 }) {
   const highlights = rankHighlights(events, sets);
   const achieved = highlights.filter((item) => item.rank);
-  const gemFamilies: Record<string, number> = {};
-  for (const { event } of achieved) {
+  const familyPoints: Record<string, number> = {};
+  for (const { event, rank } of achieved) {
     const family = eventColumn(event.event);
-    if (family) gemFamilies[family] = (gemFamilies[family] ?? 0) + 1;
+    if (family)
+      familyPoints[family] =
+        (familyPoints[family] ?? 0) + pointsForRank(rank?.rank.tier);
   }
   const strokeCounts = strokes.map(([key, label]) => ({
     key,
@@ -214,16 +217,16 @@ export default function TimesHighlights({
           {highlights.length === 1 ? "swim" : "swims"} · strongest first
         </p>
       </header>
-      <section className={s.gemProfile} aria-label="Your gem profile">
+      <section className={s.gemProfile} aria-label="Your points profile">
         <div className={s.profileHeading}>
           <div>
-            <h3>Your gem profile</h3>
-            <p>Gems across bests in this selection</p>
+            <h3>Your points profile</h3>
+            <p>Rank points across bests in this selection</p>
           </div>
         </div>
         <GemFamilyChart
-          counts={gemFamilies}
-          label="Your gems by event family"
+          points={familyPoints}
+          label="Your rank points by event family"
         />
       </section>
       <ol className={s.featuredList} role="list" aria-label="Top highlights">

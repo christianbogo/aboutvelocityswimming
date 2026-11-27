@@ -509,3 +509,31 @@
     justify-content: flex-start;
   }
 }
+
+.scoringNote {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+  margin: -8px 0 20px;
+}
+.memberInfo {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.memberPlace {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.memberPoints {
+  white-space: nowrap;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.memberPoints small {
+  display: inline;
+  margin: 0;
+}

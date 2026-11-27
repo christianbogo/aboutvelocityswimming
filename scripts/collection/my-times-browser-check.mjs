@@ -840,7 +840,7 @@ try {
     exact: true,
   });
   const familyChart = highlights.getByRole("img", {
-    name: "Your gems by event family",
+    name: "Your rank points by event family",
     exact: true,
   });
   await familyChart.waitFor();
@@ -852,11 +852,11 @@ try {
     );
   assert.match(
     await familyChart.locator('[data-gem-family="FR"]').textContent(),
-    /Free\s*1/,
-    "Only matched gems count; an ungraded backstroke best does not add a gem",
+    /Free\s*25$/,
+    "Only matched ranks score points; an ungraded backstroke best scores zero",
   );
   await highlights
-    .getByText("Gems across bests in this selection", { exact: true })
+    .getByText("Rank points across bests in this selection", { exact: true })
     .waitFor();
   const topHighlights = highlights.getByRole("list", {
     name: "Top highlights",
@@ -870,13 +870,13 @@ try {
     assert.ok(chartBox && cardsBox);
     assert.ok(
       chartBox.y + chartBox.height <= cardsBox.y,
-      "The gem hexagon sits above the highlight cards",
+      "The rank-points hexagon sits above the highlight cards",
     );
     assert.ok(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth + 1,
       ),
-      "The gem hexagon fits the viewport",
+      "The rank-points hexagon fits the viewport",
     );
   };
   await assertChartAboveHighlights();

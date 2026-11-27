@@ -14,9 +14,11 @@ import {
   buildTeamOverview,
   buildTeamMeet,
   profileAges,
+  rankTeamRoster,
   type RankCounts,
   type TeamData,
 } from "./team-data";
+import { pointsForRank } from "./rank-points";
 import { useTeamData, useTeamMeet } from "./use-team-data";
 import { useStandards } from "./use-standards";
 import type { StandardSet } from "@/features/swim-resources/types/schema";
@@ -163,6 +165,15 @@ export default function TeamPage() {
                     ? `Best rank earned per event and course since September 1, ${data.seasonStart.slice(0, 4)}. Ranks use age on the swim date.`
                     : "Career-best times scored against each training group’s age standard. Each event and course counts once, including unranked times."}
               </p>
+              {view !== "Competitive Profile" && (
+                <p className={s.scoringNote}>
+                  Athletes ranked by points:{" "}
+                  {motivationalRanks
+                    .map((rank) => `${rank.name} ${pointsForRank(rank.tier)}`)
+                    .join(" · ")}
+                  .
+                </p>
+              )}
               {view === "Competitive Profile" ? (
                 <>
                   <div className={s.profiles}>
@@ -207,20 +218,37 @@ export default function TeamPage() {
                         </summary>
                         <div className={s.roster}>
                           {group.roster.length ? (
-                            group.roster.map((member) => (
+                            rankTeamRoster(
+                              group.roster,
+                              view === "Season Progress",
+                            ).map((member) => (
                               <div key={member.id} className={s.rosterRow}>
-                                <span>
-                                  {member.athleteId ? (
-                                    <Link href={athleteHref(member.athleteId)}>
-                                      {member.name}
-                                    </Link>
-                                  ) : (
-                                    <>
-                                      {member.name}
-                                      <small>Not linked to Times</small>
-                                    </>
-                                  )}
-                                </span>
+                                <div className={s.memberInfo}>
+                                  <span
+                                    className={s.memberPlace}
+                                    aria-label={`Place ${member.place}`}
+                                  >
+                                    #{member.place}
+                                  </span>
+                                  <span>
+                                    {member.athleteId ? (
+                                      <Link
+                                        href={athleteHref(member.athleteId)}
+                                      >
+                                        {member.name}
+                                      </Link>
+                                    ) : (
+                                      <>
+                                        {member.name}
+                                        <small>Not linked to Times</small>
+                                      </>
+                                    )}
+                                  </span>
+                                  <span className={s.memberPoints}>
+                                    {member.points.toLocaleString("en-US")}{" "}
+                                    <small>pts</small>
+                                  </span>
+                                </div>
                                 <Counts
                                   showIcons={false}
                                   counts={

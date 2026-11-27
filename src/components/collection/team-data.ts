@@ -6,6 +6,7 @@ import {
 } from "./motivational-ranks";
 import { rankHighlights } from "./times-highlights";
 import { compareEvents } from "./event-layout";
+import { pointsForCounts } from "./rank-points";
 
 export const competitiveGroups = [
   "Prep",
@@ -331,4 +332,32 @@ export function buildTeamMeet(
       sets,
     ).slice(0, 3),
   };
+}
+
+/** Equal scores share a place; names and IDs give ties a stable display order. */
+export function rankTeamRoster<
+  T extends {
+    id: string;
+    name: string;
+    counts: RankCounts;
+    seasonCounts: RankCounts;
+  },
+>(roster: T[], season: boolean) {
+  const ranked = roster
+    .map((member) => ({
+      ...member,
+      points: pointsForCounts(season ? member.seasonCounts : member.counts),
+    }))
+    .sort(
+      (a, b) =>
+        b.points - a.points ||
+        a.name.localeCompare(b.name) ||
+        a.id.localeCompare(b.id),
+    );
+  let place = 0;
+  return ranked.map((member, index) => {
+    if (index === 0 || member.points !== ranked[index - 1].points)
+      place = index + 1;
+    return { ...member, place };
+  });
 }

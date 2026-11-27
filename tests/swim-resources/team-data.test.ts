@@ -5,9 +5,15 @@ import {
   buildTeamOverview,
   countRanks,
   rankChanges,
+  rankTeamRoster,
   teamBests,
   type TeamData,
+  type RankCounts,
 } from "@/components/collection/team-data";
+import {
+  pointsForCounts,
+  pointsForRank,
+} from "@/components/collection/rank-points";
 import type { Race } from "@/components/collection/times-data";
 import type { StandardSet } from "@/features/swim-resources/types/schema";
 
@@ -228,4 +234,62 @@ it("uses the tougher senior cuts when no 15&O standard is published, preferring 
       "2026-11-27",
     ).counts.B,
   ).toBe(1);
+});
+
+it("uses the requested rank weights and gives unranked results zero points", () => {
+  expect(tiers.map(pointsForRank)).toEqual([1, 2, 5, 10, 25, 50]);
+  expect(pointsForCounts({ B: 1, BB: 1, A: 1, AA: 1, AAA: 1, AAAA: 1 })).toBe(
+    93,
+  );
+  expect(pointsForRank(null)).toBe(0);
+  expect(pointsForRank("unranked")).toBe(0);
+  expect(pointsForCounts({})).toBe(0);
+});
+it("ranks a group's athletes by the selected view's points and shares places for ties", () => {
+  const roster: {
+    id: string;
+    name: string;
+    counts: RankCounts;
+    seasonCounts: RankCounts;
+  }[] = [
+    {
+      id: "elite",
+      name: "Elite",
+      counts: { AAAA: 1 },
+      seasonCounts: { AAAA: 1 },
+    },
+    {
+      id: "diamond",
+      name: "Diamond",
+      counts: { AAA: 3 },
+      seasonCounts: { B: 1 },
+    },
+    { id: "tie", name: "Another", counts: { AAA: 3 }, seasonCounts: { B: 1 } },
+    { id: "empty", name: "No results", counts: {}, seasonCounts: {} },
+  ];
+  expect(
+    rankTeamRoster(roster, false).map(({ id, points, place }) => ({
+      id,
+      points,
+      place,
+    })),
+  ).toEqual([
+    { id: "tie", points: 75, place: 1 },
+    { id: "diamond", points: 75, place: 1 },
+    { id: "elite", points: 50, place: 3 },
+    { id: "empty", points: 0, place: 4 },
+  ]);
+  expect(
+    rankTeamRoster(roster, true).map(({ id, points, place }) => ({
+      id,
+      points,
+      place,
+    })),
+  ).toEqual([
+    { id: "elite", points: 50, place: 1 },
+    { id: "tie", points: 1, place: 2 },
+    { id: "diamond", points: 1, place: 2 },
+    { id: "empty", points: 0, place: 4 },
+  ]);
+  expect(roster[0].id).toBe("elite");
 });

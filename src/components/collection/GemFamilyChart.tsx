@@ -1,4 +1,6 @@
 import { useId } from "react";
+import { motivationalRanks } from "./motivational-ranks";
+import { pointsForRank } from "./rank-points";
 import s from "./GemFamilyChart.module.css";
 
 const families = [
@@ -29,17 +31,17 @@ function polygon(radii: number[]) {
     .join(" ");
 }
 
-/** A shared count scale keeps the six event families directly comparable. */
+/** A shared point scale keeps the six event families directly comparable. */
 export function GemFamilyChart({
-  counts,
-  label = "Gems by event family",
+  points,
+  label = "Rank points by event family",
 }: {
-  counts: Record<string, number>;
+  points: Record<string, number>;
   label?: string;
 }) {
   const id = useId();
   const values = families.map(([key]) => {
-    const count = counts[key] ?? 0;
+    const count = points[key] ?? 0;
     return Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
   });
   const total = values.reduce((sum, value) => sum + value, 0);
@@ -50,7 +52,7 @@ export function GemFamilyChart({
   const description = families
     .map(
       ([, name], index) =>
-        `${name}: ${number(values[index])} ${values[index] === 1 ? "gem" : "gems"}`,
+        `${name}: ${number(values[index])} ${values[index] === 1 ? "point" : "points"}`,
     )
     .join("; ");
 
@@ -67,8 +69,8 @@ export function GemFamilyChart({
           <title id={`${id}-title`}>{label}</title>
           <desc id={`${id}-description`}>
             {description}. Every axis uses the same scale, from zero at the
-            center to {number(maximum)} {maximum === 1 ? "gem" : "gems"} at the
-            outer ring.
+            center to {number(maximum)} {maximum === 1 ? "point" : "points"} at
+            the outer ring.
           </desc>
           <g aria-hidden="true">
             {Array.from({ length: ringCount }, (_, index) => (
@@ -128,19 +130,26 @@ export function GemFamilyChart({
         <figcaption className={s.summary}>
           <span className={s.total}>
             <strong>{number(total)}</strong>
-            <span>{total === 1 ? "gem" : "gems"}</span>
+            <span>{total === 1 ? "point" : "points"}</span>
           </span>
           <p>
             {total
-              ? "Each point shows the gems earned in that event family."
-              : "No gems in this selection yet."}
+              ? "Each axis shows the rank points earned in that event family."
+              : "No rank points in this selection yet."}
           </p>
           <span className={s.scale}>
-            {number(maximum)} {maximum === 1 ? "gem" : "gems"} at the outer ring
+            {number(maximum)} {maximum === 1 ? "point" : "points"} at the outer
+            ring
             <br />
-            {number(step)} {step === 1 ? "gem" : "gems"} per ring
+            {number(step)} {step === 1 ? "point" : "points"} per ring
           </span>
           <p className={s.note}>Distance includes freestyle events over 200.</p>
+          <p className={s.note}>
+            {motivationalRanks
+              .map((rank) => `${rank.name} ${pointsForRank(rank.tier)}`)
+              .join(" · ")}{" "}
+            points. Each best contributes only its highest rank.
+          </p>
         </figcaption>
       </figure>
     </div>
