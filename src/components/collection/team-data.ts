@@ -1,6 +1,9 @@
 import type { StandardSet } from "@/features/swim-resources/types/schema";
 import type { Race } from "./times-data";
-import { motivationalRanks } from "./motivational-ranks";
+import {
+  motivationalRankForRace,
+  motivationalRanks,
+} from "./motivational-ranks";
 import { rankHighlights } from "./times-highlights";
 import { compareEvents } from "./event-layout";
 
@@ -23,13 +26,18 @@ export type TeamMeet = {
   start: string;
   date: string;
 };
-export type TeamData = {
-  roster: TeamMember[];
-  bests: Race[];
-  meets: TeamMeet[];
+export type TeamMeetData = {
   meet: TeamMeet | null;
   before: Race[];
   swims: Race[];
+};
+export type TeamData = TeamMeetData & {
+  asOf: string;
+  seasonStart: string;
+  seasonSwims: Race[];
+  roster: TeamMember[];
+  bests: Race[];
+  meets: TeamMeet[];
 };
 
 export function eligibleTeamRace(race: Race) {
@@ -99,16 +107,124 @@ export function addCounts(counts: RankCounts[]): RankCounts {
     ]),
   );
 }
+function raceKey(race: Race) {
+  return JSON.stringify([race.athleteId, race.event, race.course]);
+}
+function rankLevel(race: Race, sets: StandardSet[]) {
+  const tier = motivationalRankForRace(race, sets)?.rank.tier;
+  return motivationalRanks.findIndex((rank) => rank.tier === tier);
+}
+
+/** One achievement per event/course, choosing rank before speed across birthdays. */
+export function bestRankRaces(races: Race[], sets: StandardSet[]) {
+  const bests = new Map<string, Race>();
+  for (const race of races) {
+    if (!eligibleTeamRace(race)) continue;
+    const key = raceKey(race);
+    const old = bests.get(key);
+    if (
+      !old ||
+      rankLevel(race, sets) > rankLevel(old, sets) ||
+      (rankLevel(race, sets) === rankLevel(old, sets) && race.time < old.time)
+    )
+      bests.set(key, race);
+  }
+  return [...bests.values()];
+}
+
+/** Count destination ranks per event, so promotions cannot cancel other additions. */
+export function rankAdditionRaces(
+  before: Race[],
+  swims: Race[],
+  sets: StandardSet[],
+) {
+  const old = new Map(teamBests(before).map((race) => [raceKey(race), race]));
+  return teamBests([...before, ...swims]).filter((race) => {
+    if (!swims.some((swim) => swim.id === race.id)) return false;
+    const previous = old.get(raceKey(race));
+    return rankLevel(race, sets) > (previous ? rankLevel(previous, sets) : -1);
+  });
+}
 export function rankChanges(
   before: Race[],
   swims: Race[],
   sets: StandardSet[],
 ) {
-  const old = countRanks(before, sets);
-  const next = countRanks([...before, ...swims], sets);
-  return Object.fromEntries(
-    motivationalRanks.map(({ tier }) => [tier, next[tier] - old[tier]]),
-  );
+  return countRanks(rankAdditionRaces(before, swims, sets), sets);
+}
+
+export const profileAges: Record<string, string> = {
+  Prep: "10&U",
+  "Age Groupers": "11-12",
+  Juniors: "13-14",
+  Seniors: "15&O",
+};
+
+/** Use the assigned group's cuts, irrespective of age when the best was swum. */
+export function competitiveProfile(
+  races: Race[],
+  group: string,
+  sets: StandardSet[],
+  asOf: string,
+) {
+  const age = profileAges[group];
+  const profileSets = sets.map((set) => ({
+    ...set,
+    cuts: Object.fromEntries(
+      Object.entries(set.cuts).map(([course, genders]) => [
+        course,
+        Object.fromEntries(
+          Object.entries(genders ?? {}).map(([gender, ages]) => {
+            const exact = Object.entries(ages ?? {}).find(
+              ([key]) => key.replace(/\s/g, "").replace("–", "-") === age,
+            )?.[1];
+            // USA Swimming publishes 15–16 and 17–18 rather than a single 15&O band.
+            // When necessary, use the stricter cut from those two bands for each tier.
+            const senior = Object.entries(ages ?? {}).filter(([key]) =>
+              ["15-16", "17-18"].includes(key.replace("–", "-")),
+            );
+            const events: typeof exact = exact ?? {};
+            if (!exact && age === "15&O") {
+              for (const [, source] of senior)
+                for (const [event, value] of Object.entries(source ?? {})) {
+                  const cuts = [
+                    ...(events[event]?.cutsByTier ?? []),
+                    ...value.cutsByTier,
+                  ];
+                  events[event] = {
+                    cutsByTier: motivationalRanks.flatMap(({ tier }) => {
+                      const cut = cuts
+                        .filter(
+                          (cut) => cut.tierName === tier && cut.timeMs > 0,
+                        )
+                        .sort((a, b) => a.timeMs - b.timeMs)[0];
+                      return cut ? [cut] : [];
+                    }),
+                  };
+                }
+            }
+            return [gender, { [age]: events }];
+          }),
+        ),
+      ]),
+    ),
+  }));
+  const bests = teamBests(races).map((race) => ({
+    ...race,
+    date: asOf,
+    ageAtSwim: (
+      { Prep: 10, "Age Groupers": 12, Juniors: 14, Seniors: 18 } as Record<
+        string,
+        number
+      >
+    )[group],
+  }));
+  const counts = countRanks(bests, profileSets);
+  return {
+    counts,
+    total: bests.length,
+    unranked: bests.length - Object.values(counts).reduce((a, b) => a + b, 0),
+  };
 }
 
 export function buildTeamOverview(data: TeamData, sets: StandardSet[]) {
@@ -120,6 +236,15 @@ export function buildTeamOverview(data: TeamData, sets: StandardSet[]) {
       ...member,
       bests,
       counts: countRanks(bests, sets),
+      seasonCounts: countRanks(
+        bestRankRaces(
+          data.seasonSwims.filter(
+            (race) => race.athleteId === member.athleteId,
+          ),
+          sets,
+        ),
+        sets,
+      ),
       highlights: teamHighlights(bests, sets),
     };
   });
@@ -132,6 +257,19 @@ export function buildTeamOverview(data: TeamData, sets: StandardSet[]) {
     return {
       name,
       roster,
+      profile: competitiveProfile(
+        data.bests.filter((race) => ids.has(race.athleteId)),
+        name,
+        sets,
+        data.asOf,
+      ),
+      seasonCounts: countRanks(
+        bestRankRaces(
+          data.seasonSwims.filter((race) => ids.has(race.athleteId)),
+          sets,
+        ),
+        sets,
+      ),
       counts: countRanks(
         data.bests.filter((race) => ids.has(race.athleteId)),
         sets,
@@ -161,6 +299,14 @@ export function buildTeamOverview(data: TeamData, sets: StandardSet[]) {
       );
     })
     .slice(0, 3);
+  return { groups, leaders };
+}
+
+export function buildTeamMeet(
+  data: TeamMeetData,
+  roster: TeamMember[],
+  sets: StandardSet[],
+) {
   const athletes = [...new Set(data.swims.map((race) => race.athleteId))]
     .map((athleteId) => {
       const swims = data.swims.filter((race) => race.athleteId === athleteId);
@@ -168,19 +314,21 @@ export function buildTeamOverview(data: TeamData, sets: StandardSet[]) {
       return {
         athleteId,
         name:
-          members.find((member) => member.athleteId === athleteId)?.name ||
+          roster.find((member) => member.athleteId === athleteId)?.name ||
           swims[0]?.athleteName ||
           "Unknown athlete",
         swims,
         changes: rankChanges(before, swims, sets),
+        additions: rankAdditionRaces(before, swims, sets),
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
   return {
-    groups,
-    leaders,
     athletes,
     changes: addCounts(athletes.map((athlete) => athlete.changes)),
-    meetHighlights: teamHighlights(teamBests(data.swims), sets).slice(0, 3),
+    meetHighlights: teamHighlights(
+      athletes.flatMap((athlete) => athlete.additions),
+      sets,
+    ).slice(0, 3),
   };
 }

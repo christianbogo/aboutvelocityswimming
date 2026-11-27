@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  bestRankRaces,
+  competitiveProfile,
   buildTeamOverview,
   countRanks,
   rankChanges,
@@ -86,11 +88,11 @@ describe("Team ranks", () => {
         .sort(),
     ).toEqual(["long", "two"]);
   });
-  it("subtracts the old tier on promotion and counts multiple rounds once", () => {
+  it("counts promotions without subtracting the old tier and counts multiple rounds once", () => {
     const before = [swim("old", 95000)];
     expect(
       rankChanges(before, [swim("prelim", 85000), swim("final", 75000)], sets),
-    ).toEqual({ B: -1, BB: 0, A: 1, AA: 0, AAA: 0, AAAA: 0 });
+    ).toEqual({ B: 0, BB: 0, A: 1, AA: 0, AAA: 0, AAAA: 0 });
     expect(
       rankChanges(
         before,
@@ -116,6 +118,9 @@ describe("Team ranks", () => {
   });
   it("keeps unlinked members, deduplicates links, and selects three leaders by rank counts", () => {
     const data: TeamData = {
+      asOf: "2026-11-27",
+      seasonStart: "2026-09-01",
+      seasonSwims: [swim("season", 85000)],
       roster: [
         { id: "a", name: "A", group: "Prep", athleteId: "one" },
         { id: "duplicate", name: "Duplicate", group: "Prep", athleteId: "one" },
@@ -141,6 +146,7 @@ describe("Team ranks", () => {
     const result = buildTeamOverview(data, sets);
     expect(result.groups[0].roster).toHaveLength(3);
     expect(result.groups[0].counts.B).toBe(1);
+    expect(result.groups[0].seasonCounts.BB).toBe(1);
     expect(result.leaders.map((leader) => leader.athleteId)).toEqual([
       "two",
       "three",
@@ -153,4 +159,73 @@ describe("Team ranks", () => {
       "Seniors",
     ]);
   });
+});
+
+it("keeps additions that would cancel out in a net tier total", () => {
+  const before = [swim("old-bronze", 95000)];
+  const after = [
+    swim("silver", 85000),
+    swim("new-bronze", 95000, { course: "LCM" }),
+  ];
+  expect(rankChanges(before, after, sets)).toMatchObject({ B: 1, BB: 1 });
+});
+it("season achievements retain the best rank even if a faster swim earns a lower rank after aging up", () => {
+  const seasonalSets = structuredClone(sets);
+  seasonalSets[0].cuts.SCY!.F!["15-16"] = {
+    "100_FR_SCY": {
+      cutsByTier: [{ tierName: "B", timeMs: 60000, timeDisplay: "" }],
+    },
+  };
+  const races = [
+    swim("younger", 65000),
+    swim("older", 59000, { ageAtSwim: 15 }),
+  ];
+  expect(countRanks(bestRankRaces(races, seasonalSets), seasonalSets).AA).toBe(
+    1,
+  );
+  expect(countRanks(teamBests(races), seasonalSets).B).toBe(1);
+});
+it("scores profile bests at the assigned age and current edition, with unranked bests in the total", () => {
+  const result = competitiveProfile(
+    [
+      swim("young", 85000, { ageAtSwim: 10, date: "2020-01-01" }),
+      swim("slow", 110000, { course: "LCM" }),
+    ],
+    "Juniors",
+    sets,
+    "2026-11-27",
+  );
+  expect(result).toMatchObject({ counts: { BB: 1 }, total: 2, unranked: 1 });
+});
+it("uses the tougher senior cuts when no 15&O standard is published, preferring an explicit 15&O band", () => {
+  const seniorSets = structuredClone(sets);
+  seniorSets[0].cuts.SCY!.F = {
+    "15-16": {
+      "100_FR_SCY": {
+        cutsByTier: [{ tierName: "B", timeMs: 80000, timeDisplay: "" }],
+      },
+    },
+    "17-18": {
+      "100_FR_SCY": {
+        cutsByTier: [{ tierName: "B", timeMs: 70000, timeDisplay: "" }],
+      },
+    },
+  };
+  expect(
+    competitiveProfile(
+      [swim("senior", 75000)],
+      "Seniors",
+      seniorSets,
+      "2026-11-27",
+    ).unranked,
+  ).toBe(1);
+  seniorSets[0].cuts.SCY!.F!["15&O"] = seniorSets[0].cuts.SCY!.F!["15-16"];
+  expect(
+    competitiveProfile(
+      [swim("senior", 75000)],
+      "Seniors",
+      seniorSets,
+      "2026-11-27",
+    ).counts.B,
+  ).toBe(1);
 });

@@ -8,7 +8,7 @@ const cachedStandards = new Map<
   { sets: StandardSet[]; expiresAt: number }
 >();
 
-export function useStandards(enabled = true) {
+export function useStandards(enabled = true, refreshOnFocus = true) {
   const cacheKey = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const [sets, setSets] = useState<StandardSet[]>(
     () => cachedStandards.get(cacheKey)?.sets ?? [],
@@ -58,13 +58,13 @@ export function useStandards(enabled = true) {
       void load();
     };
     window.addEventListener("ies-times-changed", refresh);
-    window.addEventListener("focus", refresh);
+    if (refreshOnFocus) window.addEventListener("focus", refresh);
     return () => {
       alive = false;
       window.removeEventListener("ies-times-changed", refresh);
       window.removeEventListener("focus", refresh);
     };
-  }, [enabled, revision, cacheKey]);
+  }, [enabled, revision, cacheKey, refreshOnFocus]);
   return {
     sets,
     loading: enabled && loading,

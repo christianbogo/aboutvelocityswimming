@@ -25,6 +25,12 @@ const athletes = ["Avery", "Blake", "Casey", "Dana"].map((name, index) => ({
   id: prefix + index,
   name,
 }));
+const today = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Los_Angeles",
+}).format(new Date());
+const seasonYear =
+  Number(today.slice(0, 4)) - (Number(today.slice(5, 7)) < 9 ? 1 : 0);
+const seasonStart = `${seasonYear}-09-01`;
 const writes = [
   { path: `meets/${meet}`, after: { name: "Team browser meet" } },
   { path: `meets/${previous}`, after: { name: "Previous Team meet" } },
@@ -77,6 +83,39 @@ for (const [index, athlete] of athletes.entries()) {
       });
     }
   }
+}
+// A faster career best must not hide an achievement inside the season.
+for (const [label, date, time] of [
+  ["pre-season", `${seasonYear}-08-31`, 40000],
+  ["season-start", seasonStart, 60000],
+  ["future", `${Number(today.slice(0, 4)) + 1}-12-31`, 20000],
+]) {
+  const id = `${prefix}${label}`;
+  writes.push({ path: `meets/${id}`, after: { name: label } });
+  writes.push({
+    path: `swims/${id}`,
+    after: {
+      id,
+      athleteId: athletes[0].id,
+      eventCode: "100_BK_SCY",
+      course: "SCY",
+      timeMs: time,
+      status: "OK",
+      round: "F",
+      isOfficial: true,
+      isRelay: false,
+      gender: "F",
+      ageAtSwim: 14,
+      teamId: "velocity-swimming",
+      raceIdentity: {
+        occurrence: id,
+        reviewed: true,
+        basis: "Team season fixture",
+        sourceUrl: "https://example.test/team",
+      },
+      meet: { id: `${prefix}${label}`, name: label, date },
+    },
+  });
 }
 writes.push({
   path: `standards/${prefix}standard`,
@@ -175,10 +214,10 @@ try {
     (await auth.auth.signInWithPassword({ email, password })).error,
   );
   assert.ok(
-    (await anon.rpc("team_dashboard")).error,
+    (await anon.rpc("team_dashboard_view")).error,
     "Anonymous roster access must fail",
   );
-  const read = await auth.rpc("team_dashboard", { selected_meet: meet });
+  const read = await auth.rpc("team_dashboard_view", { selected_meet: meet });
   assert.ifError(read.error);
   const data = read.data;
   assert.equal(data.meet.id, meet);
@@ -194,14 +233,39 @@ try {
   );
   assert.equal(
     data.bests.filter((race) => race.id.startsWith(prefix)).length,
-    12,
+    13,
   );
   assert.equal(
     data.before.filter((race) => race.id.startsWith(prefix)).length,
-    12,
+    13,
   );
   assert.equal(data.swims.length, 12);
-  const latest = await auth.rpc("team_dashboard");
+  assert.equal(data.seasonStart, seasonStart);
+  assert.equal(data.asOf, today);
+  assert.ok(
+    data.seasonSwims.some((race) => race.id === `${prefix}season-start`),
+  );
+  assert.ok(
+    !data.seasonSwims.some(
+      (race) =>
+        race.id === `${prefix}pre-season` || race.id === `${prefix}future`,
+    ),
+  );
+  assert.ok(data.bests.some((race) => race.id === `${prefix}pre-season`));
+  assert.ok(!data.bests.some((race) => race.id === `${prefix}future`));
+  const meetOnly = await auth.rpc("team_dashboard_view", {
+    selected_meet: previous,
+    meet_only: true,
+  });
+  assert.ifError(meetOnly.error);
+  assert.deepEqual(Object.keys(meetOnly.data).sort(), [
+    "before",
+    "meet",
+    "swims",
+  ]);
+  assert.equal(meetOnly.data.meet.id, previous);
+  assert.equal(meetOnly.data.swims.length, 12);
+  const latest = await auth.rpc("team_dashboard_view");
   assert.ifError(latest.error);
   assert.equal(latest.data.meet.id, latest.data.meets[0].id);
   assert.ok(
@@ -218,6 +282,11 @@ try {
   );
   const page = await context.newPage();
   const errors = [];
+  const teamRequests = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/times/team")
+      teamRequests.push(request.url());
+  });
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("**/*.supabase.co/**", (route) => {
     errors.push("Hosted backend requested");
@@ -253,6 +322,54 @@ try {
     .getByRole("combobox", { name: "Meet", exact: true })
     .selectOption(meet);
   await page.getByRole("heading", { name: "Meet Breakdown" }).waitFor();
+  await page.getByRole("heading", { name: "Ranks added" }).waitFor();
+  const countBeforeViews = teamRequests.length;
+  await page
+    .getByRole("button", { name: "Competitive Profile", exact: true })
+    .click();
+  await page.getByText("10&U", { exact: true }).waitFor();
+  await page
+    .getByRole("button", { name: "Season Progress", exact: true })
+    .click();
+  await page
+    .getByText(
+      `Best rank earned per event and course since September 1, ${seasonYear}. Ranks use age on the swim date.`,
+      { exact: true },
+    )
+    .waitFor();
+  await page
+    .getByRole("button", { name: "Career Accomplishments", exact: true })
+    .click();
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  assert.equal(
+    teamRequests.length,
+    countBeforeViews,
+    "Views and focus do not refetch Team",
+  );
+  if (!(await group.getAttribute("open")))
+    await group.evaluate((element) => {
+      element.open = true;
+    });
+  await page
+    .getByRole("combobox", { name: "Meet", exact: true })
+    .selectOption(previous);
+  await page.getByRole("heading", { name: "Ranks added" }).waitFor();
+  assert.equal(
+    await group.evaluate((element) => element.open),
+    true,
+    "Meet switches preserve expanded roster",
+  );
+  assert.ok(teamRequests.at(-1).includes("scope=meet"));
+  const countAfterPrevious = teamRequests.length;
+  await page
+    .getByRole("combobox", { name: "Meet", exact: true })
+    .selectOption(meet);
+  await page.getByRole("heading", { name: "Ranks added" }).waitFor();
+  assert.equal(
+    teamRequests.length,
+    countAfterPrevious,
+    "Visited meets use cached data",
+  );
   await page.getByText("All athletes", { exact: false }).click();
   const athlete = page
     .locator("details")
@@ -267,6 +384,15 @@ try {
   await page.screenshot({
     path: "/tmp/velocity-team-check/desktop.png",
     fullPage: true,
+    animations: "disabled",
+  });
+  await page
+    .getByRole("button", { name: "Competitive Profile", exact: true })
+    .click();
+  await page.screenshot({
+    path: "/tmp/velocity-team-check/competitive-desktop.png",
+    fullPage: true,
+    animations: "disabled",
   });
   for (const width of [390, 768]) {
     await page.setViewportSize({ width, height: 844 });
@@ -290,6 +416,15 @@ try {
   await page.screenshot({
     path: "/tmp/velocity-team-check/mobile.png",
     fullPage: true,
+    animations: "disabled",
+  });
+  await page
+    .getByRole("button", { name: "Season Progress", exact: true })
+    .click();
+  await page.screenshot({
+    path: "/tmp/velocity-team-check/season-mobile.png",
+    fullPage: true,
+    animations: "disabled",
   });
   // A failed refresh must offer recovery instead of rendering zero counts.
   await page.route("**/api/times/team*", (route) =>

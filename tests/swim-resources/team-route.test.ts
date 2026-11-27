@@ -42,11 +42,26 @@ it("validates meets, keeps member data private, and hides database errors", asyn
   const response = await GET(request("?meet=abc"));
   expect(response.status).toBe(200);
   expect(response.headers.get("cache-control")).toBe("private, no-store");
-  expect(mocks.rpc).toHaveBeenCalledWith("team_dashboard", {
+  expect(mocks.rpc).toHaveBeenCalledWith("team_dashboard_view", {
     selected_meet: "abc",
+    meet_only: false,
   });
   mocks.rpc.mockResolvedValue({ error: { message: "internal details" } });
   const failed = await GET(request());
   expect(failed.status).toBe(503);
   expect(await failed.text()).not.toContain("internal details");
+});
+
+it("requests only meet data for a meet switch and validates the scope", async () => {
+  expect((await GET(request("?scope=invalid"))).status).toBe(400);
+  expect((await GET(request("?scope=meet"))).status).toBe(400);
+  mocks.getUser.mockResolvedValue({
+    data: { user: { email_confirmed_at: "today" } },
+  });
+  mocks.rpc.mockResolvedValue({ data: { meet: null, before: [], swims: [] } });
+  expect((await GET(request("?scope=meet&meet=abc"))).status).toBe(200);
+  expect(mocks.rpc).toHaveBeenCalledWith("team_dashboard_view", {
+    selected_meet: "abc",
+    meet_only: true,
+  });
 });

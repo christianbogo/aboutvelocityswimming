@@ -1586,6 +1586,10 @@ export type Database = {
       }
     }
     Functions: {
+      team_dashboard_view: {
+        Args: { selected_meet?: string; meet_only?: boolean }
+        Returns: Json
+      }
       team_dashboard: {
         Args: { selected_meet?: string }
         Returns: Json
