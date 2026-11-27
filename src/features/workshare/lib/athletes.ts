@@ -13,28 +13,12 @@ export interface AthleteRoster {
   groups: TrainingGroup[];
   accounts: WorkshareAccount[];
 }
-export type RosterAction =
-  | { action: "reorderGroups"; groups: { id: string; updatedAt: string }[] }
-  | { action: "createGroup"; name: string; coach: string }
-  | {
-      action: "updateGroup";
-      id: string;
-      updatedAt: string;
-      name: string;
-      coach: string;
-    }
-  | {
-      action: "removeGroup";
-      id: string;
-      updatedAt: string;
-      destinationId: string;
-      athleteIds: string[];
-    }
-  | {
-      action: "move";
-      destinationId: string;
-      athletes: { id: string; updatedAt: string }[];
-    };
+export const fixedGroupNames = ["Seniors", "Juniors", "Age Groupers", "Prep", "Other"] as const;
+export type RosterAction = {
+  action: "move";
+  destinationId: string;
+  athletes: { id: string; updatedAt: string }[];
+};
 
 async function result<T>(response: Response): Promise<T> {
   const body = await response.json();

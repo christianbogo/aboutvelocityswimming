@@ -16,6 +16,7 @@ import {
 } from "@/features/workshare/lib/athletes";
 import { emptyAccount } from "@/features/workshare/lib/accounts";
 vi.mock("@/features/workshare/lib/athletes", () => ({
+  fixedGroupNames: ["Seniors", "Juniors", "Age Groupers", "Prep", "Other"],
   loadAthleteRoster: vi.fn(),
   saveRosterAction: vi.fn(),
 }));
@@ -110,122 +111,12 @@ it("clears hidden selection when filtering and explicitly includes archived athl
   fireEvent.click(screen.getByRole("checkbox", { name: "Include archived" }));
   await screen.findByText("Blake Morgan");
 });
-it("requires a removal destination and reviews only currently assigned members", async () => {
+it("offers fixed groups without group management controls", async () => {
   show();
   await screen.findByText("Alex Morgan");
-  fireEvent.click(screen.getByRole("button", { name: /Prep.*Avery/ }));
-  fireEvent.click(screen.getByRole("button", { name: "Group settings" }));
-  fireEvent.click(screen.getByRole("button", { name: "Remove group" }));
-  const remove = screen.getByRole("button", {
-    name: "Remove group and move athletes",
-  });
-  expect(remove.hasAttribute("disabled")).toBe(true);
-  fireEvent.change(screen.getByRole("combobox", { name: "Move athletes to" }), {
-    target: { value: "unassigned" },
-  });
-  fireEvent.click(remove);
-  await waitFor(() =>
-    expect(saveRosterAction).toHaveBeenCalledWith({
-      action: "removeGroup",
-      id: "prep",
-      updatedAt: "v1",
-      destinationId: "unassigned",
-      athleteIds: ["a"],
-    }),
-  );
-});
-it("keeps edits after a failed save and supports reload recovery", async () => {
-  vi.mocked(saveRosterAction).mockRejectedValueOnce(
-    new Error("This group changed."),
-  );
-  show();
-  await screen.findByText("Alex Morgan");
-  fireEvent.click(screen.getByRole("button", { name: /Prep.*Avery/ }));
-  fireEvent.click(screen.getByRole("button", { name: "Group settings" }));
-  fireEvent.change(screen.getByRole("textbox", { name: "Group name" }), {
-    target: { value: "New Prep" },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Save group" }));
-  expect((await screen.findByRole("alert")).textContent).toContain(
-    "This group changed.",
-  );
-  expect(
-    (screen.getByRole("textbox", { name: "Group name" }) as HTMLInputElement)
-      .value,
-  ).toBe("New Prep");
-  fireEvent.click(screen.getByRole("button", { name: "Reload roster" }));
-  await waitFor(() =>
-    expect(screen.queryByRole("textbox", { name: "Group name" })).toBeNull(),
-  );
-});
-
-it("reorders a draft, saves versions in the requested order, and refreshes shared lists", async () => {
-  show();
-  await screen.findByText("Alex Morgan");
-  fireEvent.click(screen.getByRole("button", { name: "Reorder groups" }));
-  expect(
-    screen
-      .getByRole("button", { name: "Move Prep up" })
-      .hasAttribute("disabled"),
-  ).toBe(true);
-  expect(
-    screen
-      .getByRole("button", { name: "Move Seniors down" })
-      .hasAttribute("disabled"),
-  ).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "Move Seniors up" }));
-  expect(screen.getByRole("list", { name: "Group order" }).textContent).toMatch(
-    /Seniors.*Prep/,
-  );
-  expect(saveRosterAction).not.toHaveBeenCalled();
-  vi.mocked(loadAthleteRoster).mockResolvedValueOnce({
-    ...roster,
-    groups: [...roster.groups].reverse(),
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Save order" }));
-  await screen.findByText("Group order saved.");
-  expect(saveRosterAction).toHaveBeenCalledWith({
-    action: "reorderGroups",
-    groups: [
-      { id: "senior", updatedAt: "v2" },
-      { id: "prep", updatedAt: "v1" },
-    ],
-  });
-  expect(screen.queryByRole("list", { name: "Group order" })).toBeNull();
-  const groupButtons = screen.getByRole("complementary", {
-    name: "Practice groups",
-  }).textContent!;
-  expect(groupButtons.indexOf("Seniors")).toBeLessThan(
-    groupButtons.indexOf("Prep"),
-  );
-});
-
-it("cancels an unsaved order and retains a failed draft until reload", async () => {
-  show();
-  await screen.findByText("Alex Morgan");
-  fireEvent.click(screen.getByRole("button", { name: "Reorder groups" }));
-  fireEvent.click(screen.getByRole("button", { name: "Move Prep down" }));
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-  expect(saveRosterAction).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: "Reorder groups" }));
-  expect(screen.getByRole("list", { name: "Group order" }).textContent).toMatch(
-    /Prep.*Seniors/,
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Move Prep down" }));
-  vi.mocked(saveRosterAction).mockRejectedValueOnce(
-    new Error("Groups changed."),
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Save order" }));
-  expect((await screen.findByRole("alert")).textContent).toContain(
-    "Groups changed.",
-  );
-  expect(screen.getByRole("list", { name: "Group order" }).textContent).toMatch(
-    /Seniors.*Prep/,
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Reload roster" }));
-  await waitFor(() =>
-    expect(screen.queryByRole("list", { name: "Group order" })).toBeNull(),
-  );
+  expect(screen.queryByRole("button", {name:"Add group"})).toBeNull();
+  expect(screen.queryByRole("button", {name:"Reorder groups"})).toBeNull();
+  expect(screen.queryByText("Coach")).toBeNull();
 });
 
 it("opens the athlete's account, hides chosen columns, and offers the Archived list", async () => {

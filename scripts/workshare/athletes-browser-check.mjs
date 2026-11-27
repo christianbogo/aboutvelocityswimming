@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { mkdirSync } from "node:fs";
 import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
@@ -43,13 +42,13 @@ try {
       athletes: [
         {
           fullName: `${prefix} Alex`,
-          trainingGroup: `${prefix} Prep`,
+          trainingGroup: "Prep",
           timesAthleteId: null,
           isArchived: false,
         },
         {
           fullName: `${prefix} Blake`,
-          trainingGroup: `${prefix} Prep`,
+          trainingGroup: "Prep",
           timesAthleteId: null,
           isArchived: true,
         },
@@ -85,141 +84,22 @@ try {
   }
   await page.getByRole("button", { name: "Open navigation sidebar", exact: true }).press("Enter");
   assert.equal(await themes.getByRole("button").count(), 3);
-  await page.getByRole("button", { name: "Add group", exact: true }).click();
-  await page
-    .getByRole("textbox", { name: "Group name" })
-    .fill(`${prefix} Seniors`);
-  await page.getByRole("textbox", { name: "Coach name" }).fill("Coach Avery");
-  await page.getByRole("button", { name: "Save group" }).click();
-  await page.getByText("Group created.", { exact: true }).waitFor();
-  await page
-    .getByRole("button", { name: "Reorder groups", exact: true })
-    .click();
-  const moveUp = page.getByRole("button", {
-    name: `Move ${prefix} Seniors up`,
-    exact: true,
-  });
-  await moveUp.focus();
-  await page.keyboard.press("Enter");
-  const order = page.getByRole("list", { name: "Group order", exact: true });
-  const labels = await order.getByRole("listitem").allTextContents();
-  assert.ok(labels.at(-2).includes(`${prefix} Seniors`));
-  assert.ok(labels.at(-1).includes(`${prefix} Prep`));
-  await page.setViewportSize({ width: 390, height: 844 });
-  const closeOrderNavigation = page.getByRole("button", {
-    name: "Close navigation sidebar",
-    exact: true,
-  });
-  if (await closeOrderNavigation.isVisible())
-    await closeOrderNavigation.click();
-  mkdirSync("/tmp/velocity-athletes-check", { recursive: true });
-  await page.screenshot({
-    path: "/tmp/velocity-athletes-check/group-order-mobile.png",
-    fullPage: true,
-    animations: "disabled",
-  });
-  assert.ok(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth + 1,
-    ),
-    "Group ordering must fit mobile width",
-  );
-  await page.getByRole("button", { name: "Save order", exact: true }).click();
-  await page.getByText("Group order saved.", { exact: true }).waitFor();
-  await page.reload();
-  const orderedResponse = await page.request.get(
-    base + "/api/workshare/athletes?groupsOnly=1",
-  );
-  assert.equal(orderedResponse.status(), 200);
-  const persistedGroups = (await orderedResponse.json()).data;
-  assert.deepEqual(
-    persistedGroups.slice(-2).map((group) => group.name),
-    [`${prefix} Seniors`, `${prefix} Prep`],
-  );
-  assert.ok(
-    persistedGroups.every(
-      (group, index) =>
-        !index || group.sort_order > persistedGroups[index - 1].sort_order,
-    ),
-  );
-  await page.setViewportSize({ width: 1440, height: 1050 });
-
+  assert.equal(await page.getByRole("button", {name: "Add group", exact: true}).count(), 0);
+  const response = await page.request.get(base + "/api/workshare/athletes?groupsOnly=1");
+  assert.equal(response.status(), 200);
+  assert.deepEqual((await response.json()).data.map(group => group.name),
+    ["Seniors", "Juniors", "Age Groupers", "Prep", "Other"]);
   await page.getByRole("searchbox", { name: "Search athletes" }).fill(prefix);
   await page
     .getByRole("checkbox", { name: `Select ${prefix} Alex`, exact: true })
     .check();
   await page
     .getByRole("combobox", { name: "Move selected athletes to" })
-    .selectOption({ label: `${prefix} Seniors` });
+    .selectOption({ label: "Seniors" });
   await page
     .getByRole("button", { name: "Move athletes", exact: true })
     .click();
   await page.getByText("1 athlete moved.", { exact: true }).waitFor();
-  await page
-    .getByRole("button", { name: new RegExp(`^${prefix} Seniors,`) })
-    .click();
-  await page
-    .getByRole("button", { name: "Group settings", exact: true })
-    .click();
-  await page
-    .getByRole("textbox", { name: "Group name" })
-    .fill(`${prefix} Performance`);
-  await page.getByRole("textbox", { name: "Coach name" }).fill("Coach Blake");
-  await page.getByRole("button", { name: "Save group", exact: true }).click();
-  await page.getByText("Group saved.", { exact: true }).waitFor();
-  await page.reload();
-  await page
-    .getByRole("button", {
-      name: new RegExp(`^${prefix} Performance,.*Coach Blake`),
-    })
-    .waitFor();
-  await page
-    .getByRole("button", { name: new RegExp(`^${prefix} Prep,`) })
-    .click();
-  await page
-    .getByRole("button", { name: "Group settings", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Remove group", exact: true }).click();
-  assert.match(
-    await page.getByText(/Move all 0 athletes/).textContent(),
-    /including archived/,
-  );
-  await page
-    .getByRole("combobox", { name: "Move athletes to", exact: true })
-    .selectOption({ label: `${prefix} Performance` });
-  await page
-    .getByRole("button", { name: "Remove group and move athletes" })
-    .click();
-  await page
-    .getByText("Group removed and athletes reassigned.", { exact: true })
-    .waitFor();
-  await page.getByRole("button", { name: /^Archived,/ }).click();
-  await page
-    .getByRole("checkbox", { name: `Select ${prefix} Blake`, exact: true })
-    .waitFor();
-  mkdirSync("/tmp/velocity-athletes-check", { recursive: true });
-  await page.screenshot({
-    path: "/tmp/velocity-athletes-check/desktop.png",
-    fullPage: true,
-  });
-  await page.setViewportSize({ width: 390, height: 844 });
-  const closeNavigation = page.getByRole("button", {
-    name: "Close navigation sidebar",
-    exact: true,
-  });
-  if (await closeNavigation.isVisible()) await closeNavigation.click();
-  await page.screenshot({
-    path: "/tmp/velocity-athletes-check/mobile.png",
-    fullPage: true,
-    animations: "disabled",
-  });
-  assert.ok(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth + 1,
-    ),
-    "Page must fit mobile width",
-  );
-  await page.setViewportSize({ width: 1440, height: 1050 });
   await page.getByRole("tab", { name: "Accounts", exact: true }).click();
   await page
     .getByRole("searchbox", { name: "Search accounts and athletes" })
@@ -229,13 +109,7 @@ try {
     .getByRole("button", { name: `Athlete settings: ${prefix} Alex` })
     .click();
   const groupSelect = page.getByRole("radio", { name: "None", exact: true }).first();
-  assert.equal(await page.getByRole("radio", { name: `${prefix} Performance`, exact: true }).isChecked(), true);
-  assert.equal(
-    await page
-      .getByRole("radio", { name: `${prefix} Prep`, exact: true })
-      .count(),
-    0,
-  );
+  assert.equal(await page.getByRole("radio", { name: "Seniors", exact: true }).isChecked(), true);
   await page
     .getByRole("button", {
       name: `Archive athlete: ${prefix} Alex`,
@@ -264,7 +138,7 @@ try {
   assert.deepEqual(archived.data, { is_archived: true, training_group: "" });
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: shared group ordering, keyboard/mobile controls, persistence, create, coach assignment, bulk move, rename, archived reassignment, Accounts sync.",
+    "PASS: fixed group order, theme controls, bulk move, archiving, Accounts sync.",
   );
 } finally {
   await browser.close();

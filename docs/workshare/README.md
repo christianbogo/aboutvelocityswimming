@@ -256,3 +256,10 @@ The Athletes table's Columns control remembers Account/Group visibility in the
 browser. Athlete names remain visible for navigation; clicking a name or row
 opens its registration account in the Accounts tab. The link icon matches the
 Accounts table's Linked to Times indicator.
+
+### Fixed practice groups
+Practice groups are now fixed in this order: Seniors, Juniors, Age Groupers,
+Prep, Other. Other has a divider above it. Groups have no assigned coach and
+cannot be created, renamed, removed, or reordered. Unassigned and Archived
+remain roster filters. The fixed-group migration preserves athlete records
+and moves assignments from retired groups (including Staff) into Other.

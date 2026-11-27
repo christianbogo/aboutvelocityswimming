@@ -44,13 +44,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return withWorkshareStaff(request, true, async (client) => {
     const input = await readWorkshareBody(request);
-    const reorder =
-      input !== null &&
-      typeof input === "object" &&
-      "action" in input &&
-      input.action === "reorderGroups";
     const { data, error } = await client.rpc(
-      reorder ? "reorder_workshare_groups" : "manage_workshare_athletes",
+      "manage_workshare_athletes",
       {
         input: input as Json,
       },

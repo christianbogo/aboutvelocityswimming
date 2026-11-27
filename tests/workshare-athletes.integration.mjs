@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { localDatabaseContainer } from "../scripts/local-supabase.mjs";
 
-for (const fixture of ["workshare-athletes", "workshare-group-order"])
+for (const fixture of ["workshare-athletes"])
   test(`${fixture}: atomic, versioned, and staff-only`, () => {
     execFileSync(
       "docker",

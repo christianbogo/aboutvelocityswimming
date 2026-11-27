@@ -35,18 +35,7 @@ import {
 import { TicketsPanel } from "./TicketsPanel";
 import styles from "./Accounts.module.css";
 
-const defaultPracticeGroups = [
-  "Splash",
-  "Pre-Team",
-  "Prep",
-  "Age Groupers",
-  "Juniors",
-  "Seniors",
-  "Masters",
-  "Rec Team",
-  "Coaches",
-  "Board Members",
-];
+const defaultPracticeGroups = ["Seniors", "Juniors", "Age Groupers", "Prep", "Other"];
 
 function TimesLink({
   value,
